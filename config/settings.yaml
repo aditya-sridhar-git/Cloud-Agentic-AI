@@ -1,0 +1,63 @@
+# =============================================================================
+# Cloud Agentic AI — Configuration
+# =============================================================================
+
+agent:
+  loop_interval_seconds: 300        # How often the agent runs (5 min)
+  dry_run: true                     # true = plan only, false = execute actions
+  require_approval: false           # If true, pause before executing actions
+
+provider:
+  name: aws                         # Cloud provider (aws | gcp | azure)
+  region: us-east-1
+
+# ---------------------------------------------------------------------------
+# Tool-specific thresholds
+# ---------------------------------------------------------------------------
+
+tools:
+  idle_server:
+    enabled: true
+    cpu_threshold_percent: 5.0      # Below this = idle
+    duration_minutes: 30            # Must be idle for this long
+    action: stop                    # stop | terminate
+    exclude_tags:
+      - Key: "PreserveInstance"
+        Value: "true"
+
+  rightsizer:
+    enabled: true
+    cpu_threshold_percent: 20.0
+    evaluation_days: 7
+    action: recommend               # recommend | apply
+
+  disk_cleanup:
+    enabled: true
+    unattached_days: 7
+    snapshot_before_delete: true
+
+  tag_enforcer:
+    enabled: true
+    required_tags:
+      - Key: "Environment"
+        Default: "untagged"
+      - Key: "Owner"
+        Default: "unknown"
+      - Key: "Project"
+        Default: "unassigned"
+
+  scheduler:
+    enabled: true
+    business_hours:
+      start: "08:00"
+      end: "18:00"
+      timezone: "US/Eastern"
+    target_tags:
+      - Key: "Environment"
+        Value: "dev"
+
+  cost_monitor:
+    enabled: true
+    spike_threshold_percent: 120.0  # Alert if daily > 120% of baseline
+    baseline_window_days: 7
+    action: alert                   # alert | freeze
