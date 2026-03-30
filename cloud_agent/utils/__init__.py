@@ -1,1 +1,1 @@
-"""Shared utilities — logging, config loading."""
+"""Cloud Agent — utility modules."""

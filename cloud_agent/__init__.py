@@ -1,1 +1,1 @@
-"""Cloud Agentic AI — Automated Cloud Operations."""
+"""Cloud Agent — Autonomous cloud operations powered by agentic AI."""

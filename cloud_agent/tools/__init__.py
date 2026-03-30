@@ -1,1 +1,1 @@
-"""Automation tools — one per cloud operation."""
+"""Cloud Agent — automation tools."""

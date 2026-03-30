@@ -1,21 +1,29 @@
 """
 AWS CloudProvider implementation using boto3.
 
-Wraps EC2, CloudWatch, EBS, Cost Explorer, and Resource Groups Tagging API.
+Wraps EC2, CloudWatch, EBS, Cost Explorer, SSM, S3, CloudTrail,
+and Resource Groups Tagging API.
 """
 
 from __future__ import annotations
 
+import json
 import os
+import time as _time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import boto3
+from botocore.config import Config as BotoConfig
 
 from cloud_agent.cloud.provider import CloudProvider
 from cloud_agent.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+_RETRY_CONFIG = BotoConfig(
+    retries={"max_attempts": 3, "mode": "adaptive"},
+)
 
 
 class AWSProvider(CloudProvider):
@@ -23,39 +31,47 @@ class AWSProvider(CloudProvider):
 
     def __init__(self, region: str | None = None) -> None:
         self._region = region or os.getenv("AWS_REGION", "us-east-1")
-        self._ec2 = boto3.client("ec2", region_name=self._region)
-        self._cloudwatch = boto3.client("cloudwatch", region_name=self._region)
-        self._ce = boto3.client("ce", region_name=self._region)
-        logger.info("[green]AWS provider initialised[/green] (region=%s)", self._region)
+        self._ec2 = boto3.client("ec2", region_name=self._region, config=_RETRY_CONFIG)
+        self._cloudwatch = boto3.client("cloudwatch", region_name=self._region, config=_RETRY_CONFIG)
+        self._ce = boto3.client("ce", region_name=self._region, config=_RETRY_CONFIG)
+        self._ssm = boto3.client("ssm", region_name=self._region, config=_RETRY_CONFIG)
+        self._s3 = boto3.client("s3", region_name=self._region, config=_RETRY_CONFIG)
+        self._cloudtrail = boto3.client("cloudtrail", region_name=self._region, config=_RETRY_CONFIG)
+        self._active_regions = self._get_active_regions()
+        logger.info("[green]AWS provider initialised[/green] (region=%s, multi-region: %d active)", self._region, len(self._active_regions))
+
+    def _get_active_regions(self) -> list[str]:
+        """Fetch list of enabled regions for the account."""
+        try:
+            resp = self._ec2.describe_regions()
+            return [r["RegionName"] for r in resp.get("Regions", [])]
+        except Exception:
+            return [self._region]
 
     # ------------------------------------------------------------------
-    # Instances
+    # Instances / Compute (MULTI-REGION)
     # ------------------------------------------------------------------
 
     def list_instances(self, filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-        aws_filters = []
-        if filters:
-            for key, val in filters.items():
-                aws_filters.append({"Name": key, "Values": val if isinstance(val, list) else [val]})
-
-        paginator = self._ec2.get_paginator("describe_instances")
-        instances: list[dict[str, Any]] = []
-        for page in paginator.paginate(Filters=aws_filters or []):
-            for res in page["Reservations"]:
-                for inst in res["Instances"]:
-                    instances.append(
-                        {
+        """Return a list of instances across ALL active regions."""
+        all_instances = []
+        for region in self._active_regions:
+            try:
+                ec2 = boto3.client("ec2", region_name=region, config=_RETRY_CONFIG)
+                resp = ec2.describe_instances()
+                for reservation in resp.get("Reservations", []):
+                    for inst in reservation.get("Instances", []):
+                        all_instances.append({
                             "instance_id": inst["InstanceId"],
                             "instance_type": inst["InstanceType"],
                             "state": inst["State"]["Name"],
-                            "launch_time": str(inst.get("LaunchTime", "")),
-                            "tags": [
-                                {"Key": t["Key"], "Value": t["Value"]}
-                                for t in inst.get("Tags", [])
-                            ],
-                        }
-                    )
-        return instances
+                            "launch_time": str(inst["LaunchTime"]),
+                            "region": region,
+                            "tags": inst.get("Tags", []),
+                        })
+            except Exception as e:
+                logger.warning("Could not list instances in %s: %s", region, e)
+        return all_instances
 
     def stop_instance(self, instance_id: str) -> dict[str, Any]:
         logger.info("Stopping instance %s", instance_id)
@@ -188,3 +204,190 @@ class AWSProvider(CloudProvider):
 
     def get_cost_baseline(self, days: int = 7) -> float:
         return self.get_daily_cost(days=days)
+
+    # ------------------------------------------------------------------
+    # SSM (Systems Manager) — for diagnosis
+    # ------------------------------------------------------------------
+
+    def run_ssm_command(self, instance_id: str, commands: list[str], timeout: int = 30) -> str:
+        """Execute shell commands on an instance via SSM and return stdout."""
+        logger.info("Running SSM command on %s", instance_id)
+        resp = self._ssm.send_command(
+            InstanceIds=[instance_id],
+            DocumentName="AWS-RunShellScript",
+            Parameters={"commands": commands},
+            TimeoutSeconds=timeout,
+        )
+        command_id = resp["Command"]["CommandId"]
+
+        # Poll for completion
+        for _ in range(timeout):
+            _time.sleep(1)
+            result = self._ssm.get_command_invocation(
+                CommandId=command_id,
+                InstanceId=instance_id,
+            )
+            if result["Status"] in ("Success", "Failed", "TimedOut", "Cancelled"):
+                break
+
+        stdout = result.get("StandardOutputContent", "")
+        stderr = result.get("StandardErrorContent", "")
+        return f"STDOUT:\n{stdout}\nSTDERR:\n{stderr}" if stderr else stdout
+
+    def start_instance(self, instance_id: str) -> dict[str, Any]:
+        """Start a stopped instance."""
+        logger.info("Starting instance %s", instance_id)
+        resp = self._ec2.start_instances(InstanceIds=[instance_id])
+        return {"instance_id": instance_id, "status": "starting", "raw": resp}
+
+    # ------------------------------------------------------------------
+    # Security — SGs, S3, IAM
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Self-Healing Primitives (SSM)
+    # ------------------------------------------------------------------
+
+    def restart_service(self, instance_id: str, service_name: str) -> str:
+        """Restart a systemd service via SSM."""
+        commands = [f"sudo systemctl restart {service_name}"]
+        return self.run_ssm_command(instance_id, commands)
+
+    def cleanup_logs(self, instance_id: str, days: int = 7) -> str:
+        """Clean up log files older than X days."""
+        commands = [
+            f"sudo find /var/log -type f -name '*.gz' -mtime +{days} -delete",
+            "sudo journalctl --vacuum-time=3d"
+        ]
+        return self.run_ssm_command(instance_id, commands)
+
+    def expand_ebs_volume(self, volume_id: str, new_size_gb: int) -> dict[str, Any]:
+        """Modify EBS volume size."""
+        resp = self._ec2.modify_volume(VolumeId=volume_id, Size=new_size_gb)
+        return {"volume_id": volume_id, "status": "modifying", "new_size": new_size_gb}
+
+    # ------------------------------------------------------------------
+    # Multi-Region Security
+    # ------------------------------------------------------------------
+
+    def describe_security_groups(self) -> list[dict[str, Any]]:
+        """Return ALL security groups across ALL active regions."""
+        all_sgs = []
+        for region in self._active_regions:
+            try:
+                ec2 = boto3.client("ec2", region_name=region, config=_RETRY_CONFIG)
+                resp = ec2.describe_security_groups()
+                for sg in resp.get("SecurityGroups", []):
+                    all_sgs.append({
+                        "group_id": sg["GroupId"],
+                        "group_name": sg["GroupName"],
+                        "region": region,
+                        "ingress_rules": [
+                            {
+                                "protocol": rule.get("IpProtocol", "all"),
+                                "from_port": rule.get("FromPort", 0),
+                                "to_port": rule.get("ToPort", 65535),
+                                "cidr_blocks": [ip["CidrIp"] for ip in rule.get("IpRanges", [])],
+                            }
+                            for rule in sg.get("IpPermissions", [])
+                        ],
+                    })
+            except Exception:
+                continue
+        return all_sgs
+
+    # ------------------------------------------------------------------
+    # Cost Forecasting
+    # ------------------------------------------------------------------
+
+    def get_cost_forecast(self, days_out: int = 30) -> dict[str, Any]:
+        """Predict cost for the next 30 days based on recent linear trend."""
+        try:
+            # Get costs for past 7 days
+            end = datetime.now(timezone.utc)
+            start = end - timedelta(days=7)
+            resp = self._ce.get_cost_and_usage(
+                TimePeriod={"Start": start.strftime("%Y-%m-%d"), "End": end.strftime("%Y-%m-%d")},
+                Granularity="DAILY",
+                Metrics=["UnblendedCost"]
+            )
+            daily_costs = [float(d["Total"]["UnblendedCost"]["Amount"]) for d in resp.get("ResultsByTime", [])]
+            if not daily_costs:
+                return {"forecast_30d": 0, "confidence": "low"}
+            
+            avg_daily = sum(daily_costs) / len(daily_costs)
+            projected = avg_daily * days_out
+            return {
+                "forecast_30d": round(projected, 2),
+                "avg_daily": round(avg_daily, 2),
+                "confidence": "medium" if len(daily_costs) > 3 else "low"
+            }
+        except Exception:
+            return {"forecast_30d": 0, "confidence": "error"}
+
+
+    def list_s3_buckets_public_access(self) -> list[dict[str, Any]]:
+        """Check all S3 buckets for public access."""
+        buckets = self._s3.list_buckets().get("Buckets", [])
+        results = []
+        for b in buckets:
+            name = b["Name"]
+            try:
+                pab = self._s3.get_public_access_block(Bucket=name)
+                config = pab.get("PublicAccessBlockConfiguration", {})
+                is_public = not all([
+                    config.get("BlockPublicAcls", False),
+                    config.get("IgnorePublicAcls", False),
+                    config.get("BlockPublicPolicy", False),
+                    config.get("RestrictPublicBuckets", False),
+                ])
+            except Exception:
+                is_public = True  # No block = potentially public
+            results.append({"bucket_name": name, "is_public": is_public})
+        return results
+
+    def check_ebs_encryption(self) -> list[dict[str, Any]]:
+        """Return unencrypted EBS volumes."""
+        resp = self._ec2.describe_volumes()
+        unencrypted = []
+        for vol in resp.get("Volumes", []):
+            if not vol.get("Encrypted", False):
+                unencrypted.append({
+                    "volume_id": vol["VolumeId"],
+                    "size_gb": vol["Size"],
+                    "state": vol["State"],
+                    "encrypted": False,
+                })
+        return unencrypted
+
+    # ------------------------------------------------------------------
+    # CloudTrail — for cross-domain correlation
+    # ------------------------------------------------------------------
+
+    def get_cloudtrail_events(self, hours: int = 24, event_name: str | None = None) -> list[dict[str, Any]]:
+        """Query recent CloudTrail events."""
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(hours=hours)
+        kwargs: dict[str, Any] = {
+            "StartTime": start,
+            "EndTime": end,
+            "MaxResults": 50,
+        }
+        if event_name:
+            kwargs["LookupAttributes"] = [
+                {"AttributeKey": "EventName", "AttributeValue": event_name}
+            ]
+        resp = self._cloudtrail.lookup_events(**kwargs)
+        events = []
+        for e in resp.get("Events", []):
+            events.append({
+                "event_name": e.get("EventName", ""),
+                "event_time": str(e.get("EventTime", "")),
+                "username": e.get("Username", ""),
+                "source_ip": e.get("CloudTrailEvent", "{}"),
+                "resources": [
+                    {"type": r.get("ResourceType", ""), "name": r.get("ResourceName", "")}
+                    for r in e.get("Resources", [])
+                ],
+            })
+        return events

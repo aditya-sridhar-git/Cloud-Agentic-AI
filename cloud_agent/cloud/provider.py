@@ -34,6 +34,10 @@ class CloudProvider(abc.ABC):
     def resize_instance(self, instance_id: str, new_type: str) -> dict[str, Any]:
         """Change the instance type (requires stop → resize → start)."""
 
+    @abc.abstractmethod
+    def start_instance(self, instance_id: str) -> dict[str, Any]:
+        """Start a stopped instance."""
+
     # ------------------------------------------------------------------
     # Metrics
     # ------------------------------------------------------------------
@@ -85,3 +89,35 @@ class CloudProvider(abc.ABC):
     @abc.abstractmethod
     def get_cost_baseline(self, days: int = 7) -> float:
         """Return average daily cost over the last N days (baseline)."""
+
+    # ------------------------------------------------------------------
+    # SSM / Diagnosis
+    # ------------------------------------------------------------------
+
+    @abc.abstractmethod
+    def run_ssm_command(self, instance_id: str, commands: list[str], timeout: int = 30) -> str:
+        """Execute shell commands on an instance and return output."""
+
+    # ------------------------------------------------------------------
+    # Security
+    # ------------------------------------------------------------------
+
+    @abc.abstractmethod
+    def describe_security_groups(self) -> list[dict[str, Any]]:
+        """Return all security groups with ingress rules."""
+
+    @abc.abstractmethod
+    def list_s3_buckets_public_access(self) -> list[dict[str, Any]]:
+        """Check all S3 buckets for public access status."""
+
+    @abc.abstractmethod
+    def check_ebs_encryption(self) -> list[dict[str, Any]]:
+        """Return unencrypted EBS volumes."""
+
+    # ------------------------------------------------------------------
+    # CloudTrail
+    # ------------------------------------------------------------------
+
+    @abc.abstractmethod
+    def get_cloudtrail_events(self, hours: int = 24, event_name: str | None = None) -> list[dict[str, Any]]:
+        """Query recent CloudTrail events."""

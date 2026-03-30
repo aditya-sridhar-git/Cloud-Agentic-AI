@@ -1,1 +1,1 @@
-"""Cloud provider abstraction layer."""
+"""Cloud Agent — cloud provider modules."""

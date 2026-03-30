@@ -2,6 +2,7 @@
 LLM-backed reasoning engine.
 
 Takes an Observation and returns structured recommendations using OpenAI.
+Delegates rule-based analysis to the ThresholdEvaluator to avoid duplication.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from typing import Any
 from openai import OpenAI
 
 from cloud_agent.agent.baseagent import Action, Observation, Plan
+from cloud_agent.monitor.evaluator import ThresholdEvaluator
 from cloud_agent.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -23,12 +25,15 @@ You are an autonomous cloud operations agent. Given the current cloud state
 should be taken.
 
 Available tools:
-- idle_server   : stop or terminate instances with very low CPU utilisation
-- rightsizer     : recommend or apply instance type downgrades for under-used VMs
-- disk_cleanup   : snapshot and delete unattached EBS volumes
-- tag_enforcer   : apply missing required tags to resources
-- scheduler      : stop non-production instances outside business hours
-- cost_monitor   : alert or freeze resources when daily spend spikes
+- idle_server       : stop or terminate instances with very low CPU utilisation
+- rightsizer        : recommend or apply instance type downgrades for under-used VMs
+- disk_cleanup      : snapshot and delete unattached EBS volumes
+- tag_enforcer      : apply missing required tags to resources
+- scheduler         : stop/start non-production instances based on business hours
+- cost_monitor      : alert or freeze resources when daily spend spikes
+- diagnose_server   : SSM into a troubled instance, run diagnostics, explain the root cause
+- security_auditor  : scan for open security groups, public S3 buckets, unencrypted EBS
+- cross_domain      : correlate events across CloudTrail, costs, security, and infrastructure
 
 Respond with a JSON object:
 {
@@ -37,14 +42,19 @@ Respond with a JSON object:
     {
       "tool_name": "<tool>",
       "resource_id": "<id>",
-      "action_type": "<stop|terminate|resize|tag|alert|freeze|snapshot_delete>",
+      "action_type": "<stop|terminate|resize|tag|alert|freeze|snapshot_delete|diagnose|full_scan|correlate|start>",
       "parameters": {},
       "reason": "<why this action is needed>"
     }
   ]
 }
 
-If no actions are needed, return {"summary": "All clear", "actions": []}.
+IMPORTANT RULES:
+1. If an instance has very high CPU (>85%), suggest diagnose_server BEFORE stopping it.
+2. If a cost spike is detected, also suggest cross_domain correlation.
+3. Always suggest security_auditor with action_type "full_scan" once per cycle.
+4. For idle instances (CPU < 5%), suggest idle_server to stop them.
+5. If no actions are needed, return {"summary": "All clear", "actions": []}.
 """
 
 
@@ -112,79 +122,50 @@ class ReasoningEngine:
         return self._parse_plan(data)
 
     # ------------------------------------------------------------------
-    # Rule-based fallback
+    # Rule-based fallback — delegates to ThresholdEvaluator
     # ------------------------------------------------------------------
 
     def _rule_based_analysis(self, observation: Observation, config: dict[str, Any]) -> Plan:
-        """Simple threshold-based analysis when no LLM is available."""
-        actions: list[Action] = []
-        tools_cfg = config.get("tools", {})
+        """Use the ThresholdEvaluator for deterministic analysis."""
+        evaluator = ThresholdEvaluator(config)
+        actions = evaluator.evaluate(observation)
 
-        # --- Idle server check ---
-        idle_cfg = tools_cfg.get("idle_server", {})
-        if idle_cfg.get("enabled", False):
-            cpu_thresh = idle_cfg.get("cpu_threshold_percent", 5.0)
-            for inst in observation.instances:
-                cpu = inst.get("cpu_percent", 100.0)
-                state = inst.get("state", "")
-                if state == "running" and cpu < cpu_thresh:
-                    actions.append(
-                        Action(
-                            tool_name="idle_server",
-                            resource_id=inst["instance_id"],
-                            action_type=idle_cfg.get("action", "stop"),
-                            reason=f"CPU at {cpu}% (threshold {cpu_thresh}%)",
-                        )
-                    )
-
-        # --- Orphaned disk check ---
-        disk_cfg = tools_cfg.get("disk_cleanup", {})
-        if disk_cfg.get("enabled", False):
-            max_days = disk_cfg.get("unattached_days", 7)
-            for disk in observation.disks:
-                if disk.get("state") == "available" and disk.get("unattached_days", 0) >= max_days:
-                    actions.append(
-                        Action(
-                            tool_name="disk_cleanup",
-                            resource_id=disk["volume_id"],
-                            action_type="snapshot_delete",
-                            reason=f"Unattached for {disk['unattached_days']} days",
-                        )
-                    )
-
-        # --- Tag enforcement ---
-        tag_cfg = tools_cfg.get("tag_enforcer", {})
-        if tag_cfg.get("enabled", False):
-            required = {t["Key"] for t in tag_cfg.get("required_tags", [])}
-            for inst in observation.instances:
-                existing = {t["Key"] for t in inst.get("tags", [])}
-                missing = required - existing
-                if missing:
-                    actions.append(
-                        Action(
-                            tool_name="tag_enforcer",
-                            resource_id=inst["instance_id"],
-                            action_type="tag",
-                            parameters={"missing_tags": list(missing)},
-                            reason=f"Missing tags: {', '.join(missing)}",
-                        )
-                    )
-
-        # --- Cost spike ---
-        cost_cfg = tools_cfg.get("cost_monitor", {})
-        if cost_cfg.get("enabled", False):
-            threshold = cost_cfg.get("spike_threshold_percent", 120.0)
-            baseline = observation.costs.get("baseline_daily", 0)
-            current = observation.costs.get("current_daily", 0)
-            if baseline > 0 and current > baseline * (threshold / 100.0):
+        # Also add diagnosis for high-CPU instances
+        for inst in observation.instances:
+            cpu = inst.get("cpu_percent", 0)
+            if cpu > 85 and inst.get("state") == "running":
                 actions.append(
                     Action(
-                        tool_name="cost_monitor",
-                        resource_id="account",
-                        action_type=cost_cfg.get("action", "alert"),
-                        reason=f"Daily spend ${current:.2f} exceeds {threshold}% of baseline ${baseline:.2f}",
+                        tool_name="diagnose_server",
+                        resource_id=inst["instance_id"],
+                        action_type="diagnose",
+                        reason=f"CPU critically high at {cpu:.1f}% — investigating root cause",
                     )
                 )
+
+        # Add a security scan
+        sec_cfg = config.get("tools", {}).get("security_auditor", {})
+        if sec_cfg.get("enabled", False):
+            actions.append(
+                Action(
+                    tool_name="security_auditor",
+                    resource_id="account",
+                    action_type="full_scan",
+                    reason="Periodic security audit",
+                )
+            )
+
+        # Add cross-domain correlation if cost spike detected
+        cost_actions = [a for a in actions if a.tool_name == "cost_monitor"]
+        if cost_actions:
+            actions.append(
+                Action(
+                    tool_name="cross_domain",
+                    resource_id="account",
+                    action_type="correlate",
+                    reason=f"Cross-domain analysis triggered by cost anomaly: {cost_actions[0].reason}",
+                )
+            )
 
         summary = f"{len(actions)} issue(s) detected via rule-based analysis"
         logger.info("[yellow]Rule-based analysis:[/yellow] %s", summary)
