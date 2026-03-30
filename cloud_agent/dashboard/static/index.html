@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Agentic AI — Autonomous Cloud Operations</title>
+    <meta name="description" content="AI-driven autonomous cloud operations. Detect, diagnose, and remediate infrastructure issues before they happen.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+    <!-- =============================== NAVBAR =============================== -->
+    <nav id="navbar">
+        <div class="nav-inner">
+            <a href="#" class="nav-logo">
+                <div class="nav-logo-dot">☁</div>
+                <span>CloudAgent</span>
+            </a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#tools">Tools</a>
+            </div>
+            <a href="/dashboard" id="nav-cta">
+                <span>⚡</span> Launch Dashboard
+            </a>
+        </div>
+    </nav>
+
+    <!-- =============================== HERO =============================== -->
+    <header class="hero" id="hero">
+        <!-- Background glows -->
+        <div class="glow glow-blue"></div>
+        <div class="glow glow-purple"></div>
+        <div class="grain-overlay"></div>
+
+        <div class="hero-content reveal">
+            <div class="hero-badge">
+                <span class="badge-dot"></span>
+                AI Agent · Live Monitoring
+            </div>
+            <h1 class="hero-title">
+                Autonomous<br>
+                <span class="gradient-text">Cloud Ops</span>
+            </h1>
+            <p class="hero-sub">
+                Stop reacting to failures. Let the agent observe, diagnose, and heal your AWS infrastructure — automatically, around the clock.
+            </p>
+            <div class="hero-ctas">
+                <a href="/dashboard" class="btn-primary">
+                    Launch Dashboard <span>→</span>
+                </a>
+                <a href="#how-it-works" class="btn-ghost">
+                    See How It Works
+                </a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat"><span class="stat-num" data-target="9">0</span><span class="stat-label">Automation Tools</span></div>
+                <div class="stat-divider"></div>
+                <div class="stat"><span class="stat-num" data-target="38">0</span><span class="stat-label">Tests Passing</span></div>
+                <div class="stat-divider"></div>
+                <div class="stat"><span class="stat-num" data-target="24">0</span><span class="stat-label">Hours Monitoring</span></div>
+            </div>
+        </div>
+
+        <!-- Abstract hero visual: floating cards -->
+        <div class="hero-visual reveal-slow">
+            <div class="floating-card card-1">
+                <div class="fc-header">
+                    <span class="fc-dot green"></span>
+                    <span class="fc-title">SSM Diagnosis</span>
+                </div>
+                <div class="fc-body">
+                    <div class="fc-tag critical">CRITICAL</div>
+                    <p class="fc-text">Java GC pause detected on i-0a1b2c… 97% CPU. Auto-restart triggered.</p>
+                </div>
+            </div>
+            <div class="floating-card card-2">
+                <div class="fc-header">
+                    <span class="fc-dot blue"></span>
+                    <span class="fc-title">Security Audit</span>
+                </div>
+                <div class="fc-body">
+                    <div class="fc-tag warn">WARNING</div>
+                    <p class="fc-text">SSH port 22 open to 0.0.0.0/0 in sg-0a1b2c. Remediate immediately.</p>
+                </div>
+            </div>
+            <div class="floating-card card-3">
+                <div class="fc-header">
+                    <span class="fc-dot yellow"></span>
+                    <span class="fc-title">Cost Monitor</span>
+                </div>
+                <div class="fc-body">
+                    <p class="fc-text">Daily spend $198 vs $105 baseline. 3 dev instances frozen ✓</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- =============================== FEATURES =============================== -->
+    <section id="features" class="section-features">
+        <div class="container">
+            <div class="section-label reveal">Core Intelligence</div>
+            <h2 class="section-title reveal">
+                Beyond Rules.<br>
+                <span class="gradient-text">True Autonomy.</span>
+            </h2>
+            <p class="section-sub reveal">
+                Traditional AWS tools fire if-then rules. This agent observes context, reasons across domains, and takes targeted action — just like a senior SRE would.
+            </p>
+
+            <div class="features-narrative">
+                <!-- Feature 1 -->
+                <div class="feature-row reveal-left">
+                    <div class="feature-text">
+                        <div class="feature-icon-wrap emerald">
+                            <span>🔍</span>
+                        </div>
+                        <h3 class="feature-title">Root Cause<br><span class="emerald-text">Diagnosis</span></h3>
+                        <p class="feature-desc">When CPU spikes, don't just alert — understand why. The agent SSMs into the server, runs <code>top</code>, <code>df</code>, <code>dmesg</code>, and feeds the output to an LLM to pinpoint the exact process, memory leak, or disk issue.</p>
+                        <ul class="feature-list">
+                            <li><span class="bullet emerald"></span>OOM killer detection</li>
+                            <li><span class="bullet emerald"></span>Java GC pauses</li>
+                            <li><span class="bullet emerald"></span>Disk full auto-cleanup</li>
+                        </ul>
+                    </div>
+                    <div class="feature-visual emerald-bg">
+                        <div class="terminal-card">
+                            <div class="term-header">
+                                <div class="term-dots"><span></span><span></span><span></span></div>
+                                <span class="term-title">SSM Session — i-0a1b2c3d</span>
+                            </div>
+                            <div class="term-body">
+                                <p><span class="term-green">$</span> top -bn1 | head -5</p>
+                                <p class="term-muted">%Cpu: <span class="term-red">97.2</span> us, load avg: 4.82</p>
+                                <p><span class="term-green">$</span> ps aux --sort=-%cpu | head -3</p>
+                                <p class="term-muted">4821 java -jar ml-service.jar <span class="term-red">97.0%</span></p>
+                                <p class="term-muted term-blink">── LLM Analysis ──</p>
+                                <p class="term-green">Root cause: GC pause memory leak</p>
+                                <p class="term-green">Action: Restart java-app service ✓</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="feature-row feature-row-reverse reveal-right">
+                    <div class="feature-text">
+                        <div class="feature-icon-wrap purple">
+                            <span>🛡️</span>
+                        </div>
+                        <h3 class="feature-title">Security<br><span class="purple-text">Posture Audit</span></h3>
+                        <p class="feature-desc">Continuously scan every security group across all AWS regions, every S3 bucket, and every EBS volume. Surfaces misconfigurations and correlates them with CloudTrail to find who made the change.</p>
+                        <ul class="feature-list">
+                            <li><span class="bullet purple"></span>Multi-region SG scanning</li>
+                            <li><span class="bullet purple"></span>Public S3 detection</li>
+                            <li><span class="bullet purple"></span>CloudTrail correlation</li>
+                        </ul>
+                    </div>
+                    <div class="feature-visual purple-bg">
+                        <div class="findings-card">
+                            <div class="finding-item critical-item">
+                                <div class="finding-badge critical-badge">🔴 CRITICAL</div>
+                                <p class="finding-text">SSH port 22 open to 0.0.0.0/0</p>
+                                <p class="finding-meta">sg-0a1b2c · us-east-1</p>
+                            </div>
+                            <div class="finding-item critical-item">
+                                <div class="finding-badge critical-badge">🔴 CRITICAL</div>
+                                <p class="finding-text">Public S3 Bucket</p>
+                                <p class="finding-meta">marketing-website-static</p>
+                            </div>
+                            <div class="finding-item warn-item">
+                                <div class="finding-badge warn-badge">🟡 WARN</div>
+                                <p class="finding-text">Unencrypted EBS Volume</p>
+                                <p class="finding-meta">vol-0a1b2c · 200GB</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="feature-row reveal-left">
+                    <div class="feature-text">
+                        <div class="feature-icon-wrap blue">
+                            <span>🔗</span>
+                        </div>
+                        <h3 class="feature-title">Cross-Domain<br><span class="blue-text">Correlation</span></h3>
+                        <p class="feature-desc">When a cost spike occurs, the agent doesn't just alert — it queries CloudTrail, checks what changed in your security groups, and uses the LLM to connect the dots across every AWS service.</p>
+                        <ul class="feature-list">
+                            <li><span class="bullet blue"></span>CloudTrail event analysis</li>
+                            <li><span class="bullet blue"></span>Cost → Security linkage</li>
+                            <li><span class="bullet blue"></span>Actor identification</li>
+                        </ul>
+                    </div>
+                    <div class="feature-visual blue-bg">
+                        <div class="correlation-card">
+                            <div class="corr-node">💰 Cost Spike +88%</div>
+                            <div class="corr-arrow">↓</div>
+                            <div class="corr-node">📋 CloudTrail: AuthorizeSecurityGroupIngress</div>
+                            <div class="corr-arrow">↓</div>
+                            <div class="corr-node">👤 Actor: intern-dev (203.0.113.42)</div>
+                            <div class="corr-arrow">↓</div>
+                            <div class="corr-conclusion">🚨 Correlation Found — Critical</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- =============================== HOW IT WORKS =============================== -->
+    <section id="how-it-works" class="section-loop">
+        <div class="container">
+            <div class="section-label reveal">The Agent Loop</div>
+            <h2 class="section-title reveal">Observe. Think. Act.</h2>
+            <p class="section-sub reveal">Every 5 minutes, the agent runs a full cycle across your entire infrastructure.</p>
+
+            <div class="loop-steps">
+                <div class="loop-step reveal" style="--delay: 0s">
+                    <div class="step-num">01</div>
+                    <div class="step-icon">👁️</div>
+                    <h3 class="step-title">Observe</h3>
+                    <p class="step-desc">Collects real-time data from EC2, CloudWatch, Cost Explorer, S3, CloudTrail — across all regions simultaneously.</p>
+                </div>
+                <div class="loop-connector reveal" style="--delay: 0.1s">→</div>
+                <div class="loop-step reveal" style="--delay: 0.2s">
+                    <div class="step-num">02</div>
+                    <div class="step-icon">🧠</div>
+                    <h3 class="step-title">Think</h3>
+                    <p class="step-desc">GPT-4o-mini reasons over the observation. Falls back to deterministic rule evaluation if no API key is set.</p>
+                </div>
+                <div class="loop-connector reveal" style="--delay: 0.3s">→</div>
+                <div class="loop-step reveal" style="--delay: 0.4s">
+                    <div class="step-num">03</div>
+                    <div class="step-icon">⚡</div>
+                    <h3 class="step-title">Act</h3>
+                    <p class="step-desc">Executes targeted remediations via 9 specialized tools. Every action is logged, and Slack / SNS notified.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- =============================== TOOLS GRID =============================== -->
+    <section id="tools" class="section-tools">
+        <div class="container">
+            <div class="section-label reveal">The Toolbelt</div>
+            <h2 class="section-title reveal">9 Tools.<br><span class="gradient-text">One Agent.</span></h2>
+            <div class="tools-grid">
+                <div class="tool-card reveal" style="--delay: 0.0s">
+                    <div class="tool-top">
+                        <span class="tool-icon">🔌</span>
+                        <span class="tool-tag emerald-tag">Cost</span>
+                    </div>
+                    <h4 class="tool-name">Idle Server</h4>
+                    <p class="tool-desc">Stops or terminates instances with &lt;5% CPU. Bidirectional scheduler brings them back at business hours.</p>
+                </div>
+                <div class="tool-card reveal" style="--delay: 0.05s">
+                    <div class="tool-top">
+                        <span class="tool-icon">📐</span>
+                        <span class="tool-tag blue-tag">Optimize</span>
+                    </div>
+                    <h4 class="tool-name">Rightsizer</h4>
+                    <p class="tool-desc">Recommends or applies instance type downgrades when average CPU &lt;20% over 7 days.</p>
+                </div>
+                <div class="tool-card reveal" style="--delay: 0.1s">
+                    <div class="tool-top">
+                        <span class="tool-icon">🗑️</span>
+                        <span class="tool-tag emerald-tag">Clean</span>
+                    </div>
+                    <h4 class="tool-name">Disk Cleanup</h4>
+                    <p class="tool-desc">Snapshots and deletes orphaned EBS volumes that have been unattached for more than 7 days.</p>
+                </div>
+                <div class="tool-card reveal" style="--delay: 0.15s">
+                    <div class="tool-top">
+                        <span class="tool-icon">🏷️</span>
+                        <span class="tool-tag purple-tag">Govern</span>
+                    </div>
+                    <h4 class="tool-name">Tag Enforcer</h4>
+                    <p class="tool-desc">Auto-applies required tags (Environment, Owner, Project) to any untagged resource it discovers.</p>
+                </div>
+                <div class="tool-card reveal" style="--delay: 0.2s">
+                    <div class="tool-top">
+                        <span class="tool-icon">⏰</span>
+                        <span class="tool-tag blue-tag">Schedule</span>
+                    </div>
+                    <h4 class="tool-name">Scheduler</h4>
+                    <p class="tool-desc">Stops dev/staging instances outside business hours. Restarts them Monday–Friday at 8 AM automatically.</p>
+                </div>
+                <div class="tool-card reveal" style="--delay: 0.25s">
+                    <div class="tool-top">
+                        <span class="tool-icon">💰</span>
+                        <span class="tool-tag red-tag">Alert</span>
+                    </div>
+                    <h4 class="tool-name">Cost Monitor</h4>
+                    <p class="tool-desc">Detects daily spend spikes vs 7-day baseline. Can freeze all non-critical instances on a 120% spike.</p>
+                </div>
+                <div class="tool-card tool-card-featured reveal" style="--delay: 0.3s">
+                    <div class="tool-top">
+                        <span class="tool-icon">🔍</span>
+                        <span class="tool-tag emerald-tag">Agentic</span>
+                    </div>
+                    <h4 class="tool-name">Diagnose Server</h4>
+                    <p class="tool-desc">SSMs into troubled instances, runs shell diagnostics, and uses LLM to explain & auto-fix the root cause.</p>
+                    <div class="tool-featured-label">AI-Powered</div>
+                </div>
+                <div class="tool-card tool-card-featured reveal" style="--delay: 0.35s">
+                    <div class="tool-top">
+                        <span class="tool-icon">🛡️</span>
+                        <span class="tool-tag red-tag">Agentic</span>
+                    </div>
+                    <h4 class="tool-name">Security Auditor</h4>
+                    <p class="tool-desc">Scans all regions for dangerous open ports, public S3 buckets, and unencrypted EBS volumes.</p>
+                    <div class="tool-featured-label">AI-Powered</div>
+                </div>
+                <div class="tool-card tool-card-featured reveal" style="--delay: 0.4s">
+                    <div class="tool-top">
+                        <span class="tool-icon">🔗</span>
+                        <span class="tool-tag purple-tag">Agentic</span>
+                    </div>
+                    <h4 class="tool-name">Cross-Domain</h4>
+                    <p class="tool-desc">Correlates CloudTrail events with cost spikes and security findings using LLM reasoning across services.</p>
+                    <div class="tool-featured-label">AI-Powered</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- =============================== CTA =============================== -->
+    <section class="section-cta">
+        <div class="grain-overlay"></div>
+        <div class="cta-glow"></div>
+        <div class="container cta-inner reveal">
+            <h2 class="cta-title">
+                Ready to<br>Go Autonomous?
+            </h2>
+            <p class="cta-sub">No AWS credentials needed for mock mode. Launch in seconds.</p>
+            <div class="cta-code">
+                <span class="code-comment"># Demo mode — no credentials needed</span><br>
+                <span class="code-cmd">python -m cloud_agent.main <span class="code-flag">--mock --dashboard</span></span>
+            </div>
+            <a href="/dashboard" class="btn-cta">
+                Open Live Dashboard ↗
+            </a>
+        </div>
+    </section>
+
+    <!-- =============================== FOOTER =============================== -->
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <div class="footer-logo">
+                <span>☁</span> CloudAgent AI
+            </div>
+            <div class="footer-links">
+                <span>Autonomous Cloud Operations</span>
+                <span>·</span>
+                <span>Built on AWS</span>
+                <span>·</span>
+                <span>GPT-4o powered</span>
+            </div>
+            <div class="footer-right" id="footer-ws-status">
+                <span class="ws-dot disconnected"></span>
+                <span id="ws-label">Checking agent…</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+# =============================================================================
+# Cloud Agentic AI — Configuration
+# =============================================================================
+
+agent:
+  loop_interval_seconds: 3600        # How often the agent runs (5 min)
+  dry_run: true                     # true = plan only, false = execute actions
+  require_approval: false           # If true, pause before executing actions
+
+provider:
+  name: aws                         # Cloud provider (aws | gcp | azure | mock)
+  region: us-east-1
+
+# ---------------------------------------------------------------------------
+# Notification settings (optional)
+# ---------------------------------------------------------------------------
+notifications:
+  slack_webhook: ""                  # Slack incoming webhook URL
+  sns_topic_arn: ""                  # AWS SNS topic ARN for alerts
+
+# ---------------------------------------------------------------------------
+# Tool-specific thresholds
+# ---------------------------------------------------------------------------
+
+tools:
+  idle_server:
+    enabled: true
+    cpu_threshold_percent: 5.0      # Below this = idle
+    duration_minutes: 30            # Must be idle for this long
+    action: stop                    # stop | terminate
+    exclude_tags:
+      - Key: "PreserveInstance"
+        Value: "true"
+
+  rightsizer:
+    enabled: true
+    cpu_threshold_percent: 20.0
+    evaluation_days: 7
+    action: recommend               # recommend | apply
+
+  disk_cleanup:
+    enabled: true
+    unattached_days: 7
+    snapshot_before_delete: true
+
+  tag_enforcer:
+    enabled: true
+    required_tags:
+      - Key: "Environment"
+        Default: "untagged"
+      - Key: "Owner"
+        Default: "unknown"
+      - Key: "Project"
+        Default: "unassigned"
+
+  scheduler:
+    enabled: true
+    business_hours:
+      start: "08:00"
+      end: "18:00"
+      timezone: "US/Eastern"
+    target_tags:
+      - Key: "Environment"
+        Value: "dev"
+
+  cost_monitor:
+    enabled: true
+    spike_threshold_percent: 120.0  # Alert if daily > 120% of baseline
+    baseline_window_days: 7
+    action: alert                   # alert | freeze
+
+  # --- NEW AGENTIC TOOLS ---
+
+  diagnose_server:
+    enabled: true
+    cpu_high_threshold: 85.0        # Diagnose if CPU > this
+    auto_remediate: false           # If true, agent can kill processes
+
+  security_auditor:
+    enabled: true
+    check_security_groups: true
+    check_s3_public: true
+    check_ebs_encryption: true
+    dangerous_ports:
+      - 22
+      - 3389
+      - 5432
+      - 3306
+      - 6379
+
+  cross_domain:
+    enabled: true
+    cloudtrail_hours: 24            # How far back to look in CloudTrail
+    auto_trigger_on_cost_spike: true

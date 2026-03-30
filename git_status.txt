@@ -1,0 +1,193 @@
+﻿On branch main
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   ../../OneDrive/Desktop/bsel/.gitignore
+	deleted:    ../../OneDrive/Desktop/bsel/Dockerfile
+	deleted:    ../../OneDrive/Desktop/bsel/LEGACY_ARCHIVE/WELCOME.txt
+	deleted:    ../../OneDrive/Desktop/bsel/LEGACY_ARCHIVE/app.py
+	deleted:    ../../OneDrive/Desktop/bsel/LEGACY_ARCHIVE/generate_visualizations.py
+	deleted:    ../../OneDrive/Desktop/bsel/LEGACY_ARCHIVE/generation_log.txt
+	deleted:    ../../OneDrive/Desktop/bsel/LEGACY_ARCHIVE/generation_log_ascii.txt
+	deleted:    ../../OneDrive/Desktop/bsel/LEGACY_ARCHIVE/generation_log_realistic.txt
+	deleted:    ../../OneDrive/Desktop/bsel/LEGACY_ARCHIVE/launch_biologix.bat
+	deleted:    ../../OneDrive/Desktop/bsel/LEGACY_ARCHIVE/project_structure.txt
+	deleted:    ../../OneDrive/Desktop/bsel/LEGACY_ARCHIVE/run_dashboard.bat
+	deleted:    ../../OneDrive/Desktop/bsel/LEGACY_ARCHIVE/setup_nlp.py
+	deleted:    ../../OneDrive/Desktop/bsel/LEGACY_ARCHIVE/view_topics.py
+	deleted:    ../../OneDrive/Desktop/bsel/convert_json_to_csv.py
+	deleted:    ../../OneDrive/Desktop/bsel/convert_json_to_csv_enhanced.py
+	deleted:    ../../OneDrive/Desktop/bsel/data/dummy_biosafety_reports_100.csv
+	deleted:    ../../OneDrive/Desktop/bsel/data/dummy_biosafety_reports_100.json
+	deleted:    ../../OneDrive/Desktop/bsel/data/sample_incident_report.json
+	deleted:    ../../OneDrive/Desktop/bsel/docker-compose.yml
+	deleted:    ../../OneDrive/Desktop/bsel/docs/CHECKLIST.md
+	deleted:    ../../OneDrive/Desktop/bsel/docs/DEPLOYMENT.md
+	deleted:    ../../OneDrive/Desktop/bsel/docs/ENHANCED_FEATURES.md
+	deleted:    ../../OneDrive/Desktop/bsel/docs/FILE_INDEX.md
+	deleted:    ../../OneDrive/Desktop/bsel/docs/FILE_UPLOAD_FEATURE.md
+	deleted:    ../../OneDrive/Desktop/bsel/docs/FINAL_SUMMARY.md
+	deleted:    ../../OneDrive/Desktop/bsel/docs/PROJECT_SUMMARY.md
+	deleted:    ../../OneDrive/Desktop/bsel/docs/QUICKSTART.md
+	deleted:    ../../OneDrive/Desktop/bsel/docs/README_REACT.md
+	deleted:    ../../OneDrive/Desktop/bsel/docs/SYSTEM_OVERVIEW.md
+	deleted:    ../../OneDrive/Desktop/bsel/docs/TOPIC_MODELING_GUIDE.md
+	deleted:    ../../OneDrive/Desktop/bsel/docs/sample_test_data.csv
+	modified:   ../../OneDrive/Desktop/bsel/frontend/package-lock.json
+	modified:   ../../OneDrive/Desktop/bsel/frontend/package.json
+	modified:   ../../OneDrive/Desktop/bsel/frontend/src/components/incident/AnalysisResult.tsx
+	modified:   ../../OneDrive/Desktop/bsel/frontend/src/pages/MyDashboard.tsx
+	modified:   ../../OneDrive/Desktop/bsel/frontend/src/types/incident.ts
+	modified:   ../../OneDrive/Desktop/bsel/frontend/tailwind.config.ts
+	modified:   ../../OneDrive/Desktop/bsel/frontend/tsconfig.json
+	modified:   ../../OneDrive/Desktop/bsel/frontend/tsconfig.node.json
+	deleted:    ../../OneDrive/Desktop/bsel/generate_dummy_data.py
+	modified:   ../../OneDrive/Desktop/bsel/src/pipeline/enhanced_analyzer.py
+	deleted:    ../../OneDrive/Desktop/bsel/src/pipeline/generate_data.py
+	modified:   ../../OneDrive/Desktop/bsel/src/pipeline/grounding.py
+	deleted:    ../../OneDrive/Desktop/bsel/src/pipeline/ner_extractor.py
+	deleted:    ../../OneDrive/Desktop/bsel/src/pipeline/ner_schema.py
+	deleted:    ../../OneDrive/Desktop/bsel/src/pipeline/ner_trainer.py
+	deleted:    ../../OneDrive/Desktop/bsel/src/pipeline/preprocessing_enhanced.py
+	deleted:    ../../OneDrive/Desktop/bsel/src/pipeline/text_normalizer.py
+	modified:   ../../OneDrive/Desktop/bsel/src/pipeline/train.py
+	deleted:    ../../OneDrive/Desktop/bsel/temp_uploads/user_data_dummy_biosafety_reports_100.csv
+	deleted:    ../../OneDrive/Desktop/bsel/tests/test_enhanced_analyzer.py
+	deleted:    ../../OneDrive/Desktop/bsel/tests/test_models.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	../../.VirtualBox/
+	../../.antigravity/
+	../../.bash_history
+	../../.cache/
+	../../.claude.json
+	../../.claude/
+	../../.codex/
+	../../.gemini/
+	../../.gitconfig
+	../../.gitignore
+	../../.ipython/
+	../../.lesshst
+	../../.matplotlib/
+	../../.n8n/
+	../../.node_repl_history
+	../../.ollama/
+	../../.ssh/
+	../../.streamlit/
+	../../.viminfo
+	../../.vscode/
+	../../.wdm/
+	../../AppData/
+	../../Contacts/
+	../
+	../../Favorites/
+	../../Links/
+	../../Music/
+	../../NTUSER.DAT
+	../../NTUSER.DAT{7d0ef32d-c310-11ef-adb3-60ff9e6a428b}.TM.blf
+	../../NTUSER.DAT{7d0ef32d-c310-11ef-adb3-60ff9e6a428b}.TMContainer00000000000000000001.regtrans-ms
+	../../NTUSER.DAT{7d0ef32d-c310-11ef-adb3-60ff9e6a428b}.TMContainer00000000000000000002.regtrans-ms
+	../../OneDrive/.849C9593-D756-4E56-8D6E-42412F2A707B
+	../../OneDrive/CCVR.lnk
+	../../OneDrive/Desktop - Shortcut.lnk
+	../../OneDrive/Desktop/AI_MODEL/
+	../../OneDrive/Desktop/C3W1-2/
+	../../OneDrive/Desktop/C3W1/
+	../../OneDrive/Desktop/C3W2-2/
+	../../OneDrive/Desktop/C3W2/
+	../../OneDrive/Desktop/C3W3/
+	../../OneDrive/Desktop/CCVR/
+	../../OneDrive/Desktop/Documents/
+	../../OneDrive/Desktop/E-commerce Agent Orchestrator - Bidirectional (Complete) (1).json
+	../../OneDrive/Desktop/Keil uVision5.LNK
+	../../OneDrive/Desktop/NSS ACTIVITY 24-25.pdf
+	../../OneDrive/Desktop/Travel_Agent_GDG_Hackethon-main/
+	../../OneDrive/Desktop/USArrests.csv
+	../../OneDrive/Desktop/adldel/
+	../../OneDrive/Desktop/agentel/
+	../../OneDrive/Desktop/agentic_AI-travel-planner-main/
+	../../OneDrive/Desktop/ap/
+	../../OneDrive/Desktop/archive.zip
+	../../OneDrive/Desktop/biosafety/
+	../../OneDrive/Desktop/bsel/BioLogix_Research_Paper.md
+	../../OneDrive/Desktop/bsel/DSA_EL_Initial Pages.docx.pdf
+	../../OneDrive/Desktop/bsel/DSA_EL_Phase1.pptx
+	../../OneDrive/Desktop/bsel/GrammarlyInstaller.chfyB524Avkl4e7Nyy3O.exe
+	../../OneDrive/Desktop/bsel/README.md
+	../../OneDrive/Desktop/bsel/data/sample_data.csv
+	../../OneDrive/Desktop/bsel/scripts/
+	../../OneDrive/Desktop/bsel/src/cpp/
+	../../OneDrive/Desktop/bsel/src/pipeline/generate_advanced_data.py
+	../../OneDrive/Desktop/bsel/src/pipeline/ner_engine.py
+	../../OneDrive/Desktop/bsel/src/python/
+	../../OneDrive/Desktop/bsel/src/web/
+	../../OneDrive/Desktop/data.py
+	../../OneDrive/Desktop/desktop.ini
+	../../OneDrive/Desktop/docs/
+	../../OneDrive/Desktop/drive-download-20260203T181754Z-3-001.zip
+	../../OneDrive/Desktop/dsael/
+	../../OneDrive/Desktop/dtl/
+	../../OneDrive/Desktop/el/
+	../../OneDrive/Desktop/elsem3-archit_recent/
+	../../OneDrive/Desktop/elsem3-feature-UK-dataset/
+	../../OneDrive/Desktop/eltesting/
+	../../OneDrive/Desktop/examplee/
+	../../OneDrive/Desktop/g00002.json
+	../../OneDrive/Desktop/hash table.txt
+	../../OneDrive/Desktop/import pandas as pd.txt
+	../../OneDrive/Desktop/kaggle.json
+	../../OneDrive/Desktop/logisim-evolution-3.7.2.msi
+	../../OneDrive/Desktop/md files/
+	../../OneDrive/Desktop/mock_exam_1 (1).pdf
+	../../OneDrive/Desktop/mock_exam_1.pdf
+	../../OneDrive/Desktop/mock_exam_2.pdf
+	../../OneDrive/Desktop/mock_exam_3.pdf
+	../../OneDrive/Desktop/mock_exam_4.pdf
+	../../OneDrive/Desktop/mock_exam_5.pdf
+	../../OneDrive/Desktop/notebook2de44cb79e.ipynb
+	../../OneDrive/Desktop/online_retail_II.xlsx/
+	../../OneDrive/Desktop/osel-origin/
+	../../OneDrive/Desktop/pqs_W1L23.pdf
+	../../OneDrive/Desktop/processed/
+	../../OneDrive/Desktop/submission (1).csv
+	../../OneDrive/Desktop/submission (10).csv
+	../../OneDrive/Desktop/submission (11).csv
+	../../OneDrive/Desktop/submission (12).csv
+	../../OneDrive/Desktop/submission (13).csv
+	../../OneDrive/Desktop/submission (14).csv
+	../../OneDrive/Desktop/submission (15).csv
+	../../OneDrive/Desktop/submission (2).csv
+	../../OneDrive/Desktop/submission (3).csv
+	../../OneDrive/Desktop/submission (4).csv
+	../../OneDrive/Desktop/submission (5).csv
+	../../OneDrive/Desktop/submission (6).csv
+	../../OneDrive/Desktop/submission (7).csv
+	../../OneDrive/Desktop/submission (8).csv
+	../../OneDrive/Desktop/submission (9).csv
+	../../OneDrive/Desktop/submission.csv
+	../../OneDrive/Desktop/submissions.csv
+	../../OneDrive/Document 1.docx
+	../../OneDrive/Document 2.docx
+	../../OneDrive/Document.docx
+	../../OneDrive/Getting started with OneDrive.pdf
+	../../OneDrive/Pictures/
+	../../OneDrive/data/
+	../../OneDrive/desktop.ini
+	../../PyCharmMiscProject/
+	../../Saved Games/
+	../../Searches/
+	../../Videos/
+	../../VirtualBox VMs/
+	../../amazon-pulse-shop/
+	../../ntuser.dat.LOG1
+	../../ntuser.dat.LOG2
+	../../ntuser.ini
+	../../p.docx
+	../../p.py
+	../../p.txt
+	../../package-lock.json
+	../../package.json
+	../../test_groq.js
+
+no changes added to commit (use "git add" and/or "git commit -a")
