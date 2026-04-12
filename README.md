@@ -1,4 +1,4 @@
-# ☁️ Cloud Agentic AI
+#  Cloud Agentic AI
 
 **Autonomous cloud operations powered by agentic AI.**
 
