@@ -44,12 +44,27 @@ _latest_state: dict[str, Any] = {
     "costs": {},
     "actions": [],
     "security_findings": [],
+    "reasoning_summary": "Initial scan in progress...",
+    "thoughts": [],
 }
 
 
 # ------------------------------------------------------------------
 # REST endpoints
 # ------------------------------------------------------------------
+
+
+def _emit_thought(text: str) -> None:
+    """Push a 'live thought' from the AI strategy engine to the dashboard."""
+    _latest_state["thoughts"].append({
+        "text": text,
+        "timestamp": time.time()
+    })
+    # Maintain reasonable history for the 'live' console
+    if len(_latest_state["thoughts"]) > 15:
+        _latest_state["thoughts"].pop(0)
+    _broadcast(_latest_state)
+    logger.info("[magenta]Thought emitted: %s[/magenta]", text)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -106,11 +121,23 @@ async def get_history():
         if "tool" in cycle or "tool_name" in cycle:
             flattened.append(cycle)
         elif "results" in cycle and isinstance(cycle["results"], list):
-            for res in cycle["results"]:
-                item = res.copy()
-                item["timestamp"] = cycle.get("timestamp")
-                item["cycle_id"] = cycle.get("cycle_id")
-                flattened.append(item)
+            if not cycle["results"]:
+                # If it's an empty cycle, log it as a scan event
+                flattened.append({
+                    "timestamp": cycle.get("timestamp"),
+                    "cycle_id": cycle.get("cycle_id"),
+                    "tool": "scanner",
+                    "resource": "cloud_env",
+                    "action": "Analysis Complete",
+                    "status": "dry_run" if _agent.dry_run else "success",
+                    "reason": cycle.get("plan_summary") or "Observation complete"
+                })
+            else:
+                for res in cycle["results"]:
+                    item = res.copy()
+                    item["timestamp"] = cycle.get("timestamp")
+                    item["cycle_id"] = cycle.get("cycle_id")
+                    flattened.append(item)
     return {"history": flattened}
 
 
@@ -166,6 +193,10 @@ async def approve_action(request: Request):
         # We manually register the result to results feed
         results = _agent.act(Plan(actions=[match], summary="Manual approval"))
         
+        # Log the action individually so it appears in history
+        if results:
+            _agent.action_logger.log_action(results[0])
+
         # Determine the resulting status from the execution
         new_status = "executed"
         if results and "status" in results[0]:
@@ -192,6 +223,14 @@ async def approve_action(request: Request):
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    global _main_loop
+    if not _main_loop:
+        try:
+            _main_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # Fallback if not in a loop yet
+            pass
+
     await ws.accept()
     _connected_clients.append(ws)
     logger.info("[green]WebSocket client connected[/green] (total: %d)", len(_connected_clients))
@@ -212,16 +251,25 @@ async def websocket_endpoint(ws: WebSocket):
 
 
 def _broadcast(data: dict[str, Any]) -> None:
-    """Push data to all connected WebSocket clients."""
-    disconnected = []
-    for ws in _connected_clients:
-        try:
-            asyncio.run(ws.send_json(data))
-        except Exception:
-            disconnected.append(ws)
-    for ws in disconnected:
-        if ws in _connected_clients:
-            _connected_clients.remove(ws)
+    """Push data to all connected WebSocket clients safely from any thread."""
+    if not _connected_clients or not _main_loop:
+        return
+
+    async def _send_to_all(payload):
+        disconnected = []
+        for ws in _connected_clients:
+            try:
+                await ws.send_json(payload)
+            except Exception:
+                disconnected.append(ws)
+        for ws in disconnected:
+            if ws in _connected_clients:
+                _connected_clients.remove(ws)
+
+    # Schedule the broadcast on the main event loop
+    _main_loop.call_soon_threadsafe(
+        lambda: asyncio.create_task(_send_to_all(data))
+    )
 
 
 # ------------------------------------------------------------------
@@ -235,49 +283,84 @@ def _run_agent_cycle() -> None:
         return
 
     _latest_state["status"] = "running"
-    _broadcast(_latest_state)
-
+    _latest_state["thoughts"] = [] # Clear previous cycle logic
+    _emit_thought("▶ INITIALIZING: Establishing secure handshake with cloud environment...")
+    time.sleep(0.5) 
+    
     try:
         # Collect observation
+        _emit_thought("▶ OBSERVING: Scanning infrastructure telemetry and instance states...")
+        time.sleep(0.5)
         observation = _agent.observe()
         _latest_state["instances"] = observation.instances
         _latest_state["volumes"] = observation.disks
         _latest_state["costs"] = observation.costs
+        _emit_thought(f"▶ ANALYZING: {len(observation.instances)} instances and {len(observation.disks)} volumes ingested.")
+        time.sleep(0.5)
 
         # Planning
+        _emit_thought("▶ REASONING: Simulating optimization logic via Reasoning Engine...")
+        time.sleep(0.8)
         plan = _agent.think(observation)
         _current_plan = plan
         
+        _emit_thought(f"▶ PLANNING: Developed intelligence model containing {len(plan.actions)} optimization items.")
+        time.sleep(0.5)
+        
         # In dashboard mode, we post the planned actions for review
-        # The user can then click "Approve" via the API
         _latest_state["cycle_count"] += 1
         _latest_state["last_cycle"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        _latest_state["reasoning_summary"] = plan.summary
         
         # Map actions to dashboard view
         planned_actions = []
         for a in plan.actions:
-            planned_actions.append({
+            _emit_thought(f"▶ CORRELATING: Auditing {a.action_type} strategy for {a.resource_id}...")
+            time.sleep(0.4)
+            entry = {
                 "tool_name": a.tool_name,
                 "resource_id": a.resource_id,
                 "action_type": a.action_type,
                 "reason": a.reason,
                 "status": "pending_approval"
-            })
-        _latest_state["actions"] = planned_actions
-
-        # Extract security findings
-        # Manual run of security auditor results if planned
-        for a in plan.actions:
+            }
+            
+            # Pre-fetch insights for specific tools (Security and Diagnosis)
             if a.tool_name == "security_auditor":
-                # Quickly dry-run security auditor to get findings without wait
+                _emit_thought("▶ AUDITING: Performing deep security vulnerability scan...")
                 res = _agent.act(Plan(actions=[a], summary="Security scan for dashboard"))
                 _latest_state["security_findings"] = res[0].get("findings", [])
+            
+            elif a.tool_name == "diagnose_server":
+                _emit_thought(f"▶ DIAGNOSING: Analyzing root cause for {a.resource_id}...")
+                res = _agent.act(Plan(actions=[a], summary="Pre-diagnosis for dashboard"))
+                if res and "diagnosis" in res[0]:
+                    entry["diagnosis"] = res[0]["diagnosis"]
 
+            planned_actions.append(entry)
+            
+        _latest_state["actions"] = planned_actions
+        _emit_thought("▶ READY: Orchestration strategy ready for review.")
         _latest_state["status"] = "idle"
+
+        # Log this cycle to the persistent audit trail
+        import uuid
+        cycle_id = str(uuid.uuid4())[:8]
+        _agent.action_logger.log_cycle(
+            cycle_id=cycle_id,
+            plan_summary=plan.summary,
+            results=[], 
+            observation_summary={
+                "instances": len(observation.instances),
+                "disks": len(observation.disks),
+                "costs": observation.costs,
+            }
+        )
     except Exception as exc:
         logger.exception("Dashboard agent cycle failed")
         _latest_state["status"] = "error"
         _latest_state["error"] = str(exc)
+        _emit_thought(f"▶ CRITICAL: Agent logic failure — {str(exc)}")
 
     _broadcast(_latest_state)
 

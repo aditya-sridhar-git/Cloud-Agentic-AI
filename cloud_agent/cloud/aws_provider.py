@@ -96,8 +96,9 @@ class AWSProvider(CloudProvider):
     # Metrics
     # ------------------------------------------------------------------
 
-    def _get_avg_cpu(self, instance_id: str, period_seconds: int, start: datetime, end: datetime) -> float:
-        resp = self._cloudwatch.get_metric_statistics(
+    def _get_avg_cpu(self, instance_id: str, region: str, period_seconds: int, start: datetime, end: datetime) -> float:
+        cw = boto3.client("cloudwatch", region_name=region, config=_RETRY_CONFIG)
+        resp = cw.get_metric_statistics(
             Namespace="AWS/EC2",
             MetricName="CPUUtilization",
             Dimensions=[{"Name": "InstanceId", "Value": instance_id}],
@@ -111,10 +112,13 @@ class AWSProvider(CloudProvider):
             return 0.0
         return sum(dp["Average"] for dp in datapoints) / len(datapoints)
 
-    def get_cpu_utilization(self, instance_id: str, minutes: int = 30) -> float:
+    def get_cpu_utilization(self, instance_id: str, region: str | None = None, minutes: int = 30) -> float:
+        region = region or self._region
         end = datetime.now(timezone.utc)
         start = end - timedelta(minutes=minutes)
-        return self._get_avg_cpu(instance_id, 300, start, end)
+        # Use 60s period for short windows, 300s for standard
+        period = 60 if minutes <= 5 else 300
+        return self._get_avg_cpu(instance_id, region, period, start, end)
 
     def get_cpu_utilization_days(self, instance_id: str, days: int = 7) -> float:
         end = datetime.now(timezone.utc)

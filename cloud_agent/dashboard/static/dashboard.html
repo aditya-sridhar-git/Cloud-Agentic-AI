@@ -9,7 +9,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="/dashboard.css" />
+    <link rel="stylesheet" href="/dashboard.css?v=123" />
 </head>
 
 <body>
@@ -226,6 +226,50 @@
             </div>
         </section>
 
+        <!-- AI STRATEGY BAR -->
+        <!-- AI STRATEGY BAR -->
+        <section id="ai-strategy-strip">
+            <div class="ai-bar">
+
+                <!-- LEFT -->
+                <div class="ai-left">
+                    <span class="ai-label">AGENT STRATEGY</span>
+                    <span class="ai-text" id="ai-reasoning-text">
+                        Cross-referencing CPU usage against cost baseline...
+                    </span>
+                </div>
+
+                <!-- RIGHT -->
+                <div class="ai-right">
+                    <div class="ai-pulse">
+                        <span></span><span></span><span></span><span></span><span></span>
+                    </div>
+
+                    <div class="ai-pill">Neural Intelligence Active</div>
+                </div>
+
+            </div>
+        </section>
+        
+        <!-- NEURAL STRATEGY FEED — Wide visual console -->
+        <section id="panel-thoughts">
+            <div class="panel-header-alt">
+                <div class="panel-title-group">
+                    <span class="panel-tag" style="color:var(--purple)">Neural Intelligence</span>
+                    <h2 class="panel-title">Strategy Engine Feed</h2>
+                </div>
+                <div class="neural-activity">
+                    <span class="activity-label">Processing Logic</span>
+                    <div class="activity-bars">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="thought-console" id="thought-console">
+                <div class="thought-line init">▶ System Ready. Awaiting next intelligence cycle...</div>
+            </div>
+        </section>
+
         <!-- MAIN PANEL GRID -->
         <div id="panel-grid">
 
@@ -316,14 +360,17 @@
             <!-- ACTION HISTORY — full width -->
             <section class="panel panel-log" id="panel-log">
                 <div class="panel-header">
-                    <div class="panel-title-group" style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                    <div class="panel-title-group"
+                        style="display:flex; justify-content:space-between; width:100%; align-items:center;">
                         <div>
                             <span class="panel-tag">Audit Trail</span>
                             <h2 class="panel-title">Action History</h2>
                         </div>
                         <div style="display:flex; align-items:center; gap:0.5rem">
                             <span class="count-chip green-chip" id="log-badge">0 entries</span>
-                            <button class="run-btn" style="background:#1a1d24; border:1px solid #2a2e38; padding:0.25rem 0.6rem; color:var(--text-2); font-size:0.65rem" onclick="clearHistory()">Clear</button>
+                            <button class="run-btn"
+                                style="background:#1a1d24; border:1px solid #2a2e38; padding:0.25rem 0.6rem; color:var(--text-2); font-size:0.65rem"
+                                onclick="clearHistory()">Clear</button>
                         </div>
                     </div>
                 </div>

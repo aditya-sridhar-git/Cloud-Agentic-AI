@@ -32,7 +32,9 @@ class MetricsCollector:
             if inst.get("state") == "running":
                 try:
                     inst["cpu_percent"] = self._provider.get_cpu_utilization(
-                        inst["instance_id"], minutes=duration
+                        inst["instance_id"], 
+                        region=inst.get("region"),
+                        minutes=duration
                     )
                 except Exception:
                     logger.warning("Could not get CPU for %s", inst["instance_id"])

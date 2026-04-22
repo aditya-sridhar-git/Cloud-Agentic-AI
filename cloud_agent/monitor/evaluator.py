@@ -25,6 +25,7 @@ class ThresholdEvaluator:
         """Return a list of recommended actions based purely on thresholds."""
         actions: list[Action] = []
         actions.extend(self._check_idle_servers(observation))
+        actions.extend(self._check_high_cpu(observation))
         actions.extend(self._check_orphaned_disks(observation))
         actions.extend(self._check_cost_spike(observation))
         actions.extend(self._check_tags(observation))
@@ -63,6 +64,28 @@ class ThresholdEvaluator:
                     )
                 )
         return results
+    def _check_high_cpu(self, obs: Observation) -> list[Action]:
+        cfg = self._tools_cfg.get("diagnose_server", {})
+        if not cfg.get("enabled"):
+            return []
+        thresh = cfg.get("cpu_high_threshold", 85.0)
+
+        results: list[Action] = []
+        for inst in obs.instances:
+            if inst.get("state") != "running":
+                continue
+            cpu = inst.get("cpu_percent", 0.0)
+            if cpu >= thresh:
+                results.append(
+                    Action(
+                        tool_name="diagnose_server",
+                        resource_id=inst["instance_id"],
+                        action_type="diagnose",
+                        reason=f"CPU {cpu:.1f}% >= threshold {thresh}%",
+                    )
+                )
+        return results
+
 
     def _check_orphaned_disks(self, obs: Observation) -> list[Action]:
         cfg = self._tools_cfg.get("disk_cleanup", {})

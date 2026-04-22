@@ -50,11 +50,12 @@ Respond with a JSON object:
 }
 
 IMPORTANT RULES:
-1. If an instance has very high CPU (>85%), suggest diagnose_server BEFORE stopping it.
-2. If a cost spike is detected, also suggest cross_domain correlation.
-3. Always suggest security_auditor with action_type "full_scan" once per cycle.
-4. For idle instances (CPU < 5%), suggest idle_server to stop them.
-5. If no actions are needed, return {"summary": "All clear", "actions": []}.
+1. Use the thresholds provided in 'tool_config' for all tools (e.g., diagnose_server's cpu_high_threshold).
+2. If an instance crosses its high-CPU threshold, suggest diagnose_server BEFORE stopping or resizing it.
+3. If a cost spike is detected, also suggest cross_domain correlation.
+4. Always suggest security_auditor with action_type "full_scan" once per cycle.
+5. For idle instances (CPU < threshold), suggest idle_server to stop them.
+6. If no actions are needed, return {"summary": "All clear", "actions": []}.
 """
 
 
@@ -131,15 +132,18 @@ class ReasoningEngine:
         actions = evaluator.evaluate(observation)
 
         # Also add diagnosis for high-CPU instances
+        diag_cfg = config.get("tools", {}).get("diagnose_server", {})
+        high_cpu_thresh = diag_cfg.get("cpu_high_threshold", 85.0)
+
         for inst in observation.instances:
             cpu = inst.get("cpu_percent", 0)
-            if cpu > 85 and inst.get("state") == "running":
+            if cpu >= high_cpu_thresh and inst.get("state") == "running":
                 actions.append(
                     Action(
                         tool_name="diagnose_server",
                         resource_id=inst["instance_id"],
                         action_type="diagnose",
-                        reason=f"CPU critically high at {cpu:.1f}% — investigating root cause",
+                        reason=f"CPU high at {cpu:.1f}% (threshold {high_cpu_thresh}%) — investigating root cause",
                     )
                 )
 

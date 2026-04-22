@@ -26,7 +26,7 @@ tools:
   idle_server:
     enabled: true
     cpu_threshold_percent: 5.0      # Below this = idle
-    duration_minutes: 30            # Must be idle for this long
+    duration_minutes: 30            # Standard 30-min window
     action: stop                    # stop | terminate
     exclude_tags:
       - Key: "PreserveInstance"
@@ -73,7 +73,7 @@ tools:
 
   diagnose_server:
     enabled: true
-    cpu_high_threshold: 85.0        # Diagnose if CPU > this
+    cpu_high_threshold: 85.0        # Standard production threshold
     auto_remediate: false           # If true, agent can kill processes
 
   security_auditor:
