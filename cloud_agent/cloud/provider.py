@@ -121,3 +121,23 @@ class CloudProvider(abc.ABC):
     @abc.abstractmethod
     def get_cloudtrail_events(self, hours: int = 24, event_name: str | None = None) -> list[dict[str, Any]]:
         """Query recent CloudTrail events."""
+
+    # ------------------------------------------------------------------
+    # Snapshots / Backups
+    # ------------------------------------------------------------------
+
+    @abc.abstractmethod
+    def list_snapshots(self, creator: str | None = None) -> list[dict[str, Any]]:
+        """Return list of EBS snapshots, optionally filtered by creator."""
+
+    @abc.abstractmethod
+    def delete_snapshot(self, snapshot_id: str) -> dict[str, Any]:
+        """Delete an EBS snapshot."""
+
+    # ------------------------------------------------------------------
+    # Certificates
+    # ------------------------------------------------------------------
+
+    @abc.abstractmethod
+    def list_certificates(self) -> list[dict[str, Any]]:
+        """Return list of SSL/TLS certificates (ACM and imported)."""
