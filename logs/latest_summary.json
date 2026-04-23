@@ -1,10 +1,31 @@
 {
-  "timestamp": "2026-04-23T13:49:40.015707+00:00",
-  "cycle_id": "0b9689c3",
-  "epoch": 1776952180.0157237,
-  "plan_summary": "6 approved action(s)",
-  "actions_count": 6,
+  "timestamp": "2026-04-23T14:52:04.654568+00:00",
+  "cycle_id": "37c31b3b",
+  "epoch": 1776955924.6545916,
+  "plan_summary": "10 approved action(s)",
+  "actions_count": 10,
   "results": [
+    {
+      "action": "stop",
+      "resource": "i-0a1b2c3d4e5f60003",
+      "tool": "idle_server",
+      "reason": "CPU 0.2% < 5.0%",
+      "status": "dry_run"
+    },
+    {
+      "action": "stop",
+      "resource": "i-0a1b2c3d4e5f60006",
+      "tool": "idle_server",
+      "reason": "CPU 1.2% < 5.0%",
+      "status": "dry_run"
+    },
+    {
+      "action": "diagnose",
+      "resource": "i-0a1b2c3d4e5f60005",
+      "tool": "diagnose_server",
+      "reason": "CPU 88.5% >= threshold 85.0%",
+      "status": "dry_run"
+    },
     {
       "action": "snapshot_delete",
       "resource": "vol-0a1b2c3d4e5f0002",
@@ -41,6 +62,13 @@
       "status": "dry_run"
     },
     {
+      "action": "diagnose",
+      "resource": "i-0a1b2c3d4e5f60005",
+      "tool": "diagnose_server",
+      "reason": "CPU high at 88.5% (threshold 85.0%) \u2014 investigating root cause",
+      "status": "dry_run"
+    },
+    {
       "action": "full_scan",
       "resource": "account",
       "tool": "security_auditor",
@@ -52,8 +80,8 @@
     "instances": 8,
     "disks": 5,
     "costs": {
-      "current_daily": 100.82,
-      "baseline_daily": 92.66
+      "current_daily": 98.75,
+      "baseline_daily": 99.8
     }
   }
 }

@@ -169,7 +169,7 @@ class BackupManagerTool(BaseTool):
         deleted = []
         cfg = self.config.get("tools", {}).get("backup_manager", {})
         retention_days = cfg.get("retention_days", 30)
-        cutoff_date = datetime.now() - timedelta(days=retention_days)
+        cutoff_date = datetime.now().astimezone() - timedelta(days=retention_days)
 
         try:
             snapshots = self.provider.list_snapshots(creator="cloud-agent-backup-manager")
@@ -184,7 +184,9 @@ class BackupManagerTool(BaseTool):
                 if isinstance(created_time, str):
                     created_time = datetime.fromisoformat(created_time.replace("Z", "+00:00"))
                 elif isinstance(created_time, datetime):
-                    pass
+                    # Ensure timezone-aware for comparison
+                    if created_time.tzinfo is None:
+                        created_time = created_time.astimezone()
                 else:
                     continue
             except Exception:

@@ -173,11 +173,11 @@ class MockProvider(CloudProvider):
     # Metrics
     # ------------------------------------------------------------------
 
-    def get_cpu_utilization(self, instance_id: str, minutes: int = 30) -> float:
+    def get_cpu_utilization(self, instance_id: str, minutes: int = 30, region: str | None = None) -> float:
         base = _CPU_PROFILES.get(instance_id, 50.0)
         return round(base + random.uniform(-2, 2), 1)
 
-    def get_cpu_utilization_days(self, instance_id: str, days: int = 7) -> float:
+    def get_cpu_utilization_days(self, instance_id: str, days: int = 7, region: str | None = None) -> float:
         base = _CPU_PROFILES.get(instance_id, 50.0)
         return round(base + random.uniform(-5, 5), 1)
 
