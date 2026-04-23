@@ -216,6 +216,47 @@ async def approve_action(request: Request):
         return {"error": str(e)}
 
 
+@app.post("/api/chat")
+async def chat_endpoint(request: Request):
+    """Handle natural language chat queries and route to appropriate tools."""
+    from cloud_agent.chat_interface import ChatInterface
+    
+    data = await request.json()
+    query = data.get("query", "")
+    
+    if not query:
+        return {"error": "No query provided", "response": "Please ask a question."}
+    
+    try:
+        # Create chat interface instance with the agent's provider
+        chat = ChatInterface(_agent.provider if _agent else None)
+        
+        # Process the query
+        result = chat.process_query(query)
+        
+        # Format response based on result type
+        if isinstance(result, dict):
+            response_text = result.get("summary", "Query processed.")
+            response_data = result.get("data", [])
+        elif isinstance(result, list):
+            response_data = result
+            response_text = f"Found {len(result)} items matching your query."
+        else:
+            response_text = str(result)
+            response_data = []
+        
+        return {
+            "response": response_text,
+            "data": response_data
+        }
+    except Exception as e:
+        logger.exception("Chat endpoint error")
+        return {
+            "response": f"I encountered an error: {str(e)}",
+            "data": []
+        }
+
+
 
 # ------------------------------------------------------------------
 # WebSocket

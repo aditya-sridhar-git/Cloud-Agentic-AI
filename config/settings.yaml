@@ -92,3 +92,25 @@ tools:
     enabled: true
     cloudtrail_hours: 24            # How far back to look in CloudTrail
     auto_trigger_on_cost_spike: true
+
+  # --- NEW TOOLS (Phase 1) ---
+
+  backup_manager:
+    enabled: false                  # Set to true to enable automated backups
+    retention_days: 30              # Keep snapshots for 30 days
+    target_environments:            # Which environments to backup
+      - prod
+      - staging
+    skip_if_tagged_with:            # Skip resources with these tags
+      - Key: "Backup"
+        Value: "false"
+    schedule: "daily"               # daily | weekly
+
+  cert_monitor:
+    enabled: true                   # Certificate expiry monitoring
+    warning_threshold_days:         # Alert thresholds
+      - 30                          # 30 days warning
+      - 14                          # 14 days high priority
+      - 7                           # 7 days critical
+    check_acm: true                 # Check AWS ACM certificates
+    check_imported: true            # Check imported certificates

@@ -533,6 +533,123 @@ async function clearHistory() {
     } catch (_) { }
 }
 
+// ============================================================
+// AI CHAT INTERFACE
+// ============================================================
+
+async function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    if (!message) return;
+
+    // Add user message to chat
+    addChatMessage(message, 'user');
+    input.value = '';
+
+    // Show loading indicator
+    showChatLoading();
+
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: message })
+        });
+
+        hideChatLoading();
+
+        if (response.ok) {
+            const data = await response.json();
+            addChatMessage(data.response, 'bot', data.data);
+        } else {
+            addChatMessage("Sorry, I encountered an error processing your request.", 'bot');
+        }
+    } catch (error) {
+        hideChatLoading();
+        addChatMessage("Sorry, I couldn't connect to the server. Please try again.", 'bot');
+    }
+}
+
+function addChatMessage(text, type, data = null) {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `chat-message ${type}`;
+    
+    const avatar = type === 'bot' ? '🤖' : '👤';
+    
+    let contentHtml = `<div class="chat-avatar">${avatar}</div>`;
+    contentHtml += `<div class="chat-bubble">`;
+    
+    if (data && Array.isArray(data) && data.length > 0) {
+        // Format structured data
+        contentHtml += `<p class="chat-result-title">${escapeHtml(text)}</p>`;
+        contentHtml += `<ul class="chat-result-list">`;
+        data.slice(0, 10).forEach(item => {
+            let statusClass = '';
+            if (item.status === 'critical' || item.severity === 'critical') statusClass = 'critical';
+            else if (item.status === 'warning' || item.severity === 'warning') statusClass = 'warning';
+            else if (item.status === 'success' || item.status === 'healthy') statusClass = 'success';
+            
+            const itemText = item.resource_id || item.instance_id || item.name || item.message || JSON.stringify(item);
+            contentHtml += `<li class="chat-result-item ${statusClass}">${escapeHtml(itemText)}</li>`;
+        });
+        if (data.length > 10) {
+            contentHtml += `<li class="chat-result-item">... and ${data.length - 10} more items</li>`;
+        }
+        contentHtml += `</ul>`;
+    } else {
+        // Plain text response
+        contentHtml += `<p>${escapeHtml(text)}</p>`;
+    }
+    
+    contentHtml += `</div>`;
+    msgDiv.innerHTML = contentHtml;
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
+function showChatLoading() {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'chat-message bot';
+    loadingDiv.id = 'chat-loading-indicator';
+    loadingDiv.innerHTML = `
+        <div class="chat-avatar">🤖</div>
+        <div class="chat-bubble">
+            <div class="chat-loading">
+                <div class="chat-loading-dot"></div>
+                <div class="chat-loading-dot"></div>
+                <div class="chat-loading-dot"></div>
+            </div>
+        </div>
+    `;
+    container.appendChild(loadingDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
+function hideChatLoading() {
+    const loading = document.getElementById('chat-loading-indicator');
+    if (loading) loading.remove();
+}
+
+function escapeHtml(text) {
+    if (typeof text !== 'string') return String(text ?? '');
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Allow clicking on suggestion items
+document.addEventListener('click', (e) => {
+    if (e.target.matches('.chat-suggestions li')) {
+        const input = document.getElementById('chat-input');
+        input.value = e.target.textContent.replace(/^"|"$/g, '');
+        sendChatMessage();
+    }
+});
+
 function tickClock() {
     const el = document.getElementById('footer-time');
     if (el) el.textContent = new Date().toLocaleTimeString();
