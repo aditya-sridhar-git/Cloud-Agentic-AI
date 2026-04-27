@@ -1,87 +1,13 @@
 {
-  "timestamp": "2026-04-23T14:52:04.654568+00:00",
-  "cycle_id": "37c31b3b",
-  "epoch": 1776955924.6545916,
-  "plan_summary": "10 approved action(s)",
-  "actions_count": 10,
-  "results": [
-    {
-      "action": "stop",
-      "resource": "i-0a1b2c3d4e5f60003",
-      "tool": "idle_server",
-      "reason": "CPU 0.2% < 5.0%",
-      "status": "dry_run"
-    },
-    {
-      "action": "stop",
-      "resource": "i-0a1b2c3d4e5f60006",
-      "tool": "idle_server",
-      "reason": "CPU 1.2% < 5.0%",
-      "status": "dry_run"
-    },
-    {
-      "action": "diagnose",
-      "resource": "i-0a1b2c3d4e5f60005",
-      "tool": "diagnose_server",
-      "reason": "CPU 88.5% >= threshold 85.0%",
-      "status": "dry_run"
-    },
-    {
-      "action": "snapshot_delete",
-      "resource": "vol-0a1b2c3d4e5f0002",
-      "tool": "disk_cleanup",
-      "reason": "Unattached 15d (limit 7d)",
-      "status": "dry_run"
-    },
-    {
-      "action": "snapshot_delete",
-      "resource": "vol-0a1b2c3d4e5f0003",
-      "tool": "disk_cleanup",
-      "reason": "Unattached 45d (limit 7d)",
-      "status": "dry_run"
-    },
-    {
-      "action": "tag",
-      "resource": "i-0a1b2c3d4e5f60003",
-      "tool": "tag_enforcer",
-      "reason": "Missing: Environment, Owner, Project",
-      "status": "dry_run"
-    },
-    {
-      "action": "tag",
-      "resource": "i-0a1b2c3d4e5f60006",
-      "tool": "tag_enforcer",
-      "reason": "Missing: Environment, Owner, Project",
-      "status": "dry_run"
-    },
-    {
-      "action": "tag",
-      "resource": "i-0a1b2c3d4e5f60007",
-      "tool": "tag_enforcer",
-      "reason": "Missing: Environment, Owner, Project",
-      "status": "dry_run"
-    },
-    {
-      "action": "diagnose",
-      "resource": "i-0a1b2c3d4e5f60005",
-      "tool": "diagnose_server",
-      "reason": "CPU high at 88.5% (threshold 85.0%) \u2014 investigating root cause",
-      "status": "dry_run"
-    },
-    {
-      "action": "full_scan",
-      "resource": "account",
-      "tool": "security_auditor",
-      "reason": "Periodic security audit",
-      "status": "dry_run"
-    }
-  ],
+  "timestamp": "2026-04-27T16:21:09.151689+00:00",
+  "cycle_id": "fcffda1f",
+  "epoch": 1777306869.1516893,
+  "plan_summary": "2 approved action(s)",
+  "actions_count": 0,
+  "results": [],
   "observation_summary": {
-    "instances": 8,
-    "disks": 5,
-    "costs": {
-      "current_daily": 98.75,
-      "baseline_daily": 99.8
-    }
+    "instances": 1,
+    "disks": 1,
+    "costs": {}
   }
 }

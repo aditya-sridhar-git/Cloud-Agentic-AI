@@ -334,7 +334,7 @@ function renderReasoning() {
     let reason = state.reasoning_summary;
 
     // 🚨 Detect broken/gibberish text
-    const isGarbage = !reason || reason.length < 10 || /[^a-zA-Z0-9 .,:%()-]/.test(reason);
+    const isGarbage = !reason || reason.length < 5 || /[^a-zA-Z0-9 .,:%()\-/_!?[\]]/.test(reason);
 
     if (isGarbage) {
         const insts = state.instances || [];
