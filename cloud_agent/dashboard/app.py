@@ -48,6 +48,7 @@ _latest_state: dict[str, Any] = {
     "reasoning_summary": "Initial scan in progress...",
     "thoughts": [],
 }
+_main_loop: asyncio.AbstractEventLoop | None = None
 
 
 # ------------------------------------------------------------------
@@ -270,7 +271,6 @@ async def websocket_endpoint(ws: WebSocket):
         try:
             _main_loop = asyncio.get_running_loop()
         except RuntimeError:
-            # Fallback if not in a loop yet
             pass
 
     await ws.accept()

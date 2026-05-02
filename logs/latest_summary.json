@@ -1,123 +1,13 @@
 {
-  "timestamp": "2026-05-02T15:42:44.024021+00:00",
-  "cycle_id": "c0cbf587",
-  "epoch": 1777736564.0240214,
-  "plan_summary": "11 approved action(s)",
-  "actions_count": 11,
-  "results": [
-    {
-      "action": "stop",
-      "resource": "i-0a1b2c3d4e5f60001",
-      "tool": "idle_server",
-      "reason": "Instance has very low CPU utilization.",
-      "status": "dry_run"
-    },
-    {
-      "action": "stop",
-      "resource": "i-0a1b2c3d4e5f60002",
-      "tool": "idle_server",
-      "reason": "Instance has very low CPU utilization.",
-      "status": "dry_run"
-    },
-    {
-      "action": "stop",
-      "resource": "i-0a1b2c3d4e5f60003",
-      "tool": "idle_server",
-      "reason": "Instance has very low CPU utilization.",
-      "status": "dry_run"
-    },
-    {
-      "action": "stop",
-      "resource": "i-0a1b2c3d4e5f60004",
-      "tool": "idle_server",
-      "reason": "Instance has very low CPU utilization.",
-      "status": "dry_run"
-    },
-    {
-      "action": "stop",
-      "resource": "i-0a1b2c3d4e5f60005",
-      "tool": "idle_server",
-      "reason": "Instance has very low CPU utilization.",
-      "status": "dry_run"
-    },
-    {
-      "action": "stop",
-      "resource": "i-0a1b2c3d4e5f60006",
-      "tool": "idle_server",
-      "reason": "Instance has very low CPU utilization.",
-      "status": "dry_run"
-    },
-    {
-      "action": "snapshot_delete",
-      "resource": "vol-0a1b2c3d4e5f0002",
-      "tool": "disk_cleanup",
-      "reason": "Unattached EBS volume for more than 7 days.",
-      "status": "dry_run"
-    },
-    {
-      "action": "snapshot_delete",
-      "resource": "vol-0a1b2c3d4e5f0003",
-      "tool": "disk_cleanup",
-      "reason": "Unattached EBS volume for more than 7 days.",
-      "status": "dry_run"
-    },
-    {
-      "action": "full_scan",
-      "resource": "",
-      "tool": "security_auditor",
-      "reason": "Perform a full security scan as part of routine checks.",
-      "status": "dry_run"
-    },
-    {
-      "action": "stop",
-      "resource": "i-0a1b2c3d4e5f60003",
-      "tool": "scheduler",
-      "reason": "Outside business hours \u2014 stopping instance",
-      "status": "dry_run"
-    },
-    {
-      "action": "stop",
-      "resource": "i-0a1b2c3d4e5f60006",
-      "tool": "scheduler",
-      "reason": "Outside business hours \u2014 stopping instance",
-      "status": "dry_run"
-    }
-  ],
+  "timestamp": "2026-05-02T17:11:45.649405+00:00",
+  "cycle_id": "a8a88680",
+  "epoch": 1777741905.6494057,
+  "plan_summary": "2 approved action(s)",
+  "actions_count": 0,
+  "results": [],
   "observation_summary": {
-    "instances": 8,
-    "disks": 5,
-    "costs": {
-      "current_daily": 100.77,
-      "baseline_daily": 102.68,
-      "delta_pct": -1.9,
-      "currency": "USD",
-      "services": [
-        {
-          "service": "Amazon EC2",
-          "amount": 51.96,
-          "currency": "USD"
-        },
-        {
-          "service": "Amazon S3",
-          "amount": 9.87,
-          "currency": "USD"
-        },
-        {
-          "service": "Amazon RDS",
-          "amount": 28.64,
-          "currency": "USD"
-        },
-        {
-          "service": "AWS Lambda",
-          "amount": 2.8,
-          "currency": "USD"
-        },
-        {
-          "service": "Amazon CloudWatch",
-          "amount": 3.42,
-          "currency": "USD"
-        }
-      ]
-    }
+    "instances": 2,
+    "disks": 2,
+    "costs": {}
   }
 }

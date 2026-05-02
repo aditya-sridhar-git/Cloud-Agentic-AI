@@ -3,14 +3,14 @@
 # =============================================================================
 
 agent:
-  loop_interval_seconds: 3600        # How often the agent runs (5 min)
-  dry_run: true                     # true = plan only, false = execute actions
+  loop_interval_seconds: 60      # How often the agent runs (5 min)
+  dry_run: false                    # true = plan only, false = execute actions
   require_approval: false           # If true, pause before executing actions
   multi_agent_consensus: true       # Use multi-agent debate for risky actions
 
 provider:
   name: aws                         # Cloud provider (aws | gcp | azure | mock)
-  region: us-east-1
+  region: ap-southeast-1
 
 # ---------------------------------------------------------------------------
 # Notification settings (optional)
@@ -27,7 +27,7 @@ tools:
   idle_server:
     enabled: true
     cpu_threshold_percent: 5.0      # Below this = idle
-    duration_minutes: 30            # Standard 30-min window
+    duration_minutes: 3            # Speed shortcut for testing (standard is 30)
     action: stop                    # stop | terminate
     exclude_tags:
       - Key: "PreserveInstance"

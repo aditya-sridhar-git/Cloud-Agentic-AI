@@ -437,59 +437,64 @@ class AWSProvider(CloudProvider):
     # ------------------------------------------------------------------
 
     def list_snapshots(self, creator: str | None = None) -> list[dict[str, Any]]:
-        """Return EBS snapshots owned by this account, optionally filtered by creator tag."""
-        filters = [{"Name": "owner-id", "Values": ["self"]}]
+        """Return list of EBS snapshots, optionally filtered by creator."""
+        filters = []
         if creator:
-            filters.append({"Name": "tag:CreatedBy", "Values": [creator]})
+            filters.append({"Name": "owner-id", "Values": [creator]})
+        else:
+            filters.append({"Name": "owner-id", "Values": ["self"]})
+        
         try:
             resp = self._ec2.describe_snapshots(Filters=filters)
-            snapshots = []
-            for s in resp.get("Snapshots", []):
-                snapshots.append({
-                    "snapshot_id": s["SnapshotId"],
-                    "volume_id": s.get("VolumeId", ""),
-                    "start_time": str(s.get("StartTime", "")),
-                    "state": s.get("State", ""),
-                    "tags": s.get("Tags", []),
-                })
-            return snapshots
+            return [
+                {
+                    "snapshot_id": snap["SnapshotId"],
+                    "volume_id": snap.get("VolumeId"),
+                    "state": snap["State"],
+                    "start_time": str(snap["StartTime"]),
+                    "description": snap.get("Description", "")
+                }
+                for snap in resp.get("Snapshots", [])
+            ]
         except Exception as e:
-            logger.warning("Could not list snapshots: %s", e)
+            logger.warning("Failed to list snapshots: %s", e)
             return []
 
     def delete_snapshot(self, snapshot_id: str) -> dict[str, Any]:
         """Delete an EBS snapshot."""
         logger.info("Deleting snapshot %s", snapshot_id)
-        self._ec2.delete_snapshot(SnapshotId=snapshot_id)
-        return {"snapshot_id": snapshot_id, "status": "deleted"}
+        try:
+            self._ec2.delete_snapshot(SnapshotId=snapshot_id)
+            return {"snapshot_id": snapshot_id, "status": "deleted"}
+        except Exception as e:
+            logger.error("Failed to delete snapshot %s: %s", snapshot_id, e)
+            return {"snapshot_id": snapshot_id, "status": "error", "message": str(e)}
 
     # ------------------------------------------------------------------
-    # Certificates (ACM)
+    # Certificates
     # ------------------------------------------------------------------
 
     def list_certificates(self) -> list[dict[str, Any]]:
-        """Return SSL/TLS certificates from ACM."""
+        """Return list of SSL/TLS certificates (ACM and imported)."""
         try:
             acm = boto3.client("acm", region_name=self._region, config=_RETRY_CONFIG)
-            resp = acm.list_certificates(CertificateStatuses=["ISSUED", "EXPIRED", "PENDING_VALIDATION"])
+            resp = acm.list_certificates()
             certs = []
-            for c in resp.get("CertificateSummaryList", []):
-                arn = c["CertificateArn"]
+            for cert_meta in resp.get("CertificateSummaryList", []):
+                cert_arn = cert_meta["CertificateArn"]
                 try:
-                    detail = acm.describe_certificate(CertificateArn=arn)["Certificate"]
+                    cert_details = acm.describe_certificate(CertificateArn=cert_arn)
+                    cert = cert_details.get("Certificate", {})
                     certs.append({
-                        "arn": arn,
-                        "domain_name": detail.get("DomainName", ""),
-                        "issuer": detail.get("Issuer", "Unknown"),
-                        "not_after": str(detail.get("NotAfter", "")),
-                        "type": detail.get("Type", ""),
-                        "auto_renewal": bool(detail.get("RenewalEligibility") == "ELIGIBLE"),
-                        "in_use": bool(detail.get("InUseBy")),
-                        "key_algorithm": detail.get("KeyAlgorithm", ""),
+                        "certificate_arn": cert_arn,
+                        "domain_name": cert.get("DomainName"),
+                        "status": cert.get("Status"),
+                        "in_use_by": cert.get("InUseBy", []),
+                        "not_after": str(cert.get("NotAfter", "")),
                     })
-                except Exception:
-                    continue
+                except Exception as e:
+                    logger.warning("Could not describe cert %s: %s", cert_arn, e)
             return certs
         except Exception as e:
-            logger.warning("Could not list certificates: %s", e)
+            logger.warning("Failed to list certificates: %s", e)
             return []

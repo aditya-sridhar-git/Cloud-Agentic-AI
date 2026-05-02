@@ -54,6 +54,12 @@ def load_config(path: Path | str | None = None) -> dict[str, Any]:
     if env_dry is not None:
         config.setdefault("agent", {})["dry_run"] = env_dry.lower() in ("true", "1", "yes")
 
+    # Override region from env if set (boto3 uses AWS_DEFAULT_REGION)
+    env_region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+    if env_region:
+        config.setdefault("provider", {})["region"] = env_region
+        logger.info("[green]AWS Region overridden from env:[/green] %s", env_region)
+
     return config
 
 

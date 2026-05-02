@@ -54,91 +54,125 @@ class ChatInterface:
         return {
             "cert_monitor": [
                 "certificate", "ssl", "tls", "expire", "expiry", "cert", 
-                "https", "domain", "secure"
+                "https", "domain", "secure", "renewal", "renew"
             ],
             "idle_server": [
                 "idle", "unused", "inactive", "waste", "low cpu", "low usage",
-                "zombie", "empty"
+                "zombie", "empty", "underutilized", "underused", "not used",
+                "wasting", "doing nothing"
             ],
             "cost_monitor": [
                 "cost", "spend", "bill", "price", "expense", "budget", 
-                "money", "charging"
+                "money", "charging", "how much", "spending", "expensive",
+                "cheap", "saving", "savings", "forecast", "daily cost"
             ],
             "security_audit": [
                 "security", "vulnerability", "risk", "open port", "public",
-                "firewall", "audit", "compliance", "breach"
+                "firewall", "audit", "compliance", "breach", "threat",
+                "attack", "exposed", "unsafe", "protect", "permission",
+                "iam", "access", "encryption", "encrypted"
             ],
             "disk_cleanup": [
                 "disk", "storage", "space", "cleanup", "clean", "full", 
-                "delete", "remove", "free up"
+                "delete", "remove", "free up", "volume", "ebs", "orphan",
+                "orphaned", "unattached", "disk usage"
             ],
             "backup_manager": [
                 "backup", "snapshot", "restore", "recovery", "save", 
-                "copy", "archive"
+                "copy", "archive", "replicate", "disaster"
             ],
-            "rightsizer": [
-                "rightsize", "resize", "downgrade", "upsize", "instance type",
-                "smaller instance", "over-provisioned", "right-size", "rightsizing"
-            ],
-            "tag_enforcer": [
-                "tag", "tags", "missing tags", "enforce tags", "label", "labels"
-            ],
-            "scheduler": [
-                "schedule", "business hours", "after hours", "weekend",
-                "start dev", "stop dev", "non-production"
-            ],
-            "cross_domain": [
-                "correlate", "cross domain", "correlation", "root cause", 
-                "investigate anomaly", "connect the dots", "cross-domain"
+            "general_status": [
+                "instance", "instances", "server", "servers", "running",
+                "stopped", "status", "overview", "show", "list", "tell",
+                "current", "what", "how many", "count", "health",
+                "infrastructure", "fleet", "ec2", "compute", "machine",
+                "machines", "node", "nodes", "cpu", "utilization"
             ]
         }
 
-    def _detect_intent(self, query: str) -> Optional[str]:
+    def _detect_intent(self, query: str) -> Tuple[Optional[str], str, Optional[str]]:
         """
-        Detects the user's intent based on keywords in the query.
-        Returns the tool name if a match is found, else None.
+        Detects the user's intent, action type, and resource ID.
+        Returns (tool_name, action_type, resource_id).
         """
         query_lower = query.lower()
         
-        # Simple keyword matching
-        scores: Dict[str, int] = {tool: 0 for tool in self.tools}
-        
+        # 1. Extract Resource ID (e.g., i-0a1b2c3d4e5f6g7h8)
+        resource_id = None
+        id_match = re.search(r'i-[a-z0-9]{8,17}', query_lower)
+        if id_match:
+            resource_id = id_match.group(0)
+            
+        # 2. Detect Action Type
+        action_type = "check"
+        if any(word in query_lower for word in ["stop", "shutdown", "halt", "turn off"]):
+            action_type = "stop"
+        elif any(word in query_lower for word in ["start", "boot", "turn on", "resume"]):
+            action_type = "start"
+        elif any(word in query_lower for word in ["terminate", "delete", "destroy", "remove"]):
+            action_type = "terminate"
+            
+        # 3. Detect Tool Intent
+        scores: Dict[str, int] = {tool: 0 for tool in self.intent_map}
         for tool, keywords in self.intent_map.items():
             for keyword in keywords:
                 if keyword in query_lower:
                     scores[tool] += 1
         
-        # Select the tool with the highest score if it's > 0
         best_tool = max(scores, key=scores.get)
         if scores[best_tool] > 0:
-            return best_tool
+            return best_tool, action_type, resource_id
         
         # Fallback for generic help or status
-        if any(word in query_lower for word in ["help", "status", "overview", "hello"]):
-            return "help"
+        if any(word in query_lower for word in ["help", "hello", "hi", "hey", "what can you do"]):
+            return "help", "check", None
             
-        return None
+        return None, "check", None
 
-    def _execute_tool(self, tool_name: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
+    def _execute_tool(self, tool_name: str, action_type: str = "check", resource_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Executes the specified tool and returns the result.
         """
+        # Handle general_status directly (not a registered tool)
+        if tool_name == "general_status":
+            try:
+                instances = self.provider.list_instances()
+                volumes = self.provider.list_volumes()
+                running = [i for i in instances if i.get("state") == "running"]
+                stopped = [i for i in instances if i.get("state") == "stopped"]
+                orphaned = [v for v in volumes if v.get("state") == "available"]
+                return {
+                    "success": True,
+                    "data": {
+                        "instances": instances,
+                        "running": running,
+                        "stopped": stopped,
+                        "volumes": volumes,
+                        "orphaned_volumes": orphaned,
+                        "total_instances": len(instances),
+                        "total_running": len(running),
+                        "total_stopped": len(stopped),
+                        "total_volumes": len(volumes),
+                        "total_orphaned": len(orphaned),
+                    }
+                }
+            except Exception as e:
+                logger.error(f"Error fetching general status: {str(e)}")
+                return {"success": False, "error": str(e)}
+
         if tool_name not in self.tools:
             return {"success": False, "error": f"Unknown tool: {tool_name}"}
         
         tool = self.tools[tool_name]
-        logger.info(f"Executing tool: {tool_name}")
+        logger.info(f"Executing tool: {tool_name} (Action: {action_type}, Resource: {resource_id})")
         
         try:
-            # Create an Action object for the tool
-            # Most tools use action_type to determine behavior
-            action_type = params.get("action_type", "check") if params else "check"
             action = Action(
                 tool_name=tool_name,
                 action_type=action_type, 
-                resource_id="", 
+                resource_id=resource_id or "", 
                 reason="Chat interface request",
-                parameters=params or {}
+                parameters={}
             )
             
             result = tool.execute(action)
@@ -168,18 +202,42 @@ class ChatInterface:
             return self._format_disk_response(data)
         elif intent == "backup_manager":
             return self._format_backup_response(data)
-        elif intent == "rightsizer":
-            return self._format_rightsizer_response(data)
-        elif intent == "tag_enforcer":
-            return self._format_tag_enforcer_response(data)
-        elif intent == "scheduler":
-            return self._format_scheduler_response(data)
-        elif intent == "cross_domain":
-            return self._format_cross_domain_response(data)
+        elif intent == "general_status":
+            return self._format_general_status(data)
         elif intent == "help":
             return self._get_help_message()
         
         return f"✅ Action completed. Details: {str(data)}"
+
+    def _format_general_status(self, data: Dict) -> str:
+        """Format general infrastructure status."""
+        total = data.get("total_instances", 0)
+        running = data.get("total_running", 0)
+        stopped = data.get("total_stopped", 0)
+        vols = data.get("total_volumes", 0)
+        orphaned = data.get("total_orphaned", 0)
+
+        msg = [f"### Infrastructure Overview"]
+        msg.append(f"Currently monitoring **{total}** instances ({running} running, {stopped} stopped) and **{vols}** volumes ({orphaned} orphaned).")
+
+        instances = data.get("instances", [])
+        if instances:
+            msg.append(f"\n**Instance Details:**")
+            for inst in instances[:10]:
+                state_icon = "🟢" if inst.get("state") == "running" else "🔴"
+                cpu = inst.get("cpu_percent", inst.get("cpu", "N/A"))
+                if isinstance(cpu, (int, float)):
+                    cpu_str = f"{cpu:.1f}%"
+                else:
+                    cpu_str = str(cpu)
+                
+                name = inst.get("name") or inst.get("instance_id", "unknown")
+                msg.append(f"- {state_icon} **{name}**: {inst.get('state', '—')} (CPU: {cpu_str})")
+            
+            if len(instances) > 10:
+                msg.append(f"- *... and {len(instances) - 10} more*")
+
+        return "\n".join(msg)
 
     def _format_cert_response(self, data: Dict) -> str:
         # Handle both 'certificates' key (old format) and 'expired'/'expiring_soon' keys (new format)
@@ -191,24 +249,25 @@ class ChatInterface:
             expiring = data.get("expiring_soon", [])
             
             if not expired and not expiring:
-                return "🔒 No certificate issues found. All monitored certificates are healthy."
+                return "🔒 **Security Status:** No certificate issues found. All monitored certificates are healthy."
             
-            msg = []
+            msg = [f"### Certificate Audit Results"]
+            
             if expired:
-                msg.append(f"🚨 **{len(expired)} Expired Certificate(s):**")
+                msg.append(f"\n🚨 **{len(expired)} Expired:**")
                 for c in expired:
                     expiry_date = c.get('expiry_date', '')
                     if hasattr(expiry_date, 'strftime'):
                         expiry_date = expiry_date.strftime("%Y-%m-%d")
-                    msg.append(f"   - {c.get('domain')}: Expired on {expiry_date}")
+                    msg.append(f"- **{c.get('domain')}**: Expired on {expiry_date}")
             
             if expiring:
-                msg.append(f"⚠️ **{len(expiring)} Expiring Soon:**")
+                msg.append(f"\n⚠️ **{len(expiring)} Expiring Soon:**")
                 for c in expiring:
                     expiry_date = c.get('expiry_date', '')
                     if hasattr(expiry_date, 'strftime'):
                         expiry_date = expiry_date.strftime("%Y-%m-%d")
-                    msg.append(f"   - {c.get('domain')}: Expires in {c.get('days_until_expiry')} days ({expiry_date})")
+                    msg.append(f"- **{c.get('domain')}**: {c.get('days_until_expiry')} days left ({expiry_date})")
             
             return "\n".join(msg) if msg else "🔒 All certificates are valid."
         
@@ -216,27 +275,28 @@ class ChatInterface:
         expired = [c for c in certs if c.get("status") == "expired"]
         expiring = [c for c in certs if c.get("status") == "expiring_soon"]
         
-        msg = []
+        msg = [f"### Certificate Audit Results"]
         if expired:
-            msg.append(f"🚨 **{len(expired)} Expired Certificate(s):**")
+            msg.append(f"\n🚨 **{len(expired)} Expired:**")
             for c in expired:
-                msg.append(f"   - {c.get('domain')}: Expired on {c.get('expiry_date')}")
+                msg.append(f"- **{c.get('domain')}**: Expired on {c.get('expiry_date')}")
         
         if expiring:
-            msg.append(f"⚠️ **{len(expiring)} Expiring Soon:**")
+            msg.append(f"\n⚠️ **{len(expiring)} Expiring Soon:**")
             for c in expiring:
-                msg.append(f"   - {c.get('domain')}: Expires in {c.get('days_remaining')} days ({c.get('expiry_date')})")
+                msg.append(f"- **{c.get('domain')}**: {c.get('days_remaining')} days left ({c.get('expiry_date')})")
         
         return "\n".join(msg) if msg else "🔒 All certificates are valid."
 
     def _format_idle_response(self, data: Dict) -> str:
         instances = data.get("idle_instances", [])
         if not instances:
-            return "🟢 No idle servers detected. Your infrastructure utilization looks good."
+            return "🟢 **Utilization Check:** No idle servers detected. Your infrastructure is well optimized!"
         
-        msg = [f"🐢 Found **{len(instances)}** idle instance(s):"]
+        msg = [f"### Idle Resource Analysis"]
+        msg.append(f"Detected **{len(instances)}** underutilized instance(s):")
         for inst in instances:
-            msg.append(f"   - {inst.get('id')} ({inst.get('name')}): CPU {inst.get('avg_cpu')}%, Network {inst.get('avg_network')}%")
+            msg.append(f"- **{inst.get('id')}** ({inst.get('name', 'N/A')}): CPU {inst.get('avg_cpu', 0):.1f}%, Network {inst.get('avg_network', 0):.1f}%")
         return "\n".join(msg)
 
     def _format_cost_response(self, data: Dict) -> str:
@@ -254,25 +314,33 @@ class ChatInterface:
     def _format_security_response(self, data: Dict) -> str:
         risks = data.get("risks", [])
         if not risks:
-            return "🛡️ No security risks detected. Your configuration looks secure."
+            risks = data.get("findings", [])
+            
+        if not risks:
+            return "🛡️ **Security Status:** No security risks detected. Your environment is secure!"
         
-        high = [r for r in risks if r.get("severity") == "high"]
-        medium = [r for r in risks if r.get("severity") == "medium"]
-        low = [r for r in risks if r.get("severity") == "low"]
+        high = [r for r in risks if r.get("severity") in ("critical", "high")]
+        medium = [r for r in risks if r.get("severity") in ("medium", "warning")]
+        low = [r for r in risks if r.get("severity") in ("low", "info")]
         
-        msg = [f"🛡️ **Security Audit Results:** {len(risks)} issue(s) found."]
+        msg = [f"### Infrastructure Security Audit"]
+        msg.append(f"Found **{len(risks)}** potential security issues.")
+        
         if high:
-            msg.append(f"\n🔴 **High Severity ({len(high)}):**")
+            msg.append(f"\n🔴 **Critical/High Risk:**")
             for r in high:
-                msg.append(f"   - {r.get('resource')}: {r.get('description')}")
+                res = r.get('resource') or r.get('resource_id', 'Unknown')
+                msg.append(f"- **{res}**: {r.get('detail') or r.get('description')}")
         if medium:
-            msg.append(f"\n🟠 **Medium Severity ({len(medium)}):**")
+            msg.append(f"\n🟠 **Medium Risk:**")
             for r in medium:
-                msg.append(f"   - {r.get('resource')}: {r.get('description')}")
+                res = r.get('resource') or r.get('resource_id', 'Unknown')
+                msg.append(f"- **{res}**: {r.get('detail') or r.get('description')}")
         if low:
-            msg.append(f"\n🟡 **Low Severity ({len(low)}):**")
+            msg.append(f"\n🟡 **Low Risk:**")
             for r in low:
-                msg.append(f"   - {r.get('resource')}: {r.get('description')}")
+                res = r.get('resource') or r.get('resource_id', 'Unknown')
+                msg.append(f"- **{res}**: {r.get('detail') or r.get('description')}")
         
         return "\n".join(msg)
 
@@ -393,7 +461,7 @@ Type 'exit' to quit.
         if not query.strip():
             return "Please enter a valid question."
         
-        intent = self._detect_intent(query)
+        intent, action, resource_id = self._detect_intent(query)
         
         if not intent:
             return "🤔 I'm not sure what you mean. Try asking about certificates, costs, idle servers, security, disk space, or backups. Type 'help' for more info."
@@ -402,7 +470,7 @@ Type 'exit' to quit.
         if intent == "help":
             return self._get_help_message()
         
-        result = self._execute_tool(intent)
+        result = self._execute_tool(intent, action, resource_id)
         return self._format_response(intent, result)
 
     def process_query(self, query: str) -> Dict[str, Any]:
@@ -413,7 +481,7 @@ Type 'exit' to quit.
         if not query.strip():
             return {"summary": "Please enter a valid question.", "data": []}
         
-        intent = self._detect_intent(query)
+        intent, action, resource_id = self._detect_intent(query)
         
         if not intent:
             return {
@@ -426,7 +494,7 @@ Type 'exit' to quit.
             return {"summary": self._get_help_message(), "data": []}
         
         # Execute the tool
-        result = self._execute_tool(intent)
+        result = self._execute_tool(intent, action, resource_id)
         
         # Extract structured data from result
         data_list = []
@@ -448,14 +516,8 @@ Type 'exit' to quit.
                 data_list = [tool_data]  # Single summary object
             elif intent == "backup_manager":
                 data_list = tool_data.get("snapshots", [])
-            elif intent == "rightsizer":
-                data_list = [tool_data]  # Single recommendation object
-            elif intent == "tag_enforcer":
-                data_list = [tool_data]  # Single status object
-            elif intent == "scheduler":
-                data_list = [tool_data]  # Single status object
-            elif intent == "cross_domain":
-                data_list = [tool_data.get("correlation", {})]
+            elif intent == "general_status":
+                data_list = tool_data.get("instances", [])
         
         # Format the text summary
         summary = self._format_response(intent, result)
