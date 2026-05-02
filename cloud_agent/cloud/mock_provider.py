@@ -30,7 +30,7 @@ _MOCK_INSTANCES = [
     {"instance_id": "i-0a1b2c3d4e5f60003", "instance_type": "t3.large",   "state": "running",  "name": "dev-webserver",      "env": "dev"},
     {"instance_id": "i-0a1b2c3d4e5f60004", "instance_type": "t3.medium",  "state": "running",  "name": "staging-api",        "env": "staging"},
     {"instance_id": "i-0a1b2c3d4e5f60005", "instance_type": "c5.xlarge",  "state": "running",  "name": "ml-training-gpu",    "env": "prod"},
-    {"instance_id": "i-0a1b2c3d4e5f60006", "instance_type": "t3.small",   "state": "running",  "name": "test-runner",        "env": "dev"},
+    {"instance_id": "i-0a1b2c3d4e5f60006", "instance_type": "t3.small",   "state": "running",  "name": "legacy-api-prod",    "env": "prod"},
     {"instance_id": "i-0a1b2c3d4e5f60007", "instance_type": "t3.medium",  "state": "stopped",  "name": "legacy-backend",     "env": "dev"},
     {"instance_id": "i-0a1b2c3d4e5f60008", "instance_type": "m5.large",   "state": "running",  "name": "monitoring-stack",   "env": "prod"},
 ]
@@ -89,7 +89,7 @@ _CPU_PROFILES: dict[str, float] = {
     "i-0a1b2c3d4e5f60003": 2.1,    # dev — idle!
     "i-0a1b2c3d4e5f60004": 8.0,    # staging — low
     "i-0a1b2c3d4e5f60005": 88.0,   # ML training — hot
-    "i-0a1b2c3d4e5f60006": 1.5,    # test runner — idle!
+    "i-0a1b2c3d4e5f60006": 1.5,    # legacy api — idle!
     "i-0a1b2c3d4e5f60008": 35.0,   # monitoring — moderate
 }
 
@@ -127,7 +127,9 @@ class MockProvider(CloudProvider):
                 tags.append({"Key": "Environment", "Value": m["env"]})
                 tags.append({"Key": "Owner", "Value": "platform-team"})
                 tags.append({"Key": "Project", "Value": "cloud-agent"})
-            # dev instances missing Environment, Owner, Project tags → tag_enforcer should catch
+            else:
+                tags.append({"Key": "Environment", "Value": m["env"]})
+            # dev instances missing Owner, Project tags → tag_enforcer should catch
 
             existing = self._applied_tags.get(iid, [])
             existing_keys = {t["Key"] for t in existing}

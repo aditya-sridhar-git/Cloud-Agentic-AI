@@ -12,9 +12,10 @@ from typing import Any
 
 import pytz
 
-from cloud_agent.agent.baseagent import Action
+from cloud_agent.agent.baseagent import Action, Observation
 from cloud_agent.tools.base_tool import BaseTool, register_tool
 from cloud_agent.utils.logger import get_logger
+from cloud_agent.monitor.collector import MetricsCollector
 
 logger = get_logger(__name__)
 
@@ -51,6 +52,9 @@ class SchedulerTool(BaseTool):
         action_type = action.action_type  # "stop" or "start"
 
         is_bh = _is_business_hours(bh_cfg)
+
+        if action_type == "check":
+            return self._check_scheduler_status()
 
         # --- STOP path (called outside business hours) ---
         if action_type == "stop":
@@ -102,3 +106,23 @@ class SchedulerTool(BaseTool):
                 "status": "unknown_action",
                 "action_type": action_type,
             }
+
+    def _check_scheduler_status(self) -> dict[str, Any]:
+        """Check all dev instances and report what actions the scheduler would take."""
+        collector = MetricsCollector(self.provider, self.config)
+        obs = collector.collect()
+        
+        from cloud_agent.monitor.evaluator import ThresholdEvaluator
+        evaluator = ThresholdEvaluator(self.config)
+        actions = evaluator._check_scheduler(obs)
+        
+        status_msg = "All instances are correctly scheduled."
+        if actions:
+            status_msg = f"Found {len(actions)} instances needing scheduler actions."
+            
+        return {
+            "tool": self.tool_name,
+            "status": "check_completed",
+            "reason": status_msg,
+            "pending_actions": [{"instance_id": a.resource_id, "action": a.action_type, "reason": a.reason} for a in actions]
+        }

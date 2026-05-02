@@ -120,7 +120,21 @@ class ReasoningEngine:
             logger.exception("LLM call failed — falling back to rules")
             return self._rule_based_analysis(observation, config)
 
-        return self._parse_plan(data)
+        plan = self._parse_plan(data)
+        
+        # Add deterministic checks that the LLM cannot do easily (e.g., time-based checks)
+        evaluator = ThresholdEvaluator(config)
+        scheduler_actions = evaluator._check_scheduler(observation)
+        
+        if scheduler_actions:
+            # Filter out any duplicate actions if the LLM hallucinated them
+            existing = {(a.tool_name, a.resource_id) for a in plan.actions}
+            for sa in scheduler_actions:
+                if (sa.tool_name, sa.resource_id) not in existing:
+                    plan.actions.append(sa)
+            plan.summary += f" (plus {len(scheduler_actions)} scheduler actions)"
+
+        return plan
 
     # ------------------------------------------------------------------
     # Rule-based fallback — delegates to ThresholdEvaluator

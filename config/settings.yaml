@@ -6,6 +6,7 @@ agent:
   loop_interval_seconds: 3600        # How often the agent runs (5 min)
   dry_run: true                     # true = plan only, false = execute actions
   require_approval: false           # If true, pause before executing actions
+  multi_agent_consensus: true       # Use multi-agent debate for risky actions
 
 provider:
   name: aws                         # Cloud provider (aws | gcp | azure | mock)

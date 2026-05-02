@@ -29,6 +29,7 @@ class ThresholdEvaluator:
         actions.extend(self._check_orphaned_disks(observation))
         actions.extend(self._check_cost_spike(observation))
         actions.extend(self._check_tags(observation))
+        actions.extend(self._check_scheduler(observation))
         return actions
 
     # ------------------------------------------------------------------
@@ -143,6 +144,48 @@ class ThresholdEvaluator:
                         action_type="tag",
                         parameters={"missing_tags": list(missing)},
                         reason=f"Missing: {', '.join(sorted(missing))}",
+                    )
+                )
+        return results
+
+    def _check_scheduler(self, obs: Observation) -> list[Action]:
+        cfg = self._tools_cfg.get("scheduler", {})
+        if not cfg.get("enabled"):
+            return []
+        
+        target_tags = {
+            (t["Key"], t["Value"]) for t in cfg.get("target_tags", [])
+        }
+        if not target_tags:
+            return []
+
+        from cloud_agent.tools.scheduler import _is_business_hours
+        is_bh = _is_business_hours(cfg.get("business_hours", {}))
+        
+        results: list[Action] = []
+        for inst in obs.instances:
+            inst_tags = {(t["Key"], t["Value"]) for t in inst.get("tags", [])}
+            # Only apply to instances that match all target tags
+            if not target_tags.issubset(inst_tags):
+                continue
+                
+            state = inst.get("state")
+            if is_bh and state == "stopped":
+                results.append(
+                    Action(
+                        tool_name="scheduler",
+                        resource_id=inst["instance_id"],
+                        action_type="start",
+                        reason="Business hours resumed — starting instance",
+                    )
+                )
+            elif not is_bh and state == "running":
+                results.append(
+                    Action(
+                        tool_name="scheduler",
+                        resource_id=inst["instance_id"],
+                        action_type="stop",
+                        reason="Outside business hours — stopping instance",
                     )
                 )
         return results

@@ -16,6 +16,9 @@ from cloud_agent.tools.security_auditor import SecurityAuditorTool
 from cloud_agent.tools.disk_cleanup import DiskCleanupTool
 from cloud_agent.tools.backup_manager import BackupManagerTool
 from cloud_agent.tools.rightsizer import RightsizeTool
+from cloud_agent.tools.scheduler import SchedulerTool
+from cloud_agent.tools.cross_domain import CrossDomainCorrelationTool
+from cloud_agent.tools.tag_enforcer import TagEnforcerTool
 from cloud_agent.cloud.provider import CloudProvider
 from cloud_agent.utils.logger import get_logger
 from cloud_agent.utils.config import load_config
@@ -38,6 +41,9 @@ class ChatInterface:
             "disk_cleanup": DiskCleanupTool(provider, self.config),
             "backup_manager": BackupManagerTool(provider, self.config),
             "rightsizer": RightsizeTool(provider, self.config),
+            "scheduler": SchedulerTool(provider, self.config),
+            "cross_domain": CrossDomainCorrelationTool(provider, self.config),
+            "tag_enforcer": TagEnforcerTool(provider, self.config),
         }
         self.intent_map = self._build_intent_map()
 
@@ -73,6 +79,17 @@ class ChatInterface:
             "rightsizer": [
                 "rightsize", "resize", "downgrade", "upsize", "instance type",
                 "smaller instance", "over-provisioned", "right-size", "rightsizing"
+            ],
+            "tag_enforcer": [
+                "tag", "tags", "missing tags", "enforce tags", "label", "labels"
+            ],
+            "scheduler": [
+                "schedule", "business hours", "after hours", "weekend",
+                "start dev", "stop dev", "non-production"
+            ],
+            "cross_domain": [
+                "correlate", "cross domain", "correlation", "root cause", 
+                "investigate anomaly", "connect the dots", "cross-domain"
             ]
         }
 
@@ -153,6 +170,12 @@ class ChatInterface:
             return self._format_backup_response(data)
         elif intent == "rightsizer":
             return self._format_rightsizer_response(data)
+        elif intent == "tag_enforcer":
+            return self._format_tag_enforcer_response(data)
+        elif intent == "scheduler":
+            return self._format_scheduler_response(data)
+        elif intent == "cross_domain":
+            return self._format_cross_domain_response(data)
         elif intent == "help":
             return self._get_help_message()
         
@@ -278,6 +301,72 @@ class ChatInterface:
             return f"📐 **Instance Resized:** {instance_id} changed from `{current}` → `{recommended}`."
         return f"📐 **Rightsizing Recommendation:** {instance_id} — consider downsizing from `{current}` → `{recommended}` to reduce cost."
 
+    def _format_scheduler_response(self, data: Dict) -> str:
+        status = data.get("status", "unknown")
+        if status == "check_completed":
+            reason = data.get("reason", "")
+            pending = data.get("pending_actions", [])
+            if not pending:
+                return f"⏰ **Scheduler Check:** {reason}"
+            msg = [f"⏰ **Scheduler Check:** {reason}"]
+            for act in pending:
+                msg.append(f"   - {act['instance_id']}: Will `{act['action']}` ({act['reason']})")
+            return "\n".join(msg)
+            
+        instance_id = data.get("instance_id", "unknown")
+        reason = data.get("reason", "")
+        if status == "skipped":
+            return f"⏰ **Scheduler (Skipped):** {instance_id} — {reason}."
+        action_type = data.get("action_type", data.get("action", ""))
+        if status == "stopping" or action_type == "stop":
+            return f"⏰ **Scheduler (Stop):** {instance_id} — outside business hours."
+        elif status == "starting" or action_type == "start":
+            return f"⏰ **Scheduler (Start):** {instance_id} — business hours resumed."
+        return f"⏰ **Scheduler:** Action on {instance_id} completed."
+
+    def _format_tag_enforcer_response(self, data: Dict) -> str:
+        status = data.get("status", "unknown")
+        if status == "check_completed":
+            reason = data.get("reason", "")
+            pending = data.get("pending_actions", [])
+            if not pending:
+                return f"🏷️ **Tag Enforcer:** {reason}"
+            msg = [f"🏷️ **Tag Enforcer:** {reason}"]
+            for act in pending:
+                tags = act.get("missing_tags", [])
+                msg.append(f"   - {act['instance_id']}: Missing {len(tags)} tag(s) -> {', '.join(tags)}")
+            return "\n".join(msg)
+            
+        return f"🏷️ **Tag Enforcer:** Action completed."
+
+    def _format_cross_domain_response(self, data: Dict) -> str:
+        correlation = data.get("correlation", {})
+        found = correlation.get("correlation_found", False)
+        summary = correlation.get("summary", "Analysis complete.")
+        
+        msg = [f"🔗 **Cross-Domain Analysis:** {summary}"]
+        
+        if found:
+            root_cause = correlation.get("root_cause", "")
+            if root_cause:
+                msg.append(f"   - **Root Cause:** {root_cause}")
+                
+            actors = correlation.get("actors", [])
+            if actors:
+                msg.append(f"   - **Actors:** {', '.join(actors)}")
+                
+            recs = correlation.get("recommendations", [])
+            if recs:
+                msg.append("   - **Recommendations:**")
+                for r in recs:
+                    msg.append(f"     * {r}")
+                    
+            explanation = correlation.get("explanation", "")
+            if explanation:
+                msg.append(f"\n   *Explanation:* {explanation}")
+        
+        return "\n".join(msg)
+
     def _get_help_message(self) -> str:
         return """
 👋 **Hello! I'm your Cloud Agent Assistant.**
@@ -290,6 +379,9 @@ I can help you manage your cloud infrastructure. Try asking me:
 *   "Clean up disk space on my instances."
 *   "Check the status of my backups."
 *   "Rightsize my instances / downgrade over-provisioned servers."
+*   "Check for missing tags on my instances."
+*   "Run the scheduler for dev instances outside business hours."
+*   "Correlate events and investigate recent anomalies."
 
 Type 'exit' to quit.
         """
@@ -358,6 +450,12 @@ Type 'exit' to quit.
                 data_list = tool_data.get("snapshots", [])
             elif intent == "rightsizer":
                 data_list = [tool_data]  # Single recommendation object
+            elif intent == "tag_enforcer":
+                data_list = [tool_data]  # Single status object
+            elif intent == "scheduler":
+                data_list = [tool_data]  # Single status object
+            elif intent == "cross_domain":
+                data_list = [tool_data.get("correlation", {})]
         
         # Format the text summary
         summary = self._format_response(intent, result)

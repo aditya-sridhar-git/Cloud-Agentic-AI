@@ -90,7 +90,29 @@ class CloudOpsAgent(BaseAgent):
 
     def think(self, observation: Observation) -> Plan:
         plan = self._reasoning.analyse(observation, self.config)
-        return self._planner.refine(plan)
+        refined_plan = self._planner.refine(plan)
+        
+        # Groundbreaking: Adversarial Multi-Agent Consensus
+        if self.config.get("agent", {}).get("multi_agent_consensus", False):
+            from cloud_agent.agent.consensus import ConsensusEngine
+            consensus = ConsensusEngine(self.config)
+            
+            approved_actions = []
+            for action in refined_plan.actions:
+                result = consensus.validate_action(action, observation)
+                if result and result.status in ("APPROVED", "MODIFIED"):
+                    approved_actions.append(action)
+                else:
+                    reason = result.judge_reasoning if result else "Skipped"
+                    logger.warning(
+                        "[bold red]❌ ACTION REJECTED BY CONSENSUS ENGINE:[/bold red] %s on %s\n"
+                        "    [dim]Judge's Reason: %s[/dim]", 
+                        action.action_type, action.resource_id, reason
+                    )
+            
+            refined_plan.actions = approved_actions
+            
+        return refined_plan
 
     def act(self, plan: Plan) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
