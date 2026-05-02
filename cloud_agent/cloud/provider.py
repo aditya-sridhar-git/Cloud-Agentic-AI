@@ -90,6 +90,13 @@ class CloudProvider(abc.ABC):
     def get_cost_baseline(self, days: int = 7) -> float:
         """Return average daily cost over the last N days (baseline)."""
 
+    @abc.abstractmethod
+    def get_cost_by_service(self, days: int = 1) -> list[dict]:
+        """Return cost breakdown by service for the last N days.
+
+        Each item: {"service": str, "amount": float, "currency": str}
+        """
+
     # ------------------------------------------------------------------
     # SSM / Diagnosis
     # ------------------------------------------------------------------

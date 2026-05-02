@@ -30,7 +30,13 @@ class AWSProvider(CloudProvider):
     """Concrete AWS implementation of :class:`CloudProvider`."""
 
     def __init__(self, region: str | None = None) -> None:
-        self._region = region or os.getenv("AWS_REGION", "us-east-1")
+        # Prefer explicit arg, then AWS_DEFAULT_REGION (standard boto3 env var), then AWS_REGION
+        self._region = (
+            region
+            or os.getenv("AWS_DEFAULT_REGION")
+            or os.getenv("AWS_REGION")
+            or "us-east-1"
+        )
         self._ec2 = boto3.client("ec2", region_name=self._region, config=_RETRY_CONFIG)
         self._cloudwatch = boto3.client("cloudwatch", region_name=self._region, config=_RETRY_CONFIG)
         self._ce = boto3.client("ce", region_name=self._region, config=_RETRY_CONFIG)
@@ -123,7 +129,7 @@ class AWSProvider(CloudProvider):
     def get_cpu_utilization_days(self, instance_id: str, days: int = 7) -> float:
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
-        return self._get_avg_cpu(instance_id, 86400, start, end)
+        return self._get_avg_cpu(instance_id, self._region, 86400, start, end)
 
     # ------------------------------------------------------------------
     # Volumes
@@ -208,6 +214,36 @@ class AWSProvider(CloudProvider):
 
     def get_cost_baseline(self, days: int = 7) -> float:
         return self.get_daily_cost(days=days)
+
+    def get_cost_by_service(self, days: int = 1) -> list[dict]:
+        """Return cost breakdown grouped by AWS service using Cost Explorer."""
+        end = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        start = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+        try:
+            resp = self._ce.get_cost_and_usage(
+                TimePeriod={"Start": start, "End": end},
+                Granularity="DAILY",
+                Metrics=["UnblendedCost"],
+                GroupBy=[{"Type": "DIMENSION", "Key": "SERVICE"}],
+            )
+            service_totals: dict[str, float] = {}
+            currency = "USD"
+            for result in resp.get("ResultsByTime", []):
+                for group in result.get("Groups", []):
+                    svc = group["Keys"][0]
+                    amount = float(group["Metrics"]["UnblendedCost"]["Amount"])
+                    currency = group["Metrics"]["UnblendedCost"]["Unit"]
+                    service_totals[svc] = service_totals.get(svc, 0.0) + amount
+            # Average over days requested
+            return [
+                {"service": svc, "amount": round(total / max(days, 1), 2), "currency": currency}
+                for svc, total in sorted(service_totals.items(), key=lambda x: -x[1])
+                if total > 0.001
+            ]
+        except Exception as e:
+            logger.warning("Could not fetch per-service costs: %s", e)
+            return []
+
 
     # ------------------------------------------------------------------
     # SSM (Systems Manager) — for diagnosis
@@ -395,3 +431,65 @@ class AWSProvider(CloudProvider):
                 ],
             })
         return events
+
+    # ------------------------------------------------------------------
+    # Snapshots / Backups
+    # ------------------------------------------------------------------
+
+    def list_snapshots(self, creator: str | None = None) -> list[dict[str, Any]]:
+        """Return EBS snapshots owned by this account, optionally filtered by creator tag."""
+        filters = [{"Name": "owner-id", "Values": ["self"]}]
+        if creator:
+            filters.append({"Name": "tag:CreatedBy", "Values": [creator]})
+        try:
+            resp = self._ec2.describe_snapshots(Filters=filters)
+            snapshots = []
+            for s in resp.get("Snapshots", []):
+                snapshots.append({
+                    "snapshot_id": s["SnapshotId"],
+                    "volume_id": s.get("VolumeId", ""),
+                    "start_time": str(s.get("StartTime", "")),
+                    "state": s.get("State", ""),
+                    "tags": s.get("Tags", []),
+                })
+            return snapshots
+        except Exception as e:
+            logger.warning("Could not list snapshots: %s", e)
+            return []
+
+    def delete_snapshot(self, snapshot_id: str) -> dict[str, Any]:
+        """Delete an EBS snapshot."""
+        logger.info("Deleting snapshot %s", snapshot_id)
+        self._ec2.delete_snapshot(SnapshotId=snapshot_id)
+        return {"snapshot_id": snapshot_id, "status": "deleted"}
+
+    # ------------------------------------------------------------------
+    # Certificates (ACM)
+    # ------------------------------------------------------------------
+
+    def list_certificates(self) -> list[dict[str, Any]]:
+        """Return SSL/TLS certificates from ACM."""
+        try:
+            acm = boto3.client("acm", region_name=self._region, config=_RETRY_CONFIG)
+            resp = acm.list_certificates(CertificateStatuses=["ISSUED", "EXPIRED", "PENDING_VALIDATION"])
+            certs = []
+            for c in resp.get("CertificateSummaryList", []):
+                arn = c["CertificateArn"]
+                try:
+                    detail = acm.describe_certificate(CertificateArn=arn)["Certificate"]
+                    certs.append({
+                        "arn": arn,
+                        "domain_name": detail.get("DomainName", ""),
+                        "issuer": detail.get("Issuer", "Unknown"),
+                        "not_after": str(detail.get("NotAfter", "")),
+                        "type": detail.get("Type", ""),
+                        "auto_renewal": bool(detail.get("RenewalEligibility") == "ELIGIBLE"),
+                        "in_use": bool(detail.get("InUseBy")),
+                        "key_algorithm": detail.get("KeyAlgorithm", ""),
+                    })
+                except Exception:
+                    continue
+            return certs
+        except Exception as e:
+            logger.warning("Could not list certificates: %s", e)
+            return []

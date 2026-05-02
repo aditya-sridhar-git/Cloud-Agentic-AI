@@ -47,13 +47,31 @@ class MetricsCollector:
         try:
             cost_cfg = self._config.get("tools", {}).get("cost_monitor", {})
             baseline_days = cost_cfg.get("baseline_window_days", 7)
+            current_daily = self._provider.get_daily_cost(days=1)
+            baseline_daily = self._provider.get_cost_baseline(days=baseline_days)
+
+            # Per-service breakdown for the last day
+            try:
+                services = self._provider.get_cost_by_service(days=1)
+            except Exception:
+                services = []
+
+            # Compute spike percentage
+            delta_pct = 0.0
+            if baseline_daily > 0:
+                delta_pct = round(((current_daily - baseline_daily) / baseline_daily) * 100.0, 1)
+
             costs = {
-                "current_daily": self._provider.get_daily_cost(days=1),
-                "baseline_daily": self._provider.get_cost_baseline(days=baseline_days),
+                "current_daily": current_daily,
+                "baseline_daily": baseline_daily,
+                "delta_pct": delta_pct,
+                "currency": "USD",
+                "services": services,
             }
         except Exception:
             logger.warning("Cost data unavailable")
             costs = {}
+
 
         return Observation(
             instances=instances,

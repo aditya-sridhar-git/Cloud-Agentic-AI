@@ -243,6 +243,26 @@ class MockProvider(CloudProvider):
     def get_cost_baseline(self, days: int = 7) -> float:
         return round(random.uniform(90.0, 110.0), 2)
 
+    def get_cost_by_service(self, days: int = 1) -> list[dict]:
+        """Return mock per-service cost breakdown."""
+        if self._scenario == "cost_spike":
+            # Simulate EC2 spike
+            return [
+                {"service": "Amazon EC2",         "amount": round(random.uniform(120.0, 150.0), 2), "currency": "USD"},
+                {"service": "Amazon S3",           "amount": round(random.uniform(8.0, 12.0), 2),   "currency": "USD"},
+                {"service": "Amazon RDS",          "amount": round(random.uniform(25.0, 35.0), 2),  "currency": "USD"},
+                {"service": "AWS Lambda",          "amount": round(random.uniform(1.0, 3.0), 2),    "currency": "USD"},
+                {"service": "Amazon CloudWatch",   "amount": round(random.uniform(2.0, 5.0), 2),    "currency": "USD"},
+            ]
+        return [
+            {"service": "Amazon EC2",         "amount": round(random.uniform(50.0, 65.0), 2),  "currency": "USD"},
+            {"service": "Amazon S3",          "amount": round(random.uniform(8.0, 12.0), 2),   "currency": "USD"},
+            {"service": "Amazon RDS",         "amount": round(random.uniform(20.0, 30.0), 2),  "currency": "USD"},
+            {"service": "AWS Lambda",         "amount": round(random.uniform(1.0, 3.0), 2),    "currency": "USD"},
+            {"service": "Amazon CloudWatch",  "amount": round(random.uniform(2.0, 5.0), 2),    "currency": "USD"},
+        ]
+
+
     # ------------------------------------------------------------------
     # SSM / Diagnosis
     # ------------------------------------------------------------------

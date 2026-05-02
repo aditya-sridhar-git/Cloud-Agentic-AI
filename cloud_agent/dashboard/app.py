@@ -35,6 +35,7 @@ app = FastAPI(title="Cloud Agentic AI — Dashboard")
 _agent: CloudOpsAgent | None = None
 _connected_clients: list[WebSocket] = []
 _current_plan: Plan | None = None
+_main_loop = None
 _latest_state: dict[str, Any] = {
     "status": "idle",
     "cycle_count": 0,

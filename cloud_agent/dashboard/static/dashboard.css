@@ -1947,3 +1947,145 @@ body {
         opacity: 1;
     }
 }
+
+/* ── COST BREAKDOWN PANEL ─────────────────────────────────────── */
+.panel-cost {
+    grid-column: span 3;
+    animation: fadeUp 0.5s var(--ease-out-expo) 0.24s both;
+}
+
+.cost-summary {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 0.85rem 1.4rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-inset);
+}
+
+.cost-summary.cost-spike   { border-left: 3px solid var(--red);   }
+.cost-summary.cost-elevated{ border-left: 3px solid var(--amber); }
+.cost-summary.cost-normal  { border-left: 3px solid var(--green); }
+
+.cost-total {
+    font-family: var(--f-mono);
+    font-size: 1.6rem;
+    font-weight: 500;
+    color: var(--text-1);
+    letter-spacing: -0.04em;
+}
+
+.cost-total small {
+    font-size: 0.65rem;
+    color: var(--text-3);
+    margin-left: 0.25rem;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+
+.cost-baseline {
+    font-size: 0.72rem;
+    color: var(--text-2);
+}
+
+.cost-delta {
+    font-family: var(--f-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.18rem 0.5rem;
+    border-radius: var(--r-sm);
+}
+
+.cost-delta.delta-up   { color: var(--red);   background: var(--red-soft);   border: 1px solid var(--red-rim); }
+.cost-delta.delta-down { color: var(--green); background: var(--green-soft); border: 1px solid var(--green-rim); }
+
+.cost-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+
+.cost-table thead th {
+    text-align: left;
+    padding: 0.5rem 1.4rem;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-3);
+    font-family: var(--f-display);
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-inset);
+}
+
+.cost-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+}
+
+.cost-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.cost-table tbody tr.cost-row-top td {
+    color: var(--amber);
+}
+
+.cost-table td {
+    padding: 0.55rem 1.4rem;
+    color: var(--text-1);
+}
+
+.cost-svc  { font-weight: 500; }
+.cost-amt  { font-family: var(--f-mono); color: var(--green); }
+.cost-share{ font-family: var(--f-mono); color: var(--text-2); font-size: 0.72rem; }
+
+.cost-bar-cell { width: 30%; }
+
+.cost-bar-track {
+    height: 4px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.cost-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--blue));
+    border-radius: 99px;
+    transition: width 1s var(--ease-out-expo);
+}
+
+.cost-fix-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1.4rem;
+    background: rgba(245, 166, 35, 0.08);
+    border-top: 1px solid var(--amber-rim);
+}
+
+.cost-fix-label {
+    font-size: 0.75rem;
+    color: var(--amber);
+    font-weight: 500;
+}
+
+.cost-approve-btn {
+    padding: 0.35rem 0.9rem;
+    background: var(--amber);
+    color: #000;
+    border: none;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.cost-approve-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(245,166,35,0.35);
+}

@@ -15,6 +15,7 @@ from cloud_agent.tools.cost_monitor import CostMonitorTool
 from cloud_agent.tools.security_auditor import SecurityAuditorTool
 from cloud_agent.tools.disk_cleanup import DiskCleanupTool
 from cloud_agent.tools.backup_manager import BackupManagerTool
+from cloud_agent.tools.rightsizer import RightsizeTool
 from cloud_agent.cloud.provider import CloudProvider
 from cloud_agent.utils.logger import get_logger
 from cloud_agent.utils.config import load_config
@@ -36,6 +37,7 @@ class ChatInterface:
             "security_audit": SecurityAuditorTool(provider, self.config),
             "disk_cleanup": DiskCleanupTool(provider, self.config),
             "backup_manager": BackupManagerTool(provider, self.config),
+            "rightsizer": RightsizeTool(provider, self.config),
         }
         self.intent_map = self._build_intent_map()
 
@@ -67,6 +69,10 @@ class ChatInterface:
             "backup_manager": [
                 "backup", "snapshot", "restore", "recovery", "save", 
                 "copy", "archive"
+            ],
+            "rightsizer": [
+                "rightsize", "resize", "downgrade", "upsize", "instance type",
+                "smaller instance", "over-provisioned", "right-size", "rightsizing"
             ]
         }
 
@@ -145,6 +151,8 @@ class ChatInterface:
             return self._format_disk_response(data)
         elif intent == "backup_manager":
             return self._format_backup_response(data)
+        elif intent == "rightsizer":
+            return self._format_rightsizer_response(data)
         elif intent == "help":
             return self._get_help_message()
         
@@ -261,6 +269,15 @@ class ChatInterface:
             msg += f"\n   - Managed {len(data['snapshots'])} snapshot(s)."
         return msg
 
+    def _format_rightsizer_response(self, data: Dict) -> str:
+        instance_id = data.get("instance_id", "unknown")
+        current = data.get("current_type", "unknown")
+        recommended = data.get("recommended_type", data.get("new_type", current))
+        status = data.get("status", "recommendation")
+        if status == "resized":
+            return f"📐 **Instance Resized:** {instance_id} changed from `{current}` → `{recommended}`."
+        return f"📐 **Rightsizing Recommendation:** {instance_id} — consider downsizing from `{current}` → `{recommended}` to reduce cost."
+
     def _get_help_message(self) -> str:
         return """
 👋 **Hello! I'm your Cloud Agent Assistant.**
@@ -272,6 +289,7 @@ I can help you manage your cloud infrastructure. Try asking me:
 *   "Run a security audit on my resources."
 *   "Clean up disk space on my instances."
 *   "Check the status of my backups."
+*   "Rightsize my instances / downgrade over-provisioned servers."
 
 Type 'exit' to quit.
         """
@@ -338,6 +356,8 @@ Type 'exit' to quit.
                 data_list = [tool_data]  # Single summary object
             elif intent == "backup_manager":
                 data_list = tool_data.get("snapshots", [])
+            elif intent == "rightsizer":
+                data_list = [tool_data]  # Single recommendation object
         
         # Format the text summary
         summary = self._format_response(intent, result)

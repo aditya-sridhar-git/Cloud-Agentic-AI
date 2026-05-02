@@ -259,11 +259,73 @@ function render() {
     try { renderKPIs(); } catch (e) { console.error(e); }
     try { renderReasoning(); } catch (e) { console.error(e); }
     try { renderInstances(); } catch (e) { console.error(e); }
+    try { renderCostBreakdown(); } catch (e) { console.error(e); }
     try { renderActions(); } catch (e) { console.error(e); }
     try { renderSecurity(); } catch (e) { console.error(e); }
     try { renderDiagnosis(); } catch (e) { console.error(e); }
     try { renderThoughts(); } catch (e) { console.error(e); }
 }
+
+// ============================================================
+// COST BREAKDOWN PANEL
+// ============================================================
+
+function renderCostBreakdown() {
+    const panel = document.getElementById('cost-breakdown-panel');
+    if (!panel) return;
+    const costs = state.costs || {};
+    const services = costs.services || [];
+    const daily    = costs.current_daily  ?? 0;
+    const baseline = costs.baseline_daily ?? 0;
+    const deltaPct = costs.delta_pct ?? 0;
+
+    if (!services.length) {
+        panel.innerHTML = `<div class="panel-empty" style="padding:2rem 1rem"><span>No cost data available. Run a cycle to collect costs.</span></div>`;
+        return;
+    }
+
+    const spikeClass = deltaPct > 20 ? 'cost-spike' : deltaPct > 0 ? 'cost-elevated' : 'cost-normal';
+    const totalFromServices = services.reduce((s, x) => s + x.amount, 0);
+
+    let html = `<div class="cost-summary ${spikeClass}">
+        <span class="cost-total">$${daily.toFixed(2)} <small>today</small></span>
+        <span class="cost-baseline">Baseline $${baseline.toFixed(2)}</span>
+        <span class="cost-delta ${deltaPct > 0 ? 'delta-up' : 'delta-down'}">${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(1)}%</span>
+    </div>
+    <table class="cost-table">
+        <thead><tr><th>Service</th><th>Today</th><th>Share</th><th>Bar</th></tr></thead>
+        <tbody>`;
+
+    services.slice(0, 10).forEach(svc => {
+        const share = totalFromServices > 0 ? ((svc.amount / totalFromServices) * 100).toFixed(1) : '0.0';
+        const barW  = Math.min((svc.amount / (totalFromServices || 1)) * 100, 100);
+        const rowCls = svc.amount === Math.max(...services.map(s => s.amount)) ? 'cost-row-top' : '';
+        html += `<tr class="${rowCls}">
+            <td class="cost-svc">${esc(svc.service)}</td>
+            <td class="cost-amt">$${svc.amount.toFixed(2)}</td>
+            <td class="cost-share">${share}%</td>
+            <td class="cost-bar-cell"><div class="cost-bar-track"><div class="cost-bar-fill" style="width:${barW.toFixed(1)}%"></div></div></td>
+        </tr>`;
+    });
+
+    html += `</tbody></table>`;
+
+    // Suggest a fix if any cost action is pending
+    const costActions = (state.actions || []).filter(a => a.tool_name === 'cost_monitor' && a.status === 'pending_approval');
+    if (costActions.length > 0) {
+        costActions.forEach(a => {
+            html += `<div class="cost-fix-banner">
+                <div class="cost-fix-label">Suggested Fix: ${esc(a.action_type.toUpperCase())} — ${esc(a.reason)}</div>
+                <button class="approve-btn cost-approve-btn" onclick="approveAction('cost_monitor','${esc(a.resource_id)}','${esc(a.action_type)}', this)">
+                    Approve &amp; Apply
+                </button>
+            </div>`;
+        });
+    }
+
+    panel.innerHTML = html;
+}
+
 
 function renderStatus() {
     const dot = document.getElementById('sb-status-dot');
@@ -371,15 +433,20 @@ function renderKPIs() {
     const orphaned = vols.filter(v => v.state === 'available').length;
     const critical = secs.filter(f => f.severity === 'critical').length;
 
-    const daily = costs.daily ?? costs.daily_cost ?? 0;
-    const baseline = costs.baseline ?? costs.baseline_cost ?? 0;
+    // FIX: collector stores keys as current_daily / baseline_daily
+    const daily    = costs.current_daily  ?? costs.daily    ?? costs.daily_cost    ?? 0;
+    const baseline = costs.baseline_daily ?? costs.baseline ?? costs.baseline_cost ?? 0;
+    const deltaPct = costs.delta_pct ?? 0;
 
     setText('kpi-instances', insts.length);
     setText('kpi-running', `${running} running`);
     setText('kpi-volumes', vols.length);
     setText('kpi-orphaned', `${orphaned} orphaned`);
     setText('kpi-cost', `$${Number(daily).toFixed(0)}`);
-    setText('kpi-baseline', baseline ? `Baseline $${Number(baseline).toFixed(0)}` : 'Baseline: —');
+    const baselineLabel = baseline
+        ? `Baseline $${Number(baseline).toFixed(0)} (${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(1)}%)`
+        : 'Baseline: —';
+    setText('kpi-baseline', baselineLabel);
     setText('kpi-findings', secs.length);
     setText('kpi-critical', `${critical} critical`);
     setText('kpi-actions', acts.length);
