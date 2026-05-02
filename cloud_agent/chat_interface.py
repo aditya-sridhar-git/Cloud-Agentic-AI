@@ -209,20 +209,25 @@ class ChatInterface:
         vols = data.get("total_volumes", 0)
         orphaned = data.get("total_orphaned", 0)
 
-        msg = [f"🖥️ **Infrastructure Overview:**"]
-        msg.append(f"   • **{total}** total instance(s): {running} running, {stopped} stopped")
-        msg.append(f"   • **{vols}** volume(s): {orphaned} orphaned/unattached")
+        msg = [f"### Infrastructure Overview"]
+        msg.append(f"Currently monitoring **{total}** instances ({running} running, {stopped} stopped) and **{vols}** volumes ({orphaned} orphaned).")
 
         instances = data.get("instances", [])
         if instances:
-            msg.append(f"\n📋 **Instance Details:**")
+            msg.append(f"\n**Instance Details:**")
             for inst in instances[:10]:
                 state_icon = "🟢" if inst.get("state") == "running" else "🔴"
                 cpu = inst.get("cpu_percent", inst.get("cpu", "N/A"))
-                name = inst.get("name", inst.get("instance_id", "unknown"))
-                msg.append(f"   {state_icon} {name} ({inst.get('instance_type', '—')}) — {inst.get('state', '—')}, CPU: {cpu}%")
+                if isinstance(cpu, (int, float)):
+                    cpu_str = f"{cpu:.1f}%"
+                else:
+                    cpu_str = str(cpu)
+                
+                name = inst.get("name") or inst.get("instance_id", "unknown")
+                msg.append(f"- {state_icon} **{name}**: {inst.get('state', '—')} (CPU: {cpu_str})")
+            
             if len(instances) > 10:
-                msg.append(f"   ... and {len(instances) - 10} more")
+                msg.append(f"- *... and {len(instances) - 10} more*")
 
         return "\n".join(msg)
 
@@ -236,24 +241,25 @@ class ChatInterface:
             expiring = data.get("expiring_soon", [])
             
             if not expired and not expiring:
-                return "🔒 No certificate issues found. All monitored certificates are healthy."
+                return "🔒 **Security Status:** No certificate issues found. All monitored certificates are healthy."
             
-            msg = []
+            msg = [f"### Certificate Audit Results"]
+            
             if expired:
-                msg.append(f"🚨 **{len(expired)} Expired Certificate(s):**")
+                msg.append(f"\n🚨 **{len(expired)} Expired:**")
                 for c in expired:
                     expiry_date = c.get('expiry_date', '')
                     if hasattr(expiry_date, 'strftime'):
                         expiry_date = expiry_date.strftime("%Y-%m-%d")
-                    msg.append(f"   - {c.get('domain')}: Expired on {expiry_date}")
+                    msg.append(f"- **{c.get('domain')}**: Expired on {expiry_date}")
             
             if expiring:
-                msg.append(f"⚠️ **{len(expiring)} Expiring Soon:**")
+                msg.append(f"\n⚠️ **{len(expiring)} Expiring Soon:**")
                 for c in expiring:
                     expiry_date = c.get('expiry_date', '')
                     if hasattr(expiry_date, 'strftime'):
                         expiry_date = expiry_date.strftime("%Y-%m-%d")
-                    msg.append(f"   - {c.get('domain')}: Expires in {c.get('days_until_expiry')} days ({expiry_date})")
+                    msg.append(f"- **{c.get('domain')}**: {c.get('days_until_expiry')} days left ({expiry_date})")
             
             return "\n".join(msg) if msg else "🔒 All certificates are valid."
         
@@ -261,27 +267,28 @@ class ChatInterface:
         expired = [c for c in certs if c.get("status") == "expired"]
         expiring = [c for c in certs if c.get("status") == "expiring_soon"]
         
-        msg = []
+        msg = [f"### Certificate Audit Results"]
         if expired:
-            msg.append(f"🚨 **{len(expired)} Expired Certificate(s):**")
+            msg.append(f"\n🚨 **{len(expired)} Expired:**")
             for c in expired:
-                msg.append(f"   - {c.get('domain')}: Expired on {c.get('expiry_date')}")
+                msg.append(f"- **{c.get('domain')}**: Expired on {c.get('expiry_date')}")
         
         if expiring:
-            msg.append(f"⚠️ **{len(expiring)} Expiring Soon:**")
+            msg.append(f"\n⚠️ **{len(expiring)} Expiring Soon:**")
             for c in expiring:
-                msg.append(f"   - {c.get('domain')}: Expires in {c.get('days_remaining')} days ({c.get('expiry_date')})")
+                msg.append(f"- **{c.get('domain')}**: {c.get('days_remaining')} days left ({c.get('expiry_date')})")
         
         return "\n".join(msg) if msg else "🔒 All certificates are valid."
 
     def _format_idle_response(self, data: Dict) -> str:
         instances = data.get("idle_instances", [])
         if not instances:
-            return "🟢 No idle servers detected. Your infrastructure utilization looks good."
+            return "🟢 **Utilization Check:** No idle servers detected. Your infrastructure is well optimized!"
         
-        msg = [f"🐢 Found **{len(instances)}** idle instance(s):"]
+        msg = [f"### Idle Resource Analysis"]
+        msg.append(f"Detected **{len(instances)}** underutilized instance(s):")
         for inst in instances:
-            msg.append(f"   - {inst.get('id')} ({inst.get('name')}): CPU {inst.get('avg_cpu')}%, Network {inst.get('avg_network')}%")
+            msg.append(f"- **{inst.get('id')}** ({inst.get('name', 'N/A')}): CPU {inst.get('avg_cpu', 0):.1f}%, Network {inst.get('avg_network', 0):.1f}%")
         return "\n".join(msg)
 
     def _format_cost_response(self, data: Dict) -> str:
@@ -299,25 +306,33 @@ class ChatInterface:
     def _format_security_response(self, data: Dict) -> str:
         risks = data.get("risks", [])
         if not risks:
-            return "🛡️ No security risks detected. Your configuration looks secure."
+            risks = data.get("findings", [])
+            
+        if not risks:
+            return "🛡️ **Security Status:** No security risks detected. Your environment is secure!"
         
-        high = [r for r in risks if r.get("severity") == "high"]
-        medium = [r for r in risks if r.get("severity") == "medium"]
-        low = [r for r in risks if r.get("severity") == "low"]
+        high = [r for r in risks if r.get("severity") in ("critical", "high")]
+        medium = [r for r in risks if r.get("severity") in ("medium", "warning")]
+        low = [r for r in risks if r.get("severity") in ("low", "info")]
         
-        msg = [f"🛡️ **Security Audit Results:** {len(risks)} issue(s) found."]
+        msg = [f"### Infrastructure Security Audit"]
+        msg.append(f"Found **{len(risks)}** potential security issues.")
+        
         if high:
-            msg.append(f"\n🔴 **High Severity ({len(high)}):**")
+            msg.append(f"\n🔴 **Critical/High Risk:**")
             for r in high:
-                msg.append(f"   - {r.get('resource')}: {r.get('description')}")
+                res = r.get('resource') or r.get('resource_id', 'Unknown')
+                msg.append(f"- **{res}**: {r.get('detail') or r.get('description')}")
         if medium:
-            msg.append(f"\n🟠 **Medium Severity ({len(medium)}):**")
+            msg.append(f"\n🟠 **Medium Risk:**")
             for r in medium:
-                msg.append(f"   - {r.get('resource')}: {r.get('description')}")
+                res = r.get('resource') or r.get('resource_id', 'Unknown')
+                msg.append(f"- **{res}**: {r.get('detail') or r.get('description')}")
         if low:
-            msg.append(f"\n🟡 **Low Severity ({len(low)}):**")
+            msg.append(f"\n🟡 **Low Risk:**")
             for r in low:
-                msg.append(f"   - {r.get('resource')}: {r.get('description')}")
+                res = r.get('resource') or r.get('resource_id', 'Unknown')
+                msg.append(f"- **{res}**: {r.get('detail') or r.get('description')}")
         
         return "\n".join(msg)
 

@@ -570,6 +570,22 @@ async function sendChatMessage() {
     }
 }
 
+function renderMarkdown(text) {
+    if (!text) return '';
+    let html = escapeHtml(text);
+    
+    // 1. Headers: ### Title
+    html = html.replace(/^### (.*$)/gim, '<h3 style="color:var(--cyan); margin: 0.8rem 0 0.4rem 0; font-size: 0.9rem; border-bottom: 1px solid var(--border); padding-bottom: 2px;">$1</h3>');
+    
+    // 2. Bold: **text**
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text-1); font-weight: 700;">$1</strong>');
+    
+    // 3. Lists: - Item (only at start of line)
+    html = html.replace(/^- (.*$)/gim, '<div style="padding-left: 1rem; position: relative; margin-bottom: 0.2rem;"><span style="position: absolute; left: 0; color: var(--cyan);">•</span> $1</div>');
+    
+    return html;
+}
+
 function addChatMessage(text, type, data = null) {
     const container = document.getElementById('chat-messages');
     if (!container) return;
@@ -582,26 +598,27 @@ function addChatMessage(text, type, data = null) {
     let contentHtml = `<div class="chat-avatar">${avatar}</div>`;
     contentHtml += `<div class="chat-bubble">`;
     
+    const formattedBody = renderMarkdown(text);
+
     if (data && Array.isArray(data) && data.length > 0) {
-        // Format structured data
-        contentHtml += `<p class="chat-result-title">${escapeHtml(text)}</p>`;
+        contentHtml += `<div class="chat-result-title">${formattedBody}</div>`;
         contentHtml += `<ul class="chat-result-list">`;
-        data.slice(0, 10).forEach(item => {
+        data.slice(0, 12).forEach(item => {
             let statusClass = '';
-            if (item.status === 'critical' || item.severity === 'critical') statusClass = 'critical';
-            else if (item.status === 'warning' || item.severity === 'warning') statusClass = 'warning';
-            else if (item.status === 'success' || item.status === 'healthy') statusClass = 'success';
+            const severity = (item.severity || item.status || '').toLowerCase();
+            if (severity === 'critical' || severity === 'high' || severity === 'error') statusClass = 'critical';
+            else if (severity === 'warning' || severity === 'medium' || severity === 'warn') statusClass = 'warning';
+            else if (severity === 'success' || severity === 'healthy' || severity === 'running') statusClass = 'success';
             
-            const itemText = item.resource_id || item.instance_id || item.name || item.message || JSON.stringify(item);
+            const itemText = item.domain || item.resource || item.resource_id || item.instance_id || item.id || item.name || item.message || JSON.stringify(item);
             contentHtml += `<li class="chat-result-item ${statusClass}">${escapeHtml(itemText)}</li>`;
         });
-        if (data.length > 10) {
-            contentHtml += `<li class="chat-result-item">... and ${data.length - 10} more items</li>`;
+        if (data.length > 12) {
+            contentHtml += `<li class="chat-result-item">... and ${data.length - 12} more items</li>`;
         }
         contentHtml += `</ul>`;
     } else {
-        // Plain text response
-        contentHtml += `<p>${escapeHtml(text)}</p>`;
+        contentHtml += `<div>${formattedBody}</div>`;
     }
     
     contentHtml += `</div>`;
