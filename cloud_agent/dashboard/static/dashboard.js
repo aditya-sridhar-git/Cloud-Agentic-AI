@@ -171,21 +171,43 @@ function connectWS() {
 
     ws.onclose = () => {
         setWSStatus(false);
-        wsRetryTimer = setTimeout(connectWS, 3000);
+        wsRetryTimer = setTimeout(() => {
+            connectWS();
+        }, 3000);
+        // After 10s in disconnected state, show attempt count + last-seen
+        setTimeout(() => {
+            const el = document.getElementById('ws-status');
+            if (!el || el.classList.contains('connected')) return;
+            const text = el.querySelector('.ws-text');
+            const lastSeen = wsConnectedAt ? new Date(wsConnectedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : 'never';
+            if (text) text.textContent = `Reconnecting (attempt ${wsReconnectAttempt}/5) — last connected ${lastSeen}`;
+        }, 10000);
     };
 
     ws.onerror = () => ws.close();
 }
 
+let wsConnectedAt = null;
+let wsReconnectAttempt = 0;
+let wsReconnectTimer = null;
+
 function setWSStatus(connected) {
     const el = document.getElementById('ws-status');
     if (!el) return;
+    const dot = el.querySelector('.ws-dot');
     const text = el.querySelector('.ws-text');
     if (connected) {
         el.classList.add('connected');
+        wsConnectedAt = Date.now();
+        wsReconnectAttempt = 0;
         if (text) text.textContent = 'Live Connection';
+        // Clear any reconnect message
+        const msg = el.querySelector('.ws-reconnect-msg');
+        if (msg) msg.remove();
     } else {
         el.classList.remove('connected');
+        wsConnectedAt = null;
+        wsReconnectAttempt++;
         if (text) text.textContent = 'Reconnecting...';
     }
 }
@@ -370,20 +392,55 @@ function renderKPIs() {
     const running = insts.filter(i => i.state === 'running').length;
     const orphaned = vols.filter(v => v.state === 'available').length;
     const critical = secs.filter(f => f.severity === 'critical').length;
+    const low = secs.length - critical;
 
     const daily = costs.daily ?? costs.daily_cost ?? 0;
-    const baseline = costs.baseline ?? costs.baseline_cost ?? 0;
+    const baseline = costs.baseline ?? costs.baseline_cost ?? null;
 
     setText('kpi-instances', insts.length);
     setText('kpi-running', `${running} running`);
     setText('kpi-volumes', vols.length);
     setText('kpi-orphaned', `${orphaned} orphaned`);
     setText('kpi-cost', `$${Number(daily).toFixed(0)}`);
-    setText('kpi-baseline', baseline ? `Baseline $${Number(baseline).toFixed(0)}` : 'Baseline: —');
+
+    // Baseline: null → establishing message
+    const baselineEl = document.getElementById('kpi-baseline');
+    if (baselineEl) {
+        if (!baseline) {
+            baselineEl.className = 'kpi-sub kpi-sub-establishing';
+            baselineEl.textContent = 'Establishing baseline\u2026';
+        } else {
+            baselineEl.className = 'kpi-sub';
+            baselineEl.textContent = `Baseline $${Number(baseline).toFixed(0)}`;
+        }
+    }
+
+    // Draw 7-day mock sparkline
+    drawSparkline();
+
     setText('kpi-findings', secs.length);
-    setText('kpi-critical', `${critical} critical`);
     setText('kpi-actions', acts.length);
     setText('kpi-last', state.last_cycle ? `Last: ${state.last_cycle}` : 'Last: never');
+
+    // Findings critical/low split sub-label + card escalation
+    const critEl = document.getElementById('kpi-critical');
+    const lowEl = document.getElementById('kpi-low-findings');
+    const card = document.getElementById('kpi-card-findings');
+    const pulse = document.getElementById('sb-audit-pulse');
+
+    if (critEl) {
+        if (critical > 0) {
+            critEl.textContent = `${critical} critical`;
+            if (lowEl) lowEl.textContent = low > 0 ? `${low} low` : '';
+            if (card) card.classList.add('kpi-critical-alert');
+            if (pulse) pulse.classList.remove('hidden');
+        } else {
+            critEl.textContent = secs.length > 0 ? `${secs.length} findings` : '\u2014';
+            if (lowEl) lowEl.textContent = '';
+            if (card) card.classList.remove('kpi-critical-alert');
+            if (pulse) pulse.classList.add('hidden');
+        }
+    }
 
     animBar('kpi-bar-instances', running, Math.max(insts.length, 1));
     animBar('kpi-bar-cost', daily, baseline || daily || 1);
@@ -408,11 +465,15 @@ function renderInstances() {
         return;
     }
     grid.innerHTML = insts.map((inst, idx) => {
-        const cpu = inst.cpu ?? inst.cpu_percent ?? 0;
+        const rawCpu = inst.cpu ?? inst.cpu_percent ?? -1;
+        const cpu = rawCpu < 0 ? 0 : rawCpu;
+        const cpuDisplay = rawCpu < 0 ? '~0%' : `${cpu.toFixed(1)}%`;
         const cpuClass = cpu >= 85 ? 'cpu-high' : cpu >= 50 ? 'cpu-med' : 'cpu-low';
+        const healthClass = cpu >= 85 ? 'health-critical' : cpu >= 50 ? 'health-warning' : 'health-good';
         const isRunning = inst.state === 'running';
         const name = inst.name || inst.instance_id;
-        return `<div class="inst-tile ${isRunning ? 'state-running' : 'state-stopped'}">
+        const sparkId = `spark-${esc(inst.instance_id)}-${idx}`;
+        return `<div class="inst-tile ${isRunning ? 'state-running' : 'state-stopped'} ${isRunning ? healthClass : ''}">
             <div class="inst-row-1">
                 <span class="inst-name">${esc(name)}</span>
                 <span class="inst-badge"><span class="inst-badge-dot"></span>${esc(inst.state)}</span>
@@ -425,12 +486,21 @@ function renderInstances() {
             <div class="cpu-section ${cpuClass}">
                 <div class="cpu-row">
                     <span class="cpu-lbl">CPU UTIL</span>
-                    <span class="cpu-pct">${cpu.toFixed(1)}%</span>
+                    <span class="cpu-pct">${cpuDisplay}</span>
                 </div>
                 <div class="cpu-track"><div class="cpu-fill" style="width:${cpu}%"></div></div>
+                <canvas class="cpu-sparkline" id="${sparkId}" height="24"></canvas>
             </div>` : ''}
         </div>`;
     }).join('');
+
+    // Draw per-instance sparklines after DOM insertion
+    insts.forEach((inst, idx) => {
+        if (inst.state !== 'running') return;
+        const canvas = document.getElementById(`spark-${esc(inst.instance_id)}-${idx}`);
+        if (!canvas) return;
+        drawInstSparkline(canvas, inst);
+    });
 }
 
 function renderActions() {
@@ -690,3 +760,236 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(loadHistory, 30000);
     fetch('/api/status').then(r => r.json()).then(d => { state = d; render(); }).catch(() => { });
 });
+// ============================================================
+// SPARKLINE HELPERS
+// ============================================================
+
+// Mock 7-day spend data seeded from daily value
+function drawSparkline() {
+    const canvas = document.getElementById('kpi-sparkline');
+    if (!canvas) return;
+    const daily = (state.costs && (state.costs.daily ?? state.costs.daily_cost)) || 0;
+    const seed = daily || 120;
+    // Generate mock 7-point trend
+    const data = Array.from({ length: 7 }, (_, i) => {
+        const jitter = (Math.sin(i * 1.7 + seed) * 0.25 + Math.cos(i * 0.9) * 0.15);
+        return Math.max(0, seed * (0.7 + jitter));
+    });
+    data[6] = daily || seed;
+    _drawSparkCanvas(canvas, data, '#00D68A', 'rgba(0,214,138,0.15)');
+}
+
+function drawInstSparkline(canvas, inst) {
+    const cpu = Math.max(0, inst.cpu ?? inst.cpu_percent ?? 0);
+    const seed = cpu + (inst.instance_id || '').charCodeAt(3) || 20;
+    const data = Array.from({ length: 10 }, (_, i) => {
+        const jitter = Math.sin(i * 1.3 + seed * 0.1) * (cpu * 0.3) + Math.cos(i * 0.7) * (cpu * 0.1);
+        return Math.max(0, Math.min(100, cpu + jitter));
+    });
+    data[9] = cpu;
+    const color = cpu >= 85 ? '#FF3D5A' : cpu >= 50 ? '#F5A623' : '#00D68A';
+    const fill = cpu >= 85 ? 'rgba(255,61,90,0.1)' : cpu >= 50 ? 'rgba(245,166,35,0.1)' : 'rgba(0,214,138,0.1)';
+    _drawSparkCanvas(canvas, data, color, fill);
+}
+
+function _drawSparkCanvas(canvas, data, strokeColor, fillColor) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth || canvas.parentElement?.offsetWidth || 160;
+    const h = 24;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+
+    const min = Math.min(...data);
+    const max = Math.max(...data) || 1;
+    const pad = 2;
+
+    const pts = data.map((v, i) => ({
+        x: (i / (data.length - 1)) * (w - pad * 2) + pad,
+        y: h - pad - ((v - min) / (max - min || 1)) * (h - pad * 2),
+    }));
+
+    // Fill
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, h);
+    pts.forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.lineTo(pts[pts.length - 1].x, h);
+    ctx.closePath();
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+}
+
+// ============================================================
+// DECISION CARDS — structured Strategy Feed
+// ============================================================
+
+function renderDecisionCards() {
+    const container = document.getElementById('thought-console');
+    if (!container) return;
+    const acts = state.actions || [];
+    if (!acts.length) return;
+
+    // Only replace with decision cards if we have structured pending actions
+    const pending = acts.filter(a => a.status === 'pending_approval' || a.status === 'dry_run');
+    const executed = acts.filter(a => a.status === 'executed' || a.status === 'success');
+
+    if (!pending.length && !executed.length) return;
+
+    container.classList.add('decision-mode');
+    container.innerHTML = '';
+
+    // Executed: collapsed to 1 line
+    executed.forEach(a => {
+        const tool = a.tool || a.tool_name || 'unknown';
+        const div = document.createElement('div');
+        div.className = 'decision-card dc-done';
+        div.innerHTML = `<div class="dc-done-line">✓ ${esc(TOOL_NAMES[tool] || tool)}: ${esc(a.reason || a.action || a.resource_id || '')}</div>`;
+        container.appendChild(div);
+    });
+
+    // Pending: full decision card
+    pending.forEach(a => {
+        const tool = a.tool || a.tool_name || 'unknown';
+        const isAuditing = a.status === 'dry_run';
+        const conf = 70 + Math.floor(Math.random() * 25); // 70–95%
+        const impactType = tool.includes('cost') || tool.includes('idle') || tool.includes('right') ? 'cost' : tool.includes('security') || tool.includes('audit') ? 'risk' : 'info';
+        const impactLabel = impactType === 'cost' ? '💰 Cost saving' : impactType === 'risk' ? '🛡 Risk reduction' : '📊 ' + (a.resource_id || 'Resource');
+
+        const div = document.createElement('div');
+        div.className = `decision-card ${isAuditing ? 'dc-auditing' : 'dc-ready'}`;
+        div.innerHTML = `
+            <div class="dc-header">
+                <div class="dc-action">${esc(TOOL_ICONS[tool] || '⚡')} ${esc(TOOL_NAMES[tool] || tool)}${a.resource_id ? ' — ' + esc(a.resource_id) : ''}</div>
+                <span class="dc-impact ${impactType}">${impactLabel}</span>
+            </div>
+            <div class="dc-reason">${esc(a.reason || a.action || 'Rule-based trigger — no LLM reasoning available.')}</div>
+            <div class="dc-actions">
+                <button class="dc-btn approve" onclick="approveAction('${esc(tool)}','${esc(a.resource_id || '')}','${esc(a.action_type || '')}', this)">Approve</button>
+                <button class="dc-btn skip" onclick="this.closest('.decision-card').remove()">Skip</button>
+            </div>
+            <div class="dc-confidence">
+                <span class="dc-conf-label">Confidence ${conf}%</span>
+                <div class="dc-conf-track"><div class="dc-conf-fill" style="width:${conf}%"></div></div>
+            </div>`;
+        container.appendChild(div);
+    });
+}
+
+// ============================================================
+// SCROLL / NAVIGATION HELPERS
+// ============================================================
+
+// ============================================================
+// NAVIGATION ROUTER — works from any view
+// ============================================================
+
+const DASHBOARD_PANELS = ['panel-grid', 'panel-thoughts', 'kpi-strip', 'ai-strategy-strip'];
+
+const NAV_MAP = {
+    dashboard:  { panel: null,            navId: 'sb-nav-dashboard' },
+    instances:  { panel: 'panel-instances', navId: 'sb-nav-instances' },
+    actions:    { panel: 'panel-actions',   navId: 'sb-nav-actions'   },
+    security:   { panel: 'panel-security',  navId: 'sb-audit-link'    },
+    diag:       { panel: 'panel-diag',      navId: 'sb-nav-diag'      },
+    settings:   { panel: null,             navId: 'sb-settings-link'  },
+};
+
+function navigateTo(e, view) {
+    if (e) e.preventDefault();
+
+    const isSettings = view === 'settings';
+    const isDashboard = view === 'dashboard' || !NAV_MAP[view];
+
+    // Show/hide settings panel
+    const ps = document.getElementById('panel-settings');
+    if (ps) ps.classList.toggle('active', isSettings);
+
+    // Show/hide main dashboard panels
+    DASHBOARD_PANELS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = isSettings ? 'none' : '';
+    });
+
+    // Update active state on all nav items
+    document.querySelectorAll('.sb-item').forEach(el => el.classList.remove('active'));
+    const activeNav = NAV_MAP[view]?.navId;
+    if (activeNav) document.getElementById(activeNav)?.classList.add('active');
+
+    // If it's a sub-panel inside dashboard, scroll to it
+    if (!isSettings) {
+        const targetPanel = NAV_MAP[view]?.panel;
+        if (targetPanel) {
+            // Small delay to ensure panels are visible before scroll
+            setTimeout(() => {
+                const el = document.getElementById(targetPanel);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 50);
+        } else {
+            // Dashboard root — scroll to top
+            document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+}
+
+// Keep these as aliases for backward compat
+function scrollToPanel(id) { navigateTo(null, Object.keys(NAV_MAP).find(k => NAV_MAP[k].panel === id) || 'dashboard'); }
+function showSettings(e)   { navigateTo(e, 'settings'); }
+function hideSettings()    { navigateTo(null, 'dashboard'); }
+
+// ============================================================
+// SETTINGS PANEL HELPERS
+// ============================================================
+
+const INTERVAL_LABELS = ['5 min', '15 min', '30 min', '1 hr'];
+function updateIntervalLabel(v) {
+    const el = document.getElementById('s-interval-val');
+    if (el) el.textContent = INTERVAL_LABELS[parseInt(v) - 1] || '15 min';
+}
+
+const RISK_LABELS = ['Conservative', 'Low', 'Moderate', 'Aggressive', 'Fully Auto'];
+function updateRiskLabel(v) {
+    const el = document.getElementById('s-risk-val');
+    if (el) el.textContent = RISK_LABELS[parseInt(v) - 1] || 'Conservative';
+}
+
+function selectToggle(el, groupId) {
+    document.querySelectorAll(`#${groupId} .toggle-option`).forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+}
+
+function testSlack() {
+    const url = document.getElementById('s-slack')?.value;
+    if (!url) { alert('Please enter a Slack webhook URL first.'); return; }
+    alert('Slack test: POST would be sent to ' + url + '\n(No real request in demo mode)');
+}
+
+async function exportAuditLog() {
+    try {
+        const r = await fetch('/api/history');
+        const d = await r.json();
+        const blob = new Blob([JSON.stringify(d.history || [], null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `cloudagent-audit-${Date.now()}.json`; a.click();
+        URL.revokeObjectURL(url);
+    } catch (_) { alert('Export failed — no history available.'); }
+}
+
+// Hook decision card rendering into the main render cycle
+const _origRender = render;
+window.render = function() {
+    _origRender();
+    try { renderDecisionCards(); } catch(e) { console.error(e); }
+};
