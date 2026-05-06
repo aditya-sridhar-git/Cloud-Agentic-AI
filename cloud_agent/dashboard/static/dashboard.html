@@ -9,7 +9,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="/dashboard.css?v=123" />
+    <link rel="stylesheet" href="/dashboard.css?v=201" />
 </head>
 
 <body>
@@ -33,7 +33,7 @@
         </div>
 
         <div class="sb-section-label">Monitor</div>
-        <a href="#" class="sb-item active">
+        <a href="#" class="sb-item active" id="sb-nav-dashboard" onclick="navigateTo(event,'dashboard')">
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
                 <rect x="1" y="1" width="5.5" height="5.5" rx="1" stroke="currentColor" stroke-width="1.2" />
                 <rect x="8.5" y="1" width="5.5" height="5.5" rx="1" stroke="currentColor" stroke-width="1.2" />
@@ -42,7 +42,7 @@
             </svg>
             <span>Dashboard</span>
         </a>
-        <a href="#panel-instances" class="sb-item">
+        <a href="#" class="sb-item" id="sb-nav-instances" onclick="navigateTo(event,'instances')">
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
                 <rect x="1" y="3" width="13" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2" />
                 <path d="M5 7h5M7.5 5v4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
@@ -50,7 +50,7 @@
             <span>Instances</span>
             <span class="sb-pill" id="sb-instances">0</span>
         </a>
-        <a href="#panel-actions" class="sb-item">
+        <a href="#" class="sb-item" id="sb-nav-actions" onclick="navigateTo(event,'actions')">
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
                 <circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.2" />
                 <path d="M7.5 4v3.5l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
@@ -60,15 +60,16 @@
         </a>
 
         <div class="sb-section-label">Security</div>
-        <a href="#panel-security" class="sb-item">
+        <a href="#" class="sb-item" id="sb-audit-link" onclick="navigateTo(event,'security')">
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
                 <path d="M7.5 1.5L2 4v4c0 3 2.5 5.5 5.5 5.5S13 11 13 8V4L7.5 1.5z" stroke="currentColor"
                     stroke-width="1.2" stroke-linejoin="round" />
             </svg>
             <span>Audit</span>
+            <span class="sb-audit-pulse hidden" id="sb-audit-pulse"></span>
             <span class="sb-pill danger" id="sb-findings">0</span>
         </a>
-        <a href="#panel-diag" class="sb-item">
+        <a href="#" class="sb-item" id="sb-nav-diag" onclick="navigateTo(event,'diag')">
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
                 <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.2" />
                 <path d="M10 10l3.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
@@ -77,7 +78,7 @@
         </a>
 
         <div class="sb-section-label">System</div>
-        <a href="#" class="sb-item">
+        <a href="#" class="sb-item" id="sb-settings-link" onclick="navigateTo(event,'settings')">
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
                 <path d="M7.5 1v2M7.5 12v2M1 7.5h2M12 7.5h2M3 3l1.5 1.5M10.5 10.5L12 12M3 12l1.5-1.5M10.5 4.5L12 3"
                     stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
@@ -135,7 +136,7 @@
 
         <!-- KPI STRIP -->
         <section id="kpi-strip">
-            <div class="kpi-card" data-index="0">
+            <div class="kpi-card" data-index="0" onclick="scrollToPanel('panel-instances')" style="cursor:pointer">
                 <div class="kpi-head">
                     <span class="kpi-label">Instances</span>
                     <div class="kpi-ico kpi-ico-blue">
@@ -153,7 +154,7 @@
                 </div>
             </div>
 
-            <div class="kpi-card" data-index="1">
+            <div class="kpi-card" data-index="1" onclick="scrollToPanel('panel-actions')" style="cursor:pointer">
                 <div class="kpi-head">
                     <span class="kpi-label">Daily Spend</span>
                     <div class="kpi-ico kpi-ico-green">
@@ -165,7 +166,8 @@
                     </div>
                 </div>
                 <div class="kpi-value" id="kpi-cost">$—</div>
-                <div class="kpi-sub" id="kpi-baseline">Baseline $—</div>
+                <div class="kpi-sub" id="kpi-baseline">Establishing baseline…</div>
+                <canvas id="kpi-sparkline" class="cpu-sparkline" style="margin-top:0.3rem; height:20px;"></canvas>
                 <div class="kpi-bar">
                     <div class="kpi-bar-fill green" id="kpi-bar-cost" style="width:0%"></div>
                 </div>
@@ -189,7 +191,7 @@
                 </div>
             </div>
 
-            <div class="kpi-card" data-index="3">
+            <div class="kpi-card" data-index="3" id="kpi-card-findings" onclick="scrollToPanel('panel-security')" style="cursor:pointer">
                 <div class="kpi-head">
                     <span class="kpi-label">Findings</span>
                     <div class="kpi-ico kpi-ico-red">
@@ -202,7 +204,10 @@
                     </div>
                 </div>
                 <div class="kpi-value" id="kpi-findings">—</div>
-                <div class="kpi-sub" id="kpi-critical">— critical</div>
+                <div class="kpi-sub-row" id="kpi-critical-row">
+                    <span class="kpi-sub kpi-sub-critical" id="kpi-critical">—</span>
+                    <span class="kpi-sub kpi-sub-low" id="kpi-low-findings"></span>
+                </div>
                 <div class="kpi-bar">
                     <div class="kpi-bar-fill red" id="kpi-bar-findings" style="width:0%"></div>
                 </div>
@@ -396,6 +401,130 @@
 
         </div><!-- /panel-grid -->
 
+        <!-- SETTINGS PANEL -->
+        <div id="panel-settings">
+            <div class="settings-header">
+                <div>
+                    <h2>Settings</h2>
+                    <p>Operational controls — configure agent behavior, notifications, and cost guardrails.</p>
+                </div>
+                <button class="settings-btn" onclick="hideSettings()">← Back to Dashboard</button>
+            </div>
+            <div class="settings-grid">
+
+                <!-- AGENT BEHAVIOR -->
+                <div class="settings-section">
+                    <div class="settings-section-title">Agent Behavior</div>
+                    <div class="settings-row">
+                        <label>Cycle Interval</label>
+                        <input type="range" id="s-interval" min="1" max="4" step="1" value="2" oninput="updateIntervalLabel(this.value)">
+                        <span class="settings-range-val" id="s-interval-val">15 min</span>
+                    </div>
+                    <div class="settings-row">
+                        <label>Approval Mode</label>
+                        <div class="toggle-switch" id="s-approval-mode">
+                            <span class="toggle-option" onclick="selectToggle(this,'s-approval-mode')">Auto-low</span>
+                            <span class="toggle-option selected" onclick="selectToggle(this,'s-approval-mode')">Always</span>
+                            <span class="toggle-option" onclick="selectToggle(this,'s-approval-mode')">Autonomous</span>
+                        </div>
+                    </div>
+                    <div class="settings-row">
+                        <label>Risk Threshold</label>
+                        <input type="range" id="s-risk" min="1" max="5" step="1" value="2" oninput="updateRiskLabel(this.value)">
+                        <span class="settings-range-val" id="s-risk-val">Conservative</span>
+                    </div>
+                </div>
+
+                <!-- NOTIFICATIONS -->
+                <div class="settings-section">
+                    <div class="settings-section-title">Notifications</div>
+                    <div class="settings-row">
+                        <label>Slack Webhook URL</label>
+                        <div style="display:flex;gap:0.4rem;">
+                            <input type="text" id="s-slack" placeholder="https://hooks.slack.com/…" style="min-width:160px;">
+                            <button class="settings-btn" onclick="testSlack()">Test</button>
+                        </div>
+                    </div>
+                    <div class="settings-row"><label>Alert on: Critical findings</label><input type="checkbox" checked id="s-alert-critical"></div>
+                    <div class="settings-row"><label>Alert on: Agent actions</label><input type="checkbox" id="s-alert-actions"></div>
+                    <div class="settings-row"><label>Alert on: Cost anomalies</label><input type="checkbox" checked id="s-alert-cost"></div>
+                    <div class="settings-row">
+                        <label>Quiet Hours</label>
+                        <div style="display:flex;gap:0.4rem;align-items:center;">
+                            <input type="time" value="22:00" id="s-quiet-start" style="background:var(--bg-inset);border:1px solid var(--border-h);color:var(--text-1);border-radius:var(--r-sm);padding:0.3rem 0.5rem;font-family:var(--f-mono);font-size:0.786rem;">
+                            <span style="color:var(--text-3);font-size:0.786rem;">to</span>
+                            <input type="time" value="08:00" id="s-quiet-end" style="background:var(--bg-inset);border:1px solid var(--border-h);color:var(--text-1);border-radius:var(--r-sm);padding:0.3rem 0.5rem;font-family:var(--f-mono);font-size:0.786rem;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COST CONTROLS -->
+                <div class="settings-section">
+                    <div class="settings-section-title">Cost Controls</div>
+                    <div class="settings-row">
+                        <label>Monthly Budget Cap</label>
+                        <div style="display:flex;gap:0.4rem;align-items:center;">
+                            <select id="s-currency" style="background:var(--bg-inset);border:1px solid var(--border-h);color:var(--text-1);border-radius:var(--r-sm);padding:0.3rem 0.4rem;font-family:var(--f-mono);font-size:0.786rem;"><option>USD</option><option>EUR</option><option>GBP</option></select>
+                            <input type="number" id="s-budget" value="500" style="min-width:90px;">
+                        </div>
+                    </div>
+                    <div class="settings-row">
+                        <label>Freeze trigger (% above baseline)</label>
+                        <div style="display:flex;gap:0.5rem;align-items:center;">
+                            <input type="number" id="s-freeze" value="120" style="min-width:80px;">
+                            <span style="color:var(--text-3);font-size:0.786rem;">%</span>
+                        </div>
+                    </div>
+                    <div class="settings-row">
+                        <label>Protected Instances</label>
+                        <input type="text" id="s-protected" placeholder="i-xxx, i-yyy" style="min-width:160px;">
+                    </div>
+                </div>
+
+                <!-- AUDIT & COMPLIANCE -->
+                <div class="settings-section">
+                    <div class="settings-section-title">Audit &amp; Compliance</div>
+                    <div class="settings-row">
+                        <label>Log Retention</label>
+                        <select id="s-retention">
+                            <option>7 days</option>
+                            <option selected>30 days</option>
+                            <option>90 days</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <label>Export Audit Log</label>
+                        <button class="settings-btn primary" onclick="exportAuditLog()">Download JSON</button>
+                    </div>
+                    <div class="settings-row"><label>Require 2-person approval for destructive actions</label><input type="checkbox" id="s-2pa"></div>
+                </div>
+
+                <!-- DISPLAY -->
+                <div class="settings-section" style="grid-column: span 2;">
+                    <div class="settings-section-title">Display</div>
+                    <div style="display:flex;gap:2rem;flex-wrap:wrap;">
+                        <div class="settings-row" style="flex:1;min-width:180px;">
+                            <label>Dashboard Refresh Rate</label>
+                            <div class="toggle-switch" id="s-refresh-rate">
+                                <span class="toggle-option" onclick="selectToggle(this,'s-refresh-rate')">5s</span>
+                                <span class="toggle-option selected" onclick="selectToggle(this,'s-refresh-rate')">15s</span>
+                                <span class="toggle-option" onclick="selectToggle(this,'s-refresh-rate')">30s</span>
+                            </div>
+                        </div>
+                        <div class="settings-row" style="flex:1;min-width:180px;">
+                            <label>Default Landing View</label>
+                            <select id="s-landing">
+                                <option selected>Dashboard</option>
+                                <option>Instances</option>
+                                <option>Audit</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div><!-- /panel-settings -->
+
         <footer id="dash-footer">
             <span class="footer-copy">Cloud Agentic AI &mdash; Command Center &mdash; <span
                     id="footer-time"></span></span>
@@ -404,7 +533,7 @@
 
     </div><!-- /main-content -->
 
-    <script src="/dashboard.js"></script>
+    <script src="/dashboard.js?v=201"></script>
 </body>
 
 </html>
