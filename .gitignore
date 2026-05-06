@@ -1,12 +1,40 @@
+```
+# Python
 __pycache__/
-*.py[cod]
-*.egg-info/
-dist/
-build/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+logs/
+*.log
+
+# Environment
 .env
+.env.local
+.env.*
+
+# Dependencies
 .venv/
 venv/
-*.egg
+node_modules/
+
+# Build artifacts
+dist/
+build/
+target/
+
+# Editors
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.coverage
+htmlcov/
+.mypy_cache/
 .pytest_cache/
-logs/
-*.jsonl
+```

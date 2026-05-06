@@ -19,7 +19,29 @@ class IdleServerTool(BaseTool):
 
     def execute(self, action: Action) -> dict[str, Any]:
         instance_id = action.resource_id
-        action_type = action.action_type  # "stop" or "terminate"
+        action_type = action.action_type  # "check", "stop" or "terminate"
+
+        if action_type == "check":
+            logger.info("Scanning for idle instances...")
+            instances = self.provider.list_instances()
+            idle_instances = []
+            
+            # Use threshold from config or default to 5%
+            threshold = self.config.get("idle_threshold_percent", 5.0)
+            
+            for inst in instances:
+                if inst.get("state") == "running":
+                    cpu = self.provider.get_cpu_utilization(inst["instance_id"])
+                    if cpu < threshold:
+                        inst["avg_cpu"] = cpu
+                        idle_instances.append(inst)
+            
+            return {
+                "success": True,
+                "idle_instances": idle_instances,
+                "threshold": threshold,
+                "count": len(idle_instances)
+            }
 
         logger.info(
             "[bold red]🔌 %s[/bold red] instance [cyan]%s[/cyan] — %s",
@@ -27,6 +49,9 @@ class IdleServerTool(BaseTool):
             instance_id,
             action.reason,
         )
+
+        if not instance_id:
+            raise ValueError("Instance ID is required for stop/terminate actions")
 
         if action_type == "terminate":
             result = self.provider.terminate_instance(instance_id)

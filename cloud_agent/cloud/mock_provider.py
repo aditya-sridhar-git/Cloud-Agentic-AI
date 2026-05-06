@@ -173,11 +173,11 @@ class MockProvider(CloudProvider):
     # Metrics
     # ------------------------------------------------------------------
 
-    def get_cpu_utilization(self, instance_id: str, minutes: int = 30) -> float:
+    def get_cpu_utilization(self, instance_id: str, minutes: int = 30, region: str | None = None) -> float:
         base = _CPU_PROFILES.get(instance_id, 50.0)
         return round(base + random.uniform(-2, 2), 1)
 
-    def get_cpu_utilization_days(self, instance_id: str, days: int = 7) -> float:
+    def get_cpu_utilization_days(self, instance_id: str, days: int = 7, region: str | None = None) -> float:
         base = _CPU_PROFILES.get(instance_id, 50.0)
         return round(base + random.uniform(-5, 5), 1)
 
@@ -360,3 +360,111 @@ class MockProvider(CloudProvider):
         if event_name:
             events = [e for e in events if e["event_name"] == event_name]
         return events
+
+    # ------------------------------------------------------------------
+    # Snapshots / Backups (NEW)
+    # ------------------------------------------------------------------
+
+    def list_snapshots(self, creator: str | None = None) -> list[dict[str, Any]]:
+        """Return mock snapshots."""
+        now = datetime.now(timezone.utc)
+        snapshots = [
+            {
+                "snapshot_id": f"snap-0a1b2c3d4e5f{i:04d}",
+                "volume_id": "vol-0a1b2c3d4e5f0001",
+                "start_time": str(now - timedelta(days=i*5)),
+                "state": "completed",
+                "tags": [
+                    {"Key": "CreatedBy", "Value": "cloud-agent-backup-manager"},
+                    {"Key": "Name", "Value": f"backup-api-server-{i}"},
+                ],
+            }
+            for i in range(1, 8)
+        ]
+        
+        if creator:
+            snapshots = [
+                s for s in snapshots
+                if any(t["Key"] == "CreatedBy" and t["Value"] == creator for t in s.get("tags", []))
+            ]
+        
+        return snapshots
+
+    def delete_snapshot(self, snapshot_id: str) -> dict[str, Any]:
+        """Delete a mock snapshot."""
+        logger.info("[mock] Deleted snapshot %s", snapshot_id)
+        self._action_log.append({"action": "delete_snapshot", "snapshot_id": snapshot_id, "time": time.time()})
+        return {"snapshot_id": snapshot_id, "status": "deleted"}
+
+    def snapshot_volume(self, volume_id: str, tags: list[dict[str, str]] | None = None) -> dict[str, Any]:
+        """Create a mock snapshot of a volume."""
+        snapshot_id = f"snap-{volume_id.replace('vol-', 'snap-')}-{int(time.time())}"
+        logger.info("[mock] Created snapshot %s of volume %s", snapshot_id, volume_id)
+        self._action_log.append({
+            "action": "create_snapshot",
+            "snapshot_id": snapshot_id,
+            "volume_id": volume_id,
+            "tags": tags,
+            "time": time.time(),
+        })
+        return {"snapshot_id": snapshot_id, "volume_id": volume_id, "status": "completed", "tags": tags or []}
+
+    # ------------------------------------------------------------------
+    # Certificates (NEW)
+    # ------------------------------------------------------------------
+
+    def list_certificates(self) -> list[dict[str, Any]]:
+        """Return mock certificates with various expiry states."""
+        now = datetime.now(timezone.utc)
+        return [
+            {
+                "arn": "arn:aws:acm:us-east-1:123456789012:certificate/aaaabbbb-1111-2222-3333-444444444441",
+                "domain_name": "api.example.com",
+                "issuer": "Amazon",
+                "not_after": str(now + timedelta(days=180)),
+                "type": "AMAZON_ISSUED",
+                "auto_renewal": True,
+                "in_use": True,
+                "key_algorithm": "RSA-2048",
+            },
+            {
+                "arn": "arn:aws:acm:us-east-1:123456789012:certificate/aaaabbbb-1111-2222-3333-444444444442",
+                "domain_name": "www.example.com",
+                "issuer": "Amazon",
+                "not_after": str(now + timedelta(days=5)),
+                "type": "AMAZON_ISSUED",
+                "auto_renewal": False,
+                "in_use": True,
+                "key_algorithm": "RSA-2048",
+            },
+            {
+                "arn": "arn:aws:acm:us-east-1:123456789012:certificate/aaaabbbb-1111-2222-3333-444444444443",
+                "domain_name": "staging.example.com",
+                "issuer": "Amazon",
+                "not_after": str(now - timedelta(days=2)),
+                "type": "AMAZON_ISSUED",
+                "auto_renewal": True,
+                "in_use": True,
+                "key_algorithm": "RSA-2048",
+            },
+            {
+                "arn": "arn:aws:acm:us-east-1:123456789012:certificate/aaaabbbb-1111-2222-3333-444444444444",
+                "domain_name": "internal.corp.local",
+                "issuer": "DigiCert Inc",
+                "not_after": str(now + timedelta(days=45)),
+                "type": "IMPORTED",
+                "auto_renewal": False,
+                "in_use": True,
+                "key_algorithm": "RSA-4096",
+            },
+            {
+                "arn": "arn:aws:acm:us-east-1:123456789012:certificate/aaaabbbb-1111-2222-3333-444444444445",
+                "domain_name": "dev.example.com",
+                "issuer": "Amazon",
+                "not_after": str(now + timedelta(days=10)),
+                "type": "AMAZON_ISSUED",
+                "auto_renewal": True,
+                "in_use": False,
+                "key_algorithm": "ECDSA-P256",
+            },
+        ]

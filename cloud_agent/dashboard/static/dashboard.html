@@ -362,6 +362,44 @@
                 </div>
             </section>
 
+            <!-- AI CHAT INTERFACE -->
+            <section class="panel panel-chat" id="panel-chat">
+                <div class="panel-header">
+                    <div class="panel-title-group">
+                        <span class="panel-tag" style="color: var(--cyan)">AI Assistant</span>
+                        <h2 class="panel-title">Natural Language Chat</h2>
+                    </div>
+                    <span class="count-chip" style="background: rgba(6, 182, 212, 0.15); color: var(--cyan)">Live</span>
+                </div>
+                <div class="chat-container">
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="chat-message bot">
+                            <div class="chat-avatar">🤖</div>
+                            <div class="chat-bubble">
+                                <p>Hi! I'm your Cloud Agent assistant. Ask me anything about your infrastructure:</p>
+                                <ul class="chat-suggestions">
+                                    <li>"Show me idle servers"</li>
+                                    <li>"Any certificate issues?"</li>
+                                    <li>"What's my current cost?"</li>
+                                    <li>"Run security audit"</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="Ask about your cloud infrastructure..." 
+                               onkeypress="if(event.key === 'Enter') sendChatMessage()" />
+                        <button class="chat-send-btn" onclick="sendChatMessage()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" 
+                                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+
             <!-- ACTION HISTORY — full width -->
             <section class="panel panel-log" id="panel-log">
                 <div class="panel-header">

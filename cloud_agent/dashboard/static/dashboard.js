@@ -356,7 +356,7 @@ function renderReasoning() {
     let reason = state.reasoning_summary;
 
     // 🚨 Detect broken/gibberish text
-    const isGarbage = !reason || reason.length < 10 || /[^a-zA-Z0-9 .,:%()-]/.test(reason);
+    const isGarbage = !reason || reason.length < 5 || /[^a-zA-Z0-9 .,:%()\-/_!?[\]]/.test(reason);
 
     if (isGarbage) {
         const insts = state.instances || [];
@@ -602,6 +602,140 @@ async function clearHistory() {
         loadHistory();
     } catch (_) { }
 }
+
+// ============================================================
+// AI CHAT INTERFACE
+// ============================================================
+
+async function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    if (!message) return;
+
+    // Add user message to chat
+    addChatMessage(message, 'user');
+    input.value = '';
+
+    // Show loading indicator
+    showChatLoading();
+
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: message })
+        });
+
+        hideChatLoading();
+
+        if (response.ok) {
+            const data = await response.json();
+            addChatMessage(data.response, 'bot', data.data);
+        } else {
+            addChatMessage("Sorry, I encountered an error processing your request.", 'bot');
+        }
+    } catch (error) {
+        hideChatLoading();
+        addChatMessage("Sorry, I couldn't connect to the server. Please try again.", 'bot');
+    }
+}
+
+function renderMarkdown(text) {
+    if (!text) return '';
+    let html = escapeHtml(text);
+    
+    // 1. Headers: ### Title
+    html = html.replace(/^### (.*$)/gim, '<h3 style="color:var(--cyan); margin: 0.8rem 0 0.4rem 0; font-size: 0.9rem; border-bottom: 1px solid var(--border); padding-bottom: 2px;">$1</h3>');
+    
+    // 2. Bold: **text**
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text-1); font-weight: 700;">$1</strong>');
+    
+    // 3. Lists: - Item (only at start of line)
+    html = html.replace(/^- (.*$)/gim, '<div style="padding-left: 1rem; position: relative; margin-bottom: 0.2rem;"><span style="position: absolute; left: 0; color: var(--cyan);">•</span> $1</div>');
+    
+    return html;
+}
+
+function addChatMessage(text, type, data = null) {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `chat-message ${type}`;
+    
+    const avatar = type === 'bot' ? '🤖' : '👤';
+    
+    let contentHtml = `<div class="chat-avatar">${avatar}</div>`;
+    contentHtml += `<div class="chat-bubble">`;
+    
+    const formattedBody = renderMarkdown(text);
+
+    if (data && Array.isArray(data) && data.length > 0) {
+        contentHtml += `<div class="chat-result-title">${formattedBody}</div>`;
+        contentHtml += `<ul class="chat-result-list">`;
+        data.slice(0, 12).forEach(item => {
+            let statusClass = '';
+            const severity = (item.severity || item.status || '').toLowerCase();
+            if (severity === 'critical' || severity === 'high' || severity === 'error') statusClass = 'critical';
+            else if (severity === 'warning' || severity === 'medium' || severity === 'warn') statusClass = 'warning';
+            else if (severity === 'success' || severity === 'healthy' || severity === 'running') statusClass = 'success';
+            
+            const itemText = item.domain || item.resource || item.resource_id || item.instance_id || item.id || item.name || item.message || JSON.stringify(item);
+            contentHtml += `<li class="chat-result-item ${statusClass}">${escapeHtml(itemText)}</li>`;
+        });
+        if (data.length > 12) {
+            contentHtml += `<li class="chat-result-item">... and ${data.length - 12} more items</li>`;
+        }
+        contentHtml += `</ul>`;
+    } else {
+        contentHtml += `<div>${formattedBody}</div>`;
+    }
+    
+    contentHtml += `</div>`;
+    msgDiv.innerHTML = contentHtml;
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
+function showChatLoading() {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'chat-message bot';
+    loadingDiv.id = 'chat-loading-indicator';
+    loadingDiv.innerHTML = `
+        <div class="chat-avatar">🤖</div>
+        <div class="chat-bubble">
+            <div class="chat-loading">
+                <div class="chat-loading-dot"></div>
+                <div class="chat-loading-dot"></div>
+                <div class="chat-loading-dot"></div>
+            </div>
+        </div>
+    `;
+    container.appendChild(loadingDiv);
+    container.scrollTop = container.scrollHeight;
+}
+
+function hideChatLoading() {
+    const loading = document.getElementById('chat-loading-indicator');
+    if (loading) loading.remove();
+}
+
+function escapeHtml(text) {
+    if (typeof text !== 'string') return String(text ?? '');
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Allow clicking on suggestion items
+document.addEventListener('click', (e) => {
+    if (e.target.matches('.chat-suggestions li')) {
+        const input = document.getElementById('chat-input');
+        input.value = e.target.textContent.replace(/^"|"$/g, '');
+        sendChatMessage();
+    }
+});
 
 function tickClock() {
     const el = document.getElementById('footer-time');

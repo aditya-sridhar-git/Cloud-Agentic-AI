@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-05-02T17:11:45.649405+00:00",
+  "cycle_id": "a8a88680",
+  "epoch": 1777741905.6494057,
+  "plan_summary": "2 approved action(s)",
+  "actions_count": 0,
+  "results": [],
+  "observation_summary": {
+    "instances": 2,
+    "disks": 2,
+    "costs": {}
+  }
+}

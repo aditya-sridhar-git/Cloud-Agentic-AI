@@ -3,13 +3,13 @@
 # =============================================================================
 
 agent:
-  loop_interval_seconds: 3600        # How often the agent runs (5 min)
-  dry_run: true                     # true = plan only, false = execute actions
+  loop_interval_seconds: 60      # How often the agent runs (5 min)
+  dry_run: false                    # true = plan only, false = execute actions
   require_approval: false           # If true, pause before executing actions
 
 provider:
   name: aws                         # Cloud provider (aws | gcp | azure | mock)
-  region: us-east-1
+  region: ap-southeast-1
 
 # ---------------------------------------------------------------------------
 # Notification settings (optional)
@@ -26,7 +26,7 @@ tools:
   idle_server:
     enabled: true
     cpu_threshold_percent: 5.0      # Below this = idle
-    duration_minutes: 30            # Standard 30-min window
+    duration_minutes: 3            # Speed shortcut for testing (standard is 30)
     action: stop                    # stop | terminate
     exclude_tags:
       - Key: "PreserveInstance"
@@ -92,3 +92,25 @@ tools:
     enabled: true
     cloudtrail_hours: 24            # How far back to look in CloudTrail
     auto_trigger_on_cost_spike: true
+
+  # --- NEW TOOLS (Phase 1) ---
+
+  backup_manager:
+    enabled: false                  # Set to true to enable automated backups
+    retention_days: 30              # Keep snapshots for 30 days
+    target_environments:            # Which environments to backup
+      - prod
+      - staging
+    skip_if_tagged_with:            # Skip resources with these tags
+      - Key: "Backup"
+        Value: "false"
+    schedule: "daily"               # daily | weekly
+
+  cert_monitor:
+    enabled: true                   # Certificate expiry monitoring
+    warning_threshold_days:         # Alert thresholds
+      - 30                          # 30 days warning
+      - 14                          # 14 days high priority
+      - 7                           # 7 days critical
+    check_acm: true                 # Check AWS ACM certificates
+    check_imported: true            # Check imported certificates
