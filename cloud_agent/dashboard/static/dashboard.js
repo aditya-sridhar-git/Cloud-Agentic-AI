@@ -302,7 +302,7 @@ function renderCostBreakdown() {
     const deltaPct = costs.delta_pct ?? 0;
 
     if (!services.length) {
-        panel.innerHTML = `<div class="panel-empty" style="padding:2rem 1rem"><span>No cost data available. Run a cycle to collect costs.</span></div>`;
+        panel.innerHTML = `<div class="panel-empty"><span>No cost data available. Run a cycle to collect costs.</span></div>`;
         return;
     }
 
@@ -523,7 +523,7 @@ function renderInstances() {
     if (!grid) return;
     const insts = state.instances || [];
     if (!insts.length) {
-        grid.innerHTML = `<div class="panel-empty" style="padding:4rem 1rem"><span>No instances found.</span></div>`;
+        grid.innerHTML = `<div class="panel-empty"><span>No instances found.</span></div>`;
         return;
     }
     grid.innerHTML = insts.map((inst, idx) => {
@@ -570,7 +570,7 @@ function renderActions() {
     if (!feed) return;
     const acts = state.actions || [];
     if (!acts.length) {
-        feed.innerHTML = `<div class="panel-empty" style="padding:4rem 1rem"><span>No recommended actions this cycle.</span></div>`;
+        feed.innerHTML = `<div class="panel-empty"><span>No recommended actions this cycle.</span></div>`;
         return;
     }
     const STATUS_MAP = {
@@ -602,7 +602,7 @@ function renderSecurity() {
     if (!feed) return;
     const findings = state.security_findings || [];
     if (!findings.length) {
-        feed.innerHTML = `<div class="panel-empty" style="padding:4rem 1rem"><span>All systems secure.</span></div>`;
+        feed.innerHTML = `<div class="panel-empty"><span>All systems secure.</span></div>`;
         return;
     }
     feed.innerHTML = findings.map(f => `
@@ -620,7 +620,7 @@ function renderDiagnosis() {
     if (!feed) return;
     const diags = (state.actions || []).filter(a => a.diagnosis);
     if (!diags.length) {
-        feed.innerHTML = `<div class="panel-empty" style="padding:4rem 1rem"><span>No anomalies requiring analysis.</span></div>`;
+        feed.innerHTML = `<div class="panel-empty"><span>No anomalies requiring analysis.</span></div>`;
         return;
     }
     feed.innerHTML = diags.map(a => `<div class="diag-entry">

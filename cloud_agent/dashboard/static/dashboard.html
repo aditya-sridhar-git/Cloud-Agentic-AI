@@ -317,7 +317,7 @@
                     </div>
                 </div>
                 <div class="panel-body" id="cost-breakdown-panel">
-                    <div class="panel-empty" style="padding:2rem 1rem">
+                    <div class="panel-empty">
                         <span>Run a cycle to collect cost data.</span>
                     </div>
                 </div>
@@ -387,7 +387,9 @@
                         <span class="panel-tag" style="color: var(--cyan)">AI Assistant</span>
                         <h2 class="panel-title">Natural Language Chat</h2>
                     </div>
-                    <span class="count-chip" style="background: rgba(6, 182, 212, 0.15); color: var(--cyan)">Live</span>
+                    <div class="panel-header-right">
+                        <div class="live-badge"><span class="live-dot"></span>Live</div>
+                    </div>
                 </div>
                 <div class="chat-container">
                     <div class="chat-messages" id="chat-messages">
@@ -421,18 +423,13 @@
             <!-- ACTION HISTORY — full width -->
             <section class="panel panel-log" id="panel-log">
                 <div class="panel-header">
-                    <div class="panel-title-group"
-                        style="display:flex; justify-content:space-between; width:100%; align-items:center;">
-                        <div>
-                            <span class="panel-tag">Audit Trail</span>
-                            <h2 class="panel-title">Action History</h2>
-                        </div>
-                        <div style="display:flex; align-items:center; gap:0.5rem">
-                            <span class="count-chip green-chip" id="log-badge">0 entries</span>
-                            <button class="run-btn"
-                                style="background:#1a1d24; border:1px solid #2a2e38; padding:0.25rem 0.6rem; color:var(--text-2); font-size:0.65rem"
-                                onclick="clearHistory()">Clear</button>
-                        </div>
+                    <div class="panel-title-group">
+                        <span class="panel-tag">Audit Trail</span>
+                        <h2 class="panel-title">Action History</h2>
+                    </div>
+                    <div class="panel-header-right">
+                        <span class="count-chip green-chip" id="log-badge">0 entries</span>
+                        <button class="small-btn" onclick="clearHistory()">Clear</button>
                     </div>
                 </div>
                 <div class="panel-body panel-body-table">
@@ -497,7 +494,7 @@
                     <div class="settings-row">
                         <label>Slack Webhook URL</label>
                         <div style="display:flex;gap:0.4rem;">
-                            <input type="text" id="s-slack" placeholder="https://hooks.slack.com/…" style="min-width:160px;">
+                            <input type="text" id="s-slack" class="settings-control" placeholder="https://hooks.slack.com/…" style="min-width:160px;">
                             <button class="settings-btn" onclick="testSlack()">Test</button>
                         </div>
                     </div>
@@ -507,9 +504,9 @@
                     <div class="settings-row">
                         <label>Quiet Hours</label>
                         <div style="display:flex;gap:0.4rem;align-items:center;">
-                            <input type="time" value="22:00" id="s-quiet-start" style="background:var(--bg-inset);border:1px solid var(--border-h);color:var(--text-1);border-radius:var(--r-sm);padding:0.3rem 0.5rem;font-family:var(--f-mono);font-size:0.786rem;">
+                            <input type="time" value="22:00" id="s-quiet-start" class="settings-control">
                             <span style="color:var(--text-3);font-size:0.786rem;">to</span>
-                            <input type="time" value="08:00" id="s-quiet-end" style="background:var(--bg-inset);border:1px solid var(--border-h);color:var(--text-1);border-radius:var(--r-sm);padding:0.3rem 0.5rem;font-family:var(--f-mono);font-size:0.786rem;">
+                            <input type="time" value="08:00" id="s-quiet-end" class="settings-control">
                         </div>
                     </div>
                 </div>
@@ -520,20 +517,20 @@
                     <div class="settings-row">
                         <label>Monthly Budget Cap</label>
                         <div style="display:flex;gap:0.4rem;align-items:center;">
-                            <select id="s-currency" style="background:var(--bg-inset);border:1px solid var(--border-h);color:var(--text-1);border-radius:var(--r-sm);padding:0.3rem 0.4rem;font-family:var(--f-mono);font-size:0.786rem;"><option>USD</option><option>EUR</option><option>GBP</option></select>
-                            <input type="number" id="s-budget" value="500" style="min-width:90px;">
+                            <select id="s-currency" class="settings-control"><option>USD</option><option>EUR</option><option>GBP</option></select>
+                            <input type="number" id="s-budget" value="500" class="settings-control" style="min-width:90px;">
                         </div>
                     </div>
                     <div class="settings-row">
                         <label>Freeze trigger (% above baseline)</label>
                         <div style="display:flex;gap:0.5rem;align-items:center;">
-                            <input type="number" id="s-freeze" value="120" style="min-width:80px;">
+                            <input type="number" id="s-freeze" value="120" class="settings-control" style="min-width:80px;">
                             <span style="color:var(--text-3);font-size:0.786rem;">%</span>
                         </div>
                     </div>
                     <div class="settings-row">
                         <label>Protected Instances</label>
-                        <input type="text" id="s-protected" placeholder="i-xxx, i-yyy" style="min-width:160px;">
+                        <input type="text" id="s-protected" class="settings-control" placeholder="i-xxx, i-yyy" style="min-width:160px;">
                     </div>
                 </div>
 
