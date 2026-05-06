@@ -172,10 +172,10 @@ body {
 }
 
 .sb-section-label {
-    font-size: 0.6rem;
+    font-size: 0.714rem; /* 10px at 14px base */
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.1em;
     color: var(--text-4);
     padding: 1rem 1.1rem 0.4rem;
     font-family: var(--f-display);
@@ -188,11 +188,12 @@ body {
     padding: 0.55rem 1.1rem;
     color: var(--text-2);
     text-decoration: none;
-    font-size: 0.8rem;
+    font-size: 0.929rem; /* 13px at 14px base */
     font-weight: 500;
     border-radius: 0;
     transition: color 0.15s, background 0.15s;
     position: relative;
+    cursor: pointer;
 }
 
 .sb-item svg {
@@ -571,10 +572,10 @@ body {
 }
 
 .kpi-label {
-    font-size: 0.6rem;
+    font-size: 0.786rem; /* 11px at 14px base */
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.06em;
     color: var(--text-3);
     font-family: var(--f-display);
 }
@@ -620,16 +621,17 @@ body {
 
 .kpi-value {
     font-family: var(--f-mono);
-    font-size: 2rem;
+    font-size: 2.571rem; /* ~36px at 14px base */
     font-weight: 500;
     color: var(--text-1);
     line-height: 1;
     letter-spacing: -0.04em;
     margin-bottom: 0.3rem;
+    transition: color 0.3s, font-size 0.3s;
 }
 
 .kpi-sub {
-    font-size: 0.65rem;
+    font-size: 0.857rem; /* 12px at 14px base */
     color: var(--text-2);
 }
 
@@ -752,8 +754,8 @@ body {
 
 .panel-title {
     font-family: var(--f-display);
-    font-size: 0.9rem;
-    font-weight: 700;
+    font-size: 1rem; /* 14px at 14px base */
+    font-weight: 500;
     color: var(--text-1);
     letter-spacing: -0.01em;
 }
@@ -1676,7 +1678,7 @@ body {
 
 .thought-console {
     font-family: var(--f-mono);
-    font-size: 0.68rem;
+    font-size: 0.857rem; /* 12px at 14px base */
     color: #9C9FB1;
     max-height: 160px;
     overflow-y: auto;
