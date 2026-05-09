@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time as _time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import boto3
 from botocore.config import Config as BotoConfig
+from botocore.exceptions import ClientError
 
 from cloud_agent.cloud.provider import CloudProvider
 from cloud_agent.utils.logger import get_logger
@@ -45,6 +47,7 @@ class AWSProvider(CloudProvider):
         self._cloudtrail = boto3.client("cloudtrail", region_name=self._region, config=_RETRY_CONFIG)
         self._rds = boto3.client("rds", region_name=self._region, config=_RETRY_CONFIG)
         self._pi = boto3.client("pi", region_name=self._region, config=_RETRY_CONFIG)
+        self._logs = boto3.client("logs", region_name=self._region, config=_RETRY_CONFIG)
         self._active_regions = self._get_active_regions()
         logger.info("[green]AWS provider initialised[/green] (region=%s, multi-region: %d active)", self._region, len(self._active_regions))
 
@@ -362,9 +365,12 @@ class AWSProvider(CloudProvider):
 
     def get_rds_metrics(self, db_instance_id: str, metric_name: str) -> float:
         """Return recent average RDS metric. Latency metrics are seconds; CPU is percent."""
+        db_meta = next((db for db in self.list_rds_instances() if db["db_instance_id"] == db_instance_id), None)
+        region = db_meta.get("region", self._region) if db_meta else self._region
+        cloudwatch = boto3.client("cloudwatch", region_name=region, config=_RETRY_CONFIG)
         end = datetime.now(timezone.utc)
         start = end - timedelta(minutes=15)
-        resp = self._cloudwatch.get_metric_statistics(
+        resp = cloudwatch.get_metric_statistics(
             Namespace="AWS/RDS",
             MetricName=metric_name,
             Dimensions=[{"Name": "DBInstanceIdentifier", "Value": db_instance_id}],
@@ -386,13 +392,15 @@ class AWSProvider(CloudProvider):
         """
         db_meta = next((db for db in self.list_rds_instances() if db["db_instance_id"] == db_instance_id), None)
         resource_id = db_meta.get("dbi_resource_id") if db_meta else None
+        region = db_meta.get("region", self._region) if db_meta else self._region
         if not resource_id:
             return []
 
         end = datetime.now(timezone.utc)
         start = end - timedelta(hours=1)
+        pi = boto3.client("pi", region_name=region, config=_RETRY_CONFIG)
         try:
-            resp = self._pi.describe_dimension_keys(
+            resp = pi.describe_dimension_keys(
                 ServiceType="RDS",
                 Identifier=resource_id,
                 StartTime=start,
@@ -401,28 +409,154 @@ class AWSProvider(CloudProvider):
                 PeriodInSeconds=300,
                 GroupBy={"Group": "db.sql_tokenized", "Limit": limit},
             )
+        except ClientError as e:
+            code = e.response.get("Error", {}).get("Code", "")
+            message = e.response.get("Error", {}).get("Message", str(e))
+            logger.warning("Could not read Performance Insights for %s: %s", db_instance_id, message)
+            if code == "NotAuthorizedException":
+                raise RuntimeError(
+                    f"Performance Insights is not authorized for {db_instance_id}. "
+                    "Enable Database Insights/Performance Insights for this DB and grant pi:DescribeDimensionKeys."
+                ) from e
+            raise
         except Exception as e:
             logger.warning("Could not read Performance Insights for %s: %s", db_instance_id, e)
-            return []
+            raise
 
         queries: list[dict[str, Any]] = []
         for item in resp.get("Keys", [])[:limit]:
             dims = item.get("Dimensions", {})
-            sql = (
-                dims.get("db.sql_tokenized.statement")
-                or dims.get("db.sql_tokenized.id")
-                or "SQL text unavailable from Performance Insights"
+            sql = self._extract_pi_sql(dims)
+            load = float(item.get("Total", 0.0) or 0.0)
+            dimension_id = (
+                dims.get("db.sql_tokenized.id")
+                or dims.get("db.sql.id")
+                or dims.get("db.sql.statement")
+                or dims.get("db.sql_tokenized.statement")
+                or ""
             )
-            load = float(item.get("Total", 0.0))
+            additional = item.get("AdditionalMetrics", {}) or {}
+            avg_latency_ms = 0.0
+            for key in ("db.sql_tokenized.avg_latency", "db.sql.avg_latency", "avg_latency"):
+                if key in additional:
+                    try:
+                        avg_latency_ms = float(additional[key]) * 1000
+                    except (TypeError, ValueError):
+                        avg_latency_ms = 0.0
+                    break
             queries.append({
                 "query": sql,
+                "dimension_id": dimension_id,
                 "calls": 0,
-                "avg_time_ms": max(load * 1000, 0),
+                "avg_time_ms": round(avg_latency_ms or max(load * 1000, 0), 2),
+                "has_duration_metric": bool(avg_latency_ms),
+                "db_load": round(load, 4),
                 "rows_examined": 0,
                 "rows_returned": 0,
-                "explain_output": f"Performance Insights db.load.avg={load:.3f}; EXPLAIN ANALYZE not available via AWS API",
+                "source": "AWS Performance Insights",
+                "explain_output": (
+                    f"Performance Insights db.load.avg={load:.3f}; "
+                    f"dimension={dimension_id or 'unknown'}; "
+                    "EXPLAIN ANALYZE is not available through the AWS API."
+                ),
             })
         return queries
+
+    def get_rds_slow_log_queries(self, db_instance_id: str, engine: str, limit: int = 10) -> list[dict[str, Any]]:
+        """Best-effort fallback using exported RDS logs in CloudWatch Logs.
+
+        MySQL needs slow_query_log enabled and exported to CloudWatch Logs.
+        PostgreSQL needs relevant statement logging exported to the postgresql log.
+        """
+        db_meta = next((db for db in self.list_rds_instances() if db["db_instance_id"] == db_instance_id), None)
+        region = db_meta.get("region", self._region) if db_meta else self._region
+        logs = boto3.client("logs", region_name=region, config=_RETRY_CONFIG)
+        engine_lower = engine.lower()
+        suffixes = ["slowquery", "error"] if "mysql" in engine_lower or "maria" in engine_lower else ["postgresql"]
+        start_ms = int((datetime.now(timezone.utc) - timedelta(hours=3)).timestamp() * 1000)
+        end_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        samples: list[dict[str, Any]] = []
+
+        for suffix in suffixes:
+            log_group = f"/aws/rds/instance/{db_instance_id}/{suffix}"
+            try:
+                paginator = logs.get_paginator("filter_log_events")
+                for page in paginator.paginate(
+                    logGroupName=log_group,
+                    startTime=start_ms,
+                    endTime=end_ms,
+                    PaginationConfig={"MaxItems": 200},
+                ):
+                    for event in page.get("events", []):
+                        parsed = self._parse_rds_log_query(event.get("message", ""), engine_lower)
+                        if parsed:
+                            samples.append(parsed)
+                            if len(samples) >= limit:
+                                return samples
+            except logs.exceptions.ResourceNotFoundException:
+                continue
+            except ClientError as e:
+                logger.warning("Could not read RDS log group %s: %s", log_group, e)
+                continue
+        return samples[:limit]
+
+    @staticmethod
+    def _parse_rds_log_query(message: str, engine_lower: str) -> dict[str, Any] | None:
+        text = message.strip()
+        if not text:
+            return None
+
+        if "mysql" in engine_lower or "maria" in engine_lower:
+            query_time = 0.0
+            match = re.search(r"Query_time:\s*([0-9.]+)", text)
+            if match:
+                query_time = float(match.group(1)) * 1000
+            sql_candidates = [
+                line.strip()
+                for line in text.splitlines()
+                if line.strip() and not line.startswith("#") and not line.upper().startswith("SET TIMESTAMP")
+            ]
+            sql = sql_candidates[-1] if sql_candidates else ""
+        else:
+            duration_match = re.search(r"duration:\s*([0-9.]+)\s*ms", text, flags=re.IGNORECASE)
+            query_time = float(duration_match.group(1)) if duration_match else 0.0
+            statement_match = re.search(r"statement:\s*(.+)$", text, flags=re.IGNORECASE | re.DOTALL)
+            sql = statement_match.group(1).strip() if statement_match else text
+
+        if not sql:
+            return None
+
+        return {
+            "query": sql,
+            "calls": 0,
+            "avg_time_ms": round(query_time, 2),
+            "has_duration_metric": bool(query_time),
+            "db_load": 0.0,
+            "rows_examined": 0,
+            "rows_returned": 0,
+            "source": "CloudWatch RDS Logs",
+            "explain_output": "SQL sample parsed from exported RDS CloudWatch Logs.",
+        }
+
+    @staticmethod
+    def _extract_pi_sql(dimensions: dict[str, Any]) -> str:
+        """Extract the best SQL text from a Performance Insights dimension map."""
+        preferred_keys = (
+            "db.sql_tokenized.statement",
+            "db.sql.statement",
+            "db.sql_tokenized.sql",
+            "db.sql.sql",
+            "db.sql_tokenized.id",
+            "db.sql.id",
+        )
+        for key in preferred_keys:
+            value = dimensions.get(key)
+            if value:
+                return str(value)
+        for key, value in dimensions.items():
+            if "sql" in key.lower() and value:
+                return str(value)
+        return "SQL text unavailable from Performance Insights"
 
 
     # ------------------------------------------------------------------

@@ -1,19 +1,16 @@
 """
-Query Optimizer Tool — Detect and optimize slow database queries.
+Query Optimizer Tool - detect and optimize slow database queries.
 
-This tool monitors RDS database latency metrics, identifies slow queries
-using pg_stat_statements (PostgreSQL) or slow_query_log (MySQL), runs
-EXPLAIN ANALYZE, and uses LLM analysis to suggest optimized rewrites
-and missing indexes.
-
-This is an agentic differentiator: AWS native tools cannot analyse SQL
-semantics, rewrite queries, or suggest contextual index strategies.
+The tool discovers RDS instances, reads RDS CloudWatch metrics, collects SQL
+evidence from Database Insights / Performance Insights, and returns slow-query
+recommendations that the dashboard can render directly.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any
 
 from cloud_agent.agent.baseagent import Action
@@ -22,21 +19,16 @@ from cloud_agent.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# ---------------------------------------------------------------------------
-# LLM prompt for query optimization
-# ---------------------------------------------------------------------------
-
 _OPTIMIZATION_PROMPT = """\
-You are a senior database performance engineer. I have collected slow queries
-and their EXPLAIN ANALYZE output from a {engine} database ({db_instance_id}).
+You are a senior database performance engineer. I have collected slow-query
+evidence from a {engine} database ({db_instance_id}).
 
-For each slow query, provide:
-1. **Problem**: What makes this query slow (be specific — full table scan,
-   missing index, SELECT *, inefficient JOIN, etc.).
-2. **Optimized Query**: A rewritten version of the SQL that would run faster.
-3. **Index Suggestions**: Any CREATE INDEX statements that would help.
-4. **Estimated Improvement**: rough estimate (e.g. "10x faster", "95% reduction").
-5. **Severity**: critical / warning / info.
+For each query, provide:
+1. Problem: what makes this query slow.
+2. Optimized Query: a corrected SQL version where possible.
+3. Index Suggestions: CREATE INDEX statements that would help.
+4. Estimated Improvement: rough estimate.
+5. Severity: critical / warning / info.
 
 --- SLOW QUERIES ---
 {queries_text}
@@ -65,24 +57,16 @@ Respond in JSON:
 
 @register_tool("query_optimizer")
 class QueryOptimizerTool(BaseTool):
-    """Detect slow database queries and suggest LLM-powered optimizations."""
+    """Detect slow database queries and suggest optimized SQL/indexes."""
 
     def execute(self, action: Action) -> dict[str, Any]:
-        """Run the full query optimization pipeline.
-
-        Pipeline: Discover DBs → Check latency → Collect slow queries →
-                  Analyse with LLM → Return recommendations.
-        """
-        logger.info(
-            "[bold yellow]🗄️  QUERY OPTIMIZER[/bold yellow] — scanning databases for slow queries …"
-        )
+        logger.info("[bold yellow]QUERY OPTIMIZER[/bold yellow] scanning RDS databases")
 
         tool_cfg = self.config.get("tools", {}).get("query_optimizer", {})
-        latency_threshold = tool_cfg.get("latency_threshold_ms", 100) / 1000  # convert to seconds
+        latency_threshold = tool_cfg.get("latency_threshold_ms", 100) / 1000
         slow_query_threshold = tool_cfg.get("slow_query_threshold_ms", 1000)
         max_queries = tool_cfg.get("max_queries_to_analyze", 10)
 
-        # Step 1: List all RDS instances
         try:
             databases = self.provider.list_rds_instances()
         except Exception as exc:
@@ -90,22 +74,25 @@ class QueryOptimizerTool(BaseTool):
             return {"tool": self.tool_name, "status": "error", "error": str(exc)}
 
         if not databases:
-            logger.info("No RDS instances found.")
             return {
                 "tool": self.tool_name,
                 "status": "no_databases",
+                "summary": "No RDS databases were found",
                 "databases_scanned": 0,
+                "database_metrics": [],
                 "slow_databases": [],
                 "optimizations": [],
+                "errors": [],
             }
 
-        # Step 2: Check latency metrics for each database
+        database_metrics: list[dict[str, Any]] = []
         slow_databases: list[dict[str, Any]] = []
         healthy_databases: list[str] = []
 
         for db in databases:
             db_id = db["db_instance_id"]
-            engine = db.get("engine", "postgres")
+            engine = db.get("engine", "unknown")
+            region = db.get("region", "unknown")
 
             try:
                 read_latency = self.provider.get_rds_metrics(db_id, "ReadLatency")
@@ -113,248 +100,278 @@ class QueryOptimizerTool(BaseTool):
                 cpu = self.provider.get_rds_metrics(db_id, "CPUUtilization")
             except Exception as exc:
                 logger.warning("Could not get metrics for %s: %s", db_id, exc)
-                continue
+                read_latency = write_latency = cpu = 0.0
+
+            metrics = {
+                "db_instance_id": db_id,
+                "engine": engine,
+                "instance_class": db.get("instance_class", "unknown"),
+                "status": db.get("status", "unknown"),
+                "region": region,
+                "read_latency_ms": round(float(read_latency) * 1000, 2),
+                "write_latency_ms": round(float(write_latency) * 1000, 2),
+                "cpu_percent": round(float(cpu), 1),
+                "latency_threshold_ms": round(latency_threshold * 1000, 2),
+            }
+            database_metrics.append(metrics)
 
             if read_latency > latency_threshold or write_latency > latency_threshold:
-                logger.info(
-                    "[bold red]⚠️  HIGH LATENCY[/bold red] on [cyan]%s[/cyan] — "
-                    "Read: %.1fms, Write: %.1fms, CPU: %.1f%%",
-                    db_id, read_latency * 1000, write_latency * 1000, cpu,
-                )
-                slow_databases.append({
-                    "db_instance_id": db_id,
-                    "engine": engine,
-                    "instance_class": db.get("instance_class", "unknown"),
-                    "read_latency_ms": round(read_latency * 1000, 2),
-                    "write_latency_ms": round(write_latency * 1000, 2),
-                    "cpu_percent": round(cpu, 1),
-                })
+                slow_databases.append(metrics)
             else:
                 healthy_databases.append(db_id)
 
-        if not slow_databases:
-            logger.info("[green]✓ All databases healthy — no latency issues.[/green]")
-            return {
-                "tool": self.tool_name,
-                "status": "all_healthy",
-                "databases_scanned": len(databases),
-                "slow_databases": [],
-                "optimizations": [],
-            }
-
-        # Step 3: Collect slow queries from each problematic database
         all_optimizations: list[dict[str, Any]] = []
+        errors: list[dict[str, str]] = []
 
-        for db_info in slow_databases:
+        # Do not gate SQL evidence on CloudWatch latency. Database Insights can
+        # contain useful slow SQL even when aggregate read/write latency is low.
+        for db_info in database_metrics:
             db_id = db_info["db_instance_id"]
             engine = db_info["engine"]
 
-            logger.info(
-                "[bold yellow]🔍 COLLECTING[/bold yellow] slow queries from [cyan]%s[/cyan] (%s) …",
-                db_id, engine,
-            )
-
             try:
-                slow_queries = self.provider.get_slow_queries(db_id, engine, limit=max_queries)
+                samples = self.provider.get_slow_queries(db_id, engine, limit=max_queries)
             except Exception as exc:
-                logger.warning("Could not get slow queries for %s: %s", db_id, exc)
+                logger.warning("Could not read SQL evidence for %s: %s", db_id, exc)
+                errors.append({"db_instance_id": db_id, "error": str(exc)})
                 continue
 
-            # Filter to only queries above the threshold
-            problematic = [
-                q for q in slow_queries
-                if q.get("avg_time_ms", 0) > slow_query_threshold
-            ]
-
-            if not problematic:
-                logger.info("  No queries above %dms threshold on %s.", slow_query_threshold, db_id)
+            selected = self._select_problematic_queries(samples, slow_query_threshold)
+            if not selected:
                 continue
 
-            logger.info(
-                "  Found [bold red]%d slow query(ies)[/bold red] on %s",
-                len(problematic), db_id,
-            )
-
-            # Step 4: Analyse with LLM (or fallback to rules)
-            analysis = self._analyse_queries(db_id, engine, problematic)
+            analysis = self._analyse_queries(db_id, engine, selected)
+            analysis["database_metrics"] = db_info
             all_optimizations.append(analysis)
 
-        result = {
+        total_opts = sum(len(item.get("optimizations", [])) for item in all_optimizations)
+        summary = self._summary(len(databases), len(slow_databases), total_opts, errors)
+
+        logger.info(
+            "[bold yellow]QUERY OPTIMIZER COMPLETE[/bold yellow] %d database(s), %d suggestion(s)",
+            len(databases),
+            total_opts,
+        )
+
+        return {
             "tool": self.tool_name,
-            "status": "optimizations_found" if all_optimizations else "no_slow_queries",
+            "status": "optimizations_found" if total_opts else "no_slow_queries",
+            "summary": summary,
             "databases_scanned": len(databases),
+            "database_metrics": database_metrics,
             "slow_databases": slow_databases,
             "healthy_databases": healthy_databases,
             "optimizations": all_optimizations,
+            "errors": errors,
         }
 
-        # Log summary
-        total_opts = sum(len(a.get("optimizations", [])) for a in all_optimizations)
-        logger.info(
-            "[bold yellow]🗄️  QUERY OPTIMIZER COMPLETE[/bold yellow] — "
-            "%d database(s) scanned, %d slow, %d optimization(s) suggested",
-            len(databases), len(slow_databases), total_opts,
-        )
+    @staticmethod
+    def _select_problematic_queries(
+        samples: list[dict[str, Any]],
+        slow_query_threshold_ms: int,
+    ) -> list[dict[str, Any]]:
+        selected: list[dict[str, Any]] = []
+        for sample in samples:
+            avg_time = float(sample.get("avg_time_ms", 0) or 0)
+            has_duration = bool(sample.get("has_duration_metric"))
+            if has_duration and avg_time < slow_query_threshold_ms:
+                continue
+            selected.append(sample)
+        return selected
 
-        return result
+    @staticmethod
+    def _summary(scanned: int, high_latency: int, total_opts: int, errors: list[dict[str, str]]) -> str:
+        if total_opts:
+            return f"Found {total_opts} slow-query optimization suggestion(s) across {scanned} RDS database(s)"
+        if errors:
+            return f"Scanned {scanned} RDS database(s), but SQL evidence was unavailable for {len(errors)} database(s)"
+        if high_latency:
+            return f"High RDS latency found on {high_latency} database(s), but no SQL samples were returned yet"
+        return f"Scanned {scanned} RDS database(s); no slow SQL samples were returned yet"
 
-    # ------------------------------------------------------------------
-    # Analysis
-    # ------------------------------------------------------------------
-
-    def _analyse_queries(self, db_id: str, engine: str,
-                         slow_queries: list[dict[str, Any]]) -> dict[str, Any]:
-        """Analyse slow queries using LLM with rule-based fallback."""
+    def _analyse_queries(
+        self,
+        db_id: str,
+        engine: str,
+        slow_queries: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         api_key = os.getenv("OPENAI_API_KEY")
-
         if not api_key:
             return self._rule_based_analysis(db_id, engine, slow_queries)
 
         try:
             from openai import OpenAI
-            client = OpenAI(api_key=api_key)
 
-            # Build query text for the prompt
+            client = OpenAI(api_key=api_key)
             queries_text = ""
             for i, q in enumerate(slow_queries, 1):
                 queries_text += (
                     f"\n--- Query #{i} ---\n"
-                    f"SQL: {q['query']}\n"
-                    f"Calls: {q.get('calls', 'N/A')}\n"
+                    f"SQL: {q.get('query', 'SQL unavailable')}\n"
+                    f"DB Load: {q.get('db_load', 'N/A')}\n"
                     f"Avg Time: {q.get('avg_time_ms', 'N/A')}ms\n"
-                    f"Rows Examined: {q.get('rows_examined', 'N/A')}\n"
-                    f"Rows Returned: {q.get('rows_returned', 'N/A')}\n"
-                    f"EXPLAIN Output:\n{q.get('explain_output', 'N/A')}\n"
+                    f"Source: {q.get('source', 'Performance Insights')}\n"
+                    f"Evidence:\n{q.get('explain_output', 'N/A')}\n"
                 )
-
-            prompt = _OPTIMIZATION_PROMPT.format(
-                engine=engine,
-                db_instance_id=db_id,
-                queries_text=queries_text,
-            )
 
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 response_format={"type": "json_object"},
-                messages=[{"role": "user", "content": prompt}],
+                messages=[{
+                    "role": "user",
+                    "content": _OPTIMIZATION_PROMPT.format(
+                        engine=engine,
+                        db_instance_id=db_id,
+                        queries_text=queries_text,
+                    ),
+                }],
                 temperature=0.1,
             )
             raw = response.choices[0].message.content
-            return json.loads(raw)
+            return self._normalise_analysis(json.loads(raw), db_id, engine, slow_queries)
         except Exception as exc:
-            logger.warning("LLM query analysis failed: %s — using rule-based fallback", exc)
+            logger.warning("LLM query analysis failed: %s - using rule-based fallback", exc)
             return self._rule_based_analysis(db_id, engine, slow_queries)
 
-    # ------------------------------------------------------------------
-    # Rule-based fallback
-    # ------------------------------------------------------------------
+    @staticmethod
+    def _normalise_analysis(
+        data: dict[str, Any],
+        db_id: str,
+        engine: str,
+        slow_queries: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        opts = data.get("optimizations", [])
+        if not isinstance(opts, list):
+            opts = []
+        for idx, opt in enumerate(opts):
+            evidence = slow_queries[idx] if idx < len(slow_queries) else {}
+            opt.setdefault("original_query", evidence.get("query", "SQL text unavailable"))
+            opt.setdefault("optimized_query", "Manual rewrite recommended")
+            opt.setdefault("index_suggestions", [])
+            opt.setdefault("severity", "warning")
+            opt.setdefault("estimated_improvement", "Unknown")
+            opt.setdefault("avg_time_ms", evidence.get("avg_time_ms", 0))
+            opt.setdefault("db_load", evidence.get("db_load", 0))
+            opt.setdefault("source", evidence.get("source", "Performance Insights"))
+        return {
+            "db_instance_id": data.get("db_instance_id", db_id),
+            "engine": data.get("engine", engine),
+            "total_queries_analyzed": data.get("total_queries_analyzed", len(slow_queries)),
+            "optimizations": opts,
+            "summary": data.get("summary", f"Analyzed {len(opts)} query sample(s) on {db_id}."),
+        }
 
-    def _rule_based_analysis(self, db_id: str, engine: str,
-                             slow_queries: list[dict[str, Any]]) -> dict[str, Any]:
-        """Pattern-match common SQL anti-patterns when LLM is unavailable."""
+    def _rule_based_analysis(
+        self,
+        db_id: str,
+        engine: str,
+        slow_queries: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         optimizations = []
 
-        for q in slow_queries:
-            query = q.get("query", "")
-            explain = q.get("explain_output", "")
+        for query_info in slow_queries:
+            query = query_info.get("query", "SQL text unavailable")
+            explain = query_info.get("explain_output", "")
             query_lower = query.lower()
             explain_lower = explain.lower()
 
-            problems = []
-            suggestions = []
-            index_suggestions = []
-            optimized_query = query  # Start with original
+            problems: list[str] = []
+            index_suggestions: list[str] = []
+            optimized_query = query
             severity = "info"
 
-            # --- Anti-pattern 1: Full table scan ---
+            table = self._extract_table(query_lower)
+            where_cols = re.findall(
+                r"(?:where|and|or)\s+[`\"]?([a-zA-Z_][\w]*)[`\"]?\s*(?:=|>|<|in\b|like\b)",
+                query_lower,
+            )
+            order_cols = re.findall(r"\border\s+by\s+[`\"]?([a-zA-Z_][\w]*)[`\"]?", query_lower)
+
             if "seq scan" in explain_lower or "table scan" in explain_lower:
-                problems.append("Full table scan detected — database is reading every row")
+                problems.append("Full table scan detected; the database is reading every row")
                 severity = "critical"
 
-                # Try to extract table name and filter column for index suggestion
-                import re
-                scan_match = re.search(r"(?:seq scan|table scan) on (\w+)", explain_lower)
-                filter_match = re.search(r"filter:.*?\((\w+)", explain_lower)
-                if scan_match and filter_match:
-                    table = scan_match.group(1)
-                    column = filter_match.group(1)
-                    index_suggestions.append(
-                        f"CREATE INDEX idx_{table}_{column} ON {table}({column});"
-                    )
-                    suggestions.append(f"Add an index on {table}.{column} to avoid full table scan")
+            if where_cols:
+                problems.append(f"Filter on {', '.join(dict.fromkeys(where_cols))} needs a supporting index")
+                severity = self._max_severity(severity, "warning")
+                for col in dict.fromkeys(where_cols):
+                    index_suggestions.append(f"CREATE INDEX idx_{table}_{col} ON {table}({col});")
 
-            # --- Anti-pattern 2: SELECT * ---
+            if where_cols and order_cols:
+                cols = list(dict.fromkeys(where_cols + order_cols))[:3]
+                index_suggestions.insert(
+                    0,
+                    f"CREATE INDEX idx_{table}_{'_'.join(cols)} ON {table}({', '.join(cols)});",
+                )
+                problems.append("Sorting after filtering can be improved with a composite index")
+                severity = self._max_severity(severity, "warning")
+
             if "select *" in query_lower:
-                problems.append("SELECT * fetches all columns — wasteful if only a few are needed")
-                severity = max(severity, "warning", key=lambda x: {"info": 0, "warning": 1, "critical": 2}[x])
-                suggestions.append("Replace SELECT * with specific column names")
-                # Attempt to replace SELECT * with a hint
-                optimized_query = optimized_query.replace("SELECT *", "SELECT id, <needed_columns>", 1)
-                optimized_query = optimized_query.replace("select *", "SELECT id, <needed_columns>", 1)
+                problems.append("SELECT * fetches all columns and increases I/O")
+                optimized_query = re.sub(
+                    r"\bselect\s+\*",
+                    "SELECT id, <needed_columns>",
+                    optimized_query,
+                    count=1,
+                    flags=re.IGNORECASE,
+                )
+                severity = self._max_severity(severity, "warning")
 
-            # --- Anti-pattern 3: LIKE with leading wildcard ---
-            if "like '%'" in query_lower or "like '%" in query_lower:
-                problems.append("LIKE with leading wildcard ('%...') prevents index usage")
+            if re.search(r"\blike\s+'%", query_lower):
+                problems.append("LIKE with a leading wildcard prevents normal index usage")
                 severity = "critical"
-                suggestions.append("Consider using a full-text search index or restructure the filter")
-
-            # --- Anti-pattern 4: Implicit joins (FROM a, b WHERE) ---
-            if re.search(r'from\s+\w+\s*,\s*\w+', query_lower):
-                problems.append("Implicit (comma) join style detected — harder to read and optimize")
-                suggestions.append("Rewrite using explicit JOIN ... ON syntax")
-
-            # --- Anti-pattern 5: High rows examined vs returned ratio ---
-            rows_examined = q.get("rows_examined", 0)
-            rows_returned = q.get("rows_returned", 0)
-            if rows_examined > 0 and rows_returned > 0:
-                ratio = rows_examined / rows_returned
-                if ratio > 10:
-                    problems.append(
-                        f"Scanning {rows_examined:,} rows to return {rows_returned:,} "
-                        f"(ratio: {ratio:.0f}x) — very inefficient"
+                if engine.lower().startswith("mysql"):
+                    index_suggestions.append(f"CREATE FULLTEXT INDEX idx_{table}_fulltext ON {table}(event_payload);")
+                    optimized_query = re.sub(
+                        r"event_payload\s+like\s+'%([^%']+)%'",
+                        r"MATCH(event_payload) AGAINST('\1' IN NATURAL LANGUAGE MODE)",
+                        optimized_query,
+                        flags=re.IGNORECASE,
                     )
-                    severity = "critical"
 
-            # --- Anti-pattern 6: Subquery in WHERE / IN ---
-            if " in (select " in query_lower or " in(select " in query_lower:
-                problems.append("Subquery inside IN clause — may be slower than a JOIN")
-                suggestions.append("Rewrite the subquery as a JOIN for better performance")
+            if re.search(r"\bfrom\s+\w+\s*,\s*\w+", query_lower):
+                problems.append("Implicit comma join style can create inefficient join plans")
+                severity = self._max_severity(severity, "warning")
 
-            # --- Anti-pattern 7: Missing ORDER BY index ---
-            if "order by" in query_lower and "sort" in explain_lower:
-                sort_match = re.search(r"sort key:\s*(\w+)", explain_lower)
-                if sort_match:
-                    sort_col = sort_match.group(1)
-                    suggestions.append(f"Consider a composite index that includes {sort_col} to avoid sort")
+            rows_examined = int(query_info.get("rows_examined", 0) or 0)
+            rows_returned = int(query_info.get("rows_returned", 0) or 0)
+            if rows_examined and rows_returned and rows_examined / max(rows_returned, 1) > 10:
+                problems.append(
+                    f"Scans {rows_examined:,} rows to return {rows_returned:,}, which is inefficient"
+                )
+                severity = "critical"
 
-            # Build the optimization entry
             if not problems:
-                problems.append("Query is slow but no specific anti-pattern detected")
-                suggestions.append("Manual review recommended — consider query profiling")
+                problems.append("High database load sample; review the plan and add selective indexes")
 
-            avg_time = q.get("avg_time_ms", 0)
-            estimated_improvement = "2-5x faster"
-            if severity == "critical":
-                estimated_improvement = "10-100x faster (with proper indexing)"
-            elif severity == "warning":
-                estimated_improvement = "3-10x faster"
+            if optimized_query == query and index_suggestions:
+                optimized_query = f"-- Apply the suggested index first.\n{query}"
+            elif optimized_query == query:
+                optimized_query = "Manual rewrite recommended after reviewing EXPLAIN output"
+
+            index_suggestions = list(dict.fromkeys(index_suggestions))
+            avg_time = float(query_info.get("avg_time_ms", 0) or 0)
+            db_load = float(query_info.get("db_load", 0) or 0)
 
             optimizations.append({
                 "original_query": query,
                 "problem": "; ".join(problems),
-                "optimized_query": optimized_query if optimized_query != query else "Manual rewrite recommended",
+                "optimized_query": optimized_query,
                 "index_suggestions": index_suggestions,
-                "estimated_improvement": estimated_improvement,
+                "estimated_improvement": self._estimated_improvement(severity, index_suggestions),
                 "severity": severity,
                 "avg_time_ms": avg_time,
-                "calls": q.get("calls", 0),
-                "explanation": f"Query averages {avg_time:.0f}ms across {q.get('calls', 0):,} calls. "
-                               f"Issues: {'; '.join(problems)}.",
+                "db_load": db_load,
+                "source": query_info.get("source", "Performance Insights"),
+                "calls": query_info.get("calls", 0),
+                "explanation": (
+                    f"Database load sample {db_load:.3f}; duration metric "
+                    f"{avg_time:.0f}ms. Issues: {'; '.join(problems)}."
+                ),
             })
 
-        # Sort by severity (critical first)
         severity_order = {"critical": 0, "warning": 1, "info": 2}
-        optimizations.sort(key=lambda x: severity_order.get(x["severity"], 3))
+        optimizations.sort(key=lambda item: severity_order.get(item["severity"], 3))
 
         return {
             "db_instance_id": db_id,
@@ -362,8 +379,30 @@ class QueryOptimizerTool(BaseTool):
             "total_queries_analyzed": len(slow_queries),
             "optimizations": optimizations,
             "summary": (
-                f"Found {len(optimizations)} slow query(ies) on {db_id}. "
+                f"Found {len(optimizations)} query optimization candidate(s) on {db_id}. "
                 f"{sum(1 for o in optimizations if o['severity'] == 'critical')} critical, "
                 f"{sum(1 for o in optimizations if o['severity'] == 'warning')} warning."
             ),
         }
+
+    @staticmethod
+    def _extract_table(query_lower: str) -> str:
+        match = re.search(r"\bfrom\s+[`\"]?([a-zA-Z_][\w.]*)[`\"]?", query_lower)
+        if not match:
+            return "target_table"
+        return match.group(1).split(".")[-1]
+
+    @staticmethod
+    def _max_severity(a: str, b: str) -> str:
+        order = {"info": 0, "warning": 1, "critical": 2}
+        return a if order.get(a, 0) >= order.get(b, 0) else b
+
+    @staticmethod
+    def _estimated_improvement(severity: str, indexes: list[str]) -> str:
+        if severity == "critical" and indexes:
+            return "10-100x faster after indexing/search rewrite"
+        if severity == "critical":
+            return "5-20x faster after rewrite"
+        if indexes:
+            return "3-10x faster with supporting indexes"
+        return "2-5x faster after plan review"

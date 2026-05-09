@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from cloud_agent.agent.baseagent import Plan
+from cloud_agent.agent.baseagent import Action, Plan
 if TYPE_CHECKING:
     from cloud_agent.main import CloudOpsAgent
 
@@ -56,6 +56,7 @@ _latest_state: dict[str, Any] = {
     "costs": {},
     "actions": [],
     "security_findings": [],
+    "query_optimizations": {},
     "reasoning_summary": "Initial scan in progress...",
     "thoughts": [],
 }
@@ -180,6 +181,39 @@ async def clear_history():
 async def get_instances():
     """Return current instance list."""
     return {"instances": _latest_state.get("instances", [])}
+
+
+@app.get("/api/query-optimizer")
+async def get_query_optimizer():
+    """Return the latest query optimizer result shown on the dashboard."""
+    return _latest_state.get("query_optimizations", {})
+
+
+@app.post("/api/query-optimizer/run")
+async def run_query_optimizer():
+    """Run the RDS query optimizer immediately and update dashboard state."""
+    if not _agent:
+        return {"error": "Agent not initialized"}
+
+    action = Action(
+        tool_name="query_optimizer",
+        resource_id="rds",
+        action_type="analyze",
+        reason="Manual dashboard query optimization scan",
+    )
+    try:
+        _emit_thought("Inspecting RDS query performance evidence...")
+        results = _agent.act(Plan(actions=[action], summary="Manual query optimizer run"))
+        result = results[0] if results else {"status": "error", "error": "No result returned"}
+        _latest_state["query_optimizations"] = result
+        _broadcast(_latest_state)
+        return result
+    except Exception as exc:
+        logger.exception("Query optimizer run failed")
+        result = {"status": "error", "error": str(exc)}
+        _latest_state["query_optimizations"] = result
+        _broadcast(_latest_state)
+        return result
 
 
 @app.get("/api/confidence-metrics")
@@ -642,6 +676,7 @@ def _run_agent_cycle() -> None:
         _latest_state["status"] = "running"
         _latest_state["thoughts"] = [] # Clear previous cycle logic
         _latest_state["security_findings"] = []
+        _latest_state["query_optimizations"] = {}
         _broadcast(_latest_state)
         _emit_thought("Starting secure handshake with cloud environment...")
         time.sleep(0.5)
@@ -734,6 +769,14 @@ def _run_agent_cycle() -> None:
                 res = _agent.act(Plan(actions=[a], summary="Pre-diagnosis for dashboard"))
                 if res and "diagnosis" in res[0]:
                     entry["diagnosis"] = res[0]["diagnosis"]
+
+            elif a.tool_name == "query_optimizer":
+                _emit_thought("Analyzing RDS slow-query evidence...")
+                res = _agent.act(Plan(actions=[a], summary="Query optimization for dashboard"))
+                if res:
+                    _latest_state["query_optimizations"] = res[0]
+                    entry["status"] = res[0].get("status", "analyzed")
+                    entry["query_summary"] = res[0].get("summary", "")
 
             planned_actions.append(entry)
             

@@ -9,7 +9,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="/dashboard.css?v=201" />
+    <link rel="stylesheet" href="/dashboard.css?v=203" />
     <link rel="stylesheet" href="/confidence.css?v=201" />
 </head>
 
@@ -70,12 +70,20 @@
             <span class="sb-audit-pulse hidden" id="sb-audit-pulse"></span>
             <span class="sb-pill danger" id="sb-findings">0</span>
         </a>
-        <a href="/dashboard/diagnostics" class="sb-item" id="sb-nav-diag" onclick="navigateTo(event,'diag')">
+            <a href="/dashboard/diagnostics" class="sb-item" id="sb-nav-diag" onclick="navigateTo(event,'diag')">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                    <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.2" />
+                    <path d="M10 10l3.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                </svg>
+                <span>Diagnostics</span>
+            </a>
+        <a href="/dashboard/queries" class="sb-item" id="sb-nav-queries" onclick="navigateTo(event,'queries')">
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-                <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.2" />
-                <path d="M10 10l3.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                <rect x="2" y="2" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.2" />
+                <path d="M4.5 5h6M4.5 7.5h4M4.5 10h5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
             </svg>
-            <span>Diagnostics</span>
+            <span>Queries</span>
+            <span class="sb-pill accent" id="sb-queries">0</span>
         </a>
 
         <div class="sb-section-label">System</div>
@@ -345,6 +353,25 @@
                 <div class="panel-body" id="cost-breakdown-panel">
                     <div class="panel-empty">
                         <span>Run a cycle to collect cost data.</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- QUERY OPTIMIZER PANEL -->
+            <section class="panel panel-query" id="panel-query">
+                <div class="panel-header">
+                    <div class="panel-title-group">
+                        <span class="panel-tag" style="color:var(--cyan)">Database Performance</span>
+                        <h2 class="panel-title">Slow Query Optimizer</h2>
+                    </div>
+                    <div class="panel-header-right">
+                        <span class="count-chip" id="query-badge">0 queries</span>
+                        <button class="provision-btn" id="btn-run-query-optimizer">Analyze</button>
+                    </div>
+                </div>
+                <div class="panel-body scrollable" id="query-feed">
+                    <div class="panel-empty">
+                        <span>Run a cycle to inspect RDS query evidence.</span>
                     </div>
                 </div>
             </section>
@@ -670,7 +697,7 @@
         </div>
     </div>
 
-    <script src="/dashboard.js?v=202"></script>
+    <script src="/dashboard.js?v=203"></script>
 </body>
 
 </html>
