@@ -48,6 +48,7 @@
 
     --cyan: #00C8E8;
     --cyan-soft: rgba(0, 200, 232, 0.10);
+    --cyan-rim: rgba(0, 200, 232, 0.24);
 
     /* Typography */
     --f-display: 'Outfit', system-ui, sans-serif;
@@ -56,9 +57,9 @@
 
     /* Radii */
     --r-sm: 6px;
-    --r-md: 10px;
-    --r-lg: 14px;
-    --r-xl: 18px;
+    --r-md: 8px;
+    --r-lg: 8px;
+    --r-xl: 8px;
 
     /* Motion */
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -167,7 +168,7 @@ body {
     font-family: var(--f-display);
     font-weight: 700;
     font-size: 0.95rem;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
     color: var(--text-1);
 }
 
@@ -372,7 +373,7 @@ body {
     font-family: var(--f-display);
     font-weight: 800;
     font-size: 1.6rem;
-    letter-spacing: -0.03em;
+    letter-spacing: 0;
     color: var(--text-1);
     line-height: 1;
 }
@@ -395,7 +396,7 @@ body {
     font-weight: 500;
     color: var(--text-1);
     line-height: 1;
-    letter-spacing: -0.03em;
+    letter-spacing: 0;
 }
 
 .cd-lbl {
@@ -625,7 +626,7 @@ body {
     font-weight: 500;
     color: var(--text-1);
     line-height: 1;
-    letter-spacing: -0.04em;
+    letter-spacing: 0;
     margin-bottom: 0.3rem;
     transition: color 0.3s, font-size 0.3s;
 }
@@ -767,7 +768,7 @@ body {
     font-size: 1rem; /* 14px at 14px base */
     font-weight: 500;
     color: var(--text-1);
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
 }
 
 .panel-header-right {
@@ -852,12 +853,39 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.8rem;
+    justify-content: center;
+    gap: 1rem;
     color: var(--text-3);
-    padding: 2.5rem 1rem;
+    padding: 3rem 1.5rem;
     font-size: 0.75rem;
     font-style: italic;
     letter-spacing: 0.02em;
+    min-height: 200px;
+    animation: fadeInUp 0.5s var(--ease-out-expo) both;
+}
+
+.panel-empty svg {
+    animation: floatIcon 3s ease-in-out infinite;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes floatIcon {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-8px);
+    }
 }
 
 /* ── INSTANCE GRID ───────────────────────────────────────────── */
@@ -2123,4 +2151,190 @@ body {
 .toggle-option.selected {
     background: var(--blue-soft);
     color: var(--blue);
+}
+
+/* ============================================================
+   Focused polish pass: KPI cards and dashboard density
+   ============================================================ */
+
+#topbar {
+    align-items: center;
+    background: rgba(7, 9, 15, 0.82);
+    backdrop-filter: blur(14px);
+}
+
+#kpi-strip {
+    grid-template-columns: repeat(5, minmax(150px, 1fr));
+    gap: 1px;
+    padding: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.kpi-card {
+    min-height: 150px;
+    padding: 1.15rem 1.2rem 1.05rem;
+    border-right: 0;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0)),
+        var(--bg-base);
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+    gap: 0.45rem;
+}
+
+.kpi-card::before {
+    left: 0;
+    right: auto;
+    width: 3px;
+    height: 100%;
+    background: var(--blue);
+    opacity: 0.75;
+    transition: opacity 0.2s, width 0.2s;
+}
+
+.kpi-card:hover {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.01)),
+        var(--bg-base);
+}
+
+.kpi-card:hover::before {
+    left: 0;
+    right: auto;
+    width: 4px;
+    opacity: 1;
+}
+
+.kpi-card[data-index="1"]::before { background: var(--green); }
+.kpi-card[data-index="2"]::before { background: var(--purple); }
+.kpi-card[data-index="3"]::before { background: var(--red); }
+.kpi-card[data-index="4"]::before { background: var(--amber); }
+
+.kpi-head {
+    margin-bottom: 0;
+}
+
+.kpi-label {
+    color: var(--text-2);
+    letter-spacing: 0.08em;
+}
+
+.kpi-ico {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+}
+
+.kpi-value {
+    align-self: end;
+    font-size: 2.25rem;
+    margin-bottom: 0;
+}
+
+.kpi-sub,
+.kpi-sub-row {
+    min-height: 1.4rem;
+    line-height: 1.35;
+}
+
+.kpi-sub-good { color: var(--green); }
+.kpi-sub-warning { color: var(--amber); }
+.kpi-sub-critical { color: var(--red); }
+.kpi-sub-establishing { color: var(--text-2); }
+
+.kpi-sub-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.kpi-card.kpi-critical-alert {
+    background:
+        linear-gradient(180deg, rgba(255, 61, 90, 0.11), rgba(255, 61, 90, 0.025)),
+        var(--bg-base);
+}
+
+.kpi-card .cpu-sparkline {
+    width: 100%;
+    min-width: 0;
+}
+
+.panel-chat {
+    grid-column: span 3;
+}
+
+.ae-icon {
+    min-width: 42px;
+    height: 28px;
+    border-radius: 8px;
+    padding: 0 0.45rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--f-mono);
+    font-size: 0.58rem;
+    color: var(--cyan);
+    background: var(--cyan-soft);
+    border: 1px solid var(--cyan-rim);
+}
+
+.status-tag.st-warn {
+    background: var(--amber-soft);
+    color: var(--amber);
+    border-color: var(--amber-rim);
+}
+
+@media (max-width: 1200px) {
+    #kpi-strip {
+        grid-template-columns: repeat(3, minmax(150px, 1fr));
+    }
+}
+
+@media (max-width: 1000px) {
+    .panel-cost,
+    .panel-chat {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 768px) {
+    #topbar,
+    .topbar-right,
+    .settings-header,
+    .settings-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .topbar-right {
+        gap: 0.75rem;
+        width: 100%;
+    }
+
+    .topbar-divider {
+        display: none;
+    }
+
+    #kpi-strip {
+        grid-template-columns: 1fr;
+    }
+
+    .kpi-card {
+        min-height: 128px;
+    }
+
+    .panel-cost,
+    .panel-chat {
+        grid-column: span 1;
+    }
+
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-section[style] {
+        grid-column: auto !important;
+    }
 }

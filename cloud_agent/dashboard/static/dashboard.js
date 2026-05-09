@@ -93,21 +93,21 @@
 // ============================================================
 
 const TOOL_ICONS = {
-    idle_server: '🔌',
-    rightsizer: '📐',
-    disk_cleanup: '🗑️',
-    tag_enforcer: '🏷️',
-    scheduler: '⏰',
-    cost_monitor: '💰',
-    diagnose_server: '🔍',
-    security_auditor: '🛡️',
-    cross_domain: '🔗',
-    ec2_manager: '🖥️',
-    volume_cleanup: '💾',
-    iam_auditor: '🔐',
-    log_analyzer: '📊',
-    cost_optimizer: '💸',
-    scanner: '📡',
+    idle_server: 'Idle',
+    rightsizer: 'Size',
+    disk_cleanup: 'Disk',
+    tag_enforcer: 'Tag',
+    scheduler: 'Time',
+    cost_monitor: 'Cost',
+    diagnose_server: 'Diag',
+    security_auditor: 'Risk',
+    cross_domain: 'Link',
+    ec2_manager: 'EC2',
+    volume_cleanup: 'Vol',
+    iam_auditor: 'IAM',
+    log_analyzer: 'Log',
+    cost_optimizer: 'Save',
+    scanner: 'Scan',
 };
 
 const TOOL_NAMES = {
@@ -179,8 +179,8 @@ function connectWS() {
             const el = document.getElementById('ws-status');
             if (!el || el.classList.contains('connected')) return;
             const text = el.querySelector('.ws-text');
-            const lastSeen = wsConnectedAt ? new Date(wsConnectedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : 'never';
-            if (text) text.textContent = `Reconnecting (attempt ${wsReconnectAttempt}/5) — last connected ${lastSeen}`;
+            const lastSeen = wsConnectedAt ? new Date(wsConnectedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'never';
+            if (text) text.textContent = `Reconnecting (attempt ${wsReconnectAttempt}/5) - last connected ${lastSeen}`;
         }, 10000);
     };
 
@@ -233,7 +233,7 @@ async function triggerCycle() {
     if (!btn) return;
     btn.disabled = true;
     const oldHtml = btn.innerHTML;
-    btn.innerHTML = `Running…`;
+    btn.innerHTML = `Running...`;
     try {
         await fetch('/api/run-cycle', { method: 'POST' });
         setTimeout(() => {
@@ -302,7 +302,15 @@ function renderCostBreakdown() {
     const deltaPct = costs.delta_pct ?? 0;
 
     if (!services.length) {
-        panel.innerHTML = `<div class="panel-empty"><span>No cost data available. Run a cycle to collect costs.</span></div>`;
+        panel.innerHTML = `
+        <div class="panel-empty">
+            <svg width="48" height="48" viewBox="0 0 28 28" fill="none" opacity=".4">
+                <circle cx="13" cy="13" r="11" stroke="currentColor" stroke-width="1.5" />
+                <path d="M13 8v5M16 13h-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            <span>Cost analysis pending</span>
+            <span style="font-size:0.65rem; color:var(--text-4); margin-top:0.5rem;">Run a cycle to collect cost data and establish baselines</span>
+        </div>`;
         return;
     }
 
@@ -453,7 +461,7 @@ function renderKPIs() {
 
     const running = insts.filter(i => i.state === 'running').length;
     const orphaned = vols.filter(v => v.state === 'available').length;
-    const critical = secs.filter(f => f.severity === 'critical').length;
+    const critical = secs.filter(f => (f.severity || '').toLowerCase() === 'critical').length;
     const low = secs.length - critical;
 
     // FIX: collector stores keys as current_daily / baseline_daily
@@ -465,16 +473,19 @@ function renderKPIs() {
     setText('kpi-running', `${running} running`);
     setText('kpi-volumes', vols.length);
     setText('kpi-orphaned', `${orphaned} orphaned`);
-    setText('kpi-cost', `$${Number(daily).toFixed(0)}`);
+    const monthlyProjection = Number(daily || 0) * 30;
+    setText('kpi-cost', formatCurrency(daily));
     // Baseline: null → establishing message
     const baselineEl = document.getElementById('kpi-baseline');
     if (baselineEl) {
         if (!baseline) {
             baselineEl.className = 'kpi-sub kpi-sub-establishing';
-            baselineEl.textContent = 'Establishing baseline\u2026';
+            baselineEl.textContent = monthlyProjection > 0
+                ? `${formatCurrency(monthlyProjection)} projected monthly`
+                : 'Establishing baseline...';
         } else {
-            baselineEl.className = 'kpi-sub';
-            baselineEl.textContent = `Baseline $${Number(baseline).toFixed(0)} (${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(1)}%)`;
+            baselineEl.className = `kpi-sub ${deltaPct > 15 ? 'kpi-sub-critical' : deltaPct > 0 ? 'kpi-sub-warning' : 'kpi-sub-good'}`;
+            baselineEl.textContent = `${deltaPct >= 0 ? '+' : ''}${Number(deltaPct).toFixed(1)}% vs baseline`;
         }
     }
 
@@ -497,7 +508,7 @@ function renderKPIs() {
             if (card) card.classList.add('kpi-critical-alert');
             if (pulse) pulse.classList.remove('hidden');
         } else {
-            critEl.textContent = secs.length > 0 ? `${secs.length} findings` : '\u2014';
+            critEl.textContent = secs.length > 0 ? `${secs.length} findings` : 'No findings';
             if (lowEl) lowEl.textContent = '';
             if (card) card.classList.remove('kpi-critical-alert');
             if (pulse) pulse.classList.add('hidden');
@@ -505,10 +516,17 @@ function renderKPIs() {
     }
 
     animBar('kpi-bar-instances', running, Math.max(insts.length, 1));
-    animBar('kpi-bar-cost', daily, baseline || daily || 1);
+    animBar('kpi-bar-cost', Math.max(daily - (baseline || 0), 0), baseline || daily || 1);
     animBar('kpi-bar-volumes', orphaned, Math.max(vols.length, 1));
     animBar('kpi-bar-findings', critical, Math.max(secs.length, 1));
     animBar('kpi-bar-actions', acts.length, 20);
+}
+
+function formatCurrency(value) {
+    const amount = Number(value || 0);
+    if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}k`;
+    if (amount >= 100) return `$${amount.toFixed(0)}`;
+    return `$${amount.toFixed(2)}`;
 }
 
 function animBar(id, val, max) {
@@ -523,7 +541,16 @@ function renderInstances() {
     if (!grid) return;
     const insts = state.instances || [];
     if (!insts.length) {
-        grid.innerHTML = `<div class="panel-empty"><span>No instances found.</span></div>`;
+        grid.innerHTML = `
+        <div class="panel-empty">
+            <svg width="48" height="48" viewBox="0 0 32 32" fill="none" opacity=".4">
+                <rect x="3" y="6" width="26" height="16" rx="3" stroke="currentColor" stroke-width="1.5" />
+                <path d="M10 26h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                <path d="M16 22v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            <span>No instances found</span>
+            <span style="font-size:0.65rem; color:var(--text-4); margin-top:0.5rem;">Run a cycle to discover infrastructure</span>
+        </div>`;
         return;
     }
     grid.innerHTML = insts.map((inst, idx) => {
@@ -534,7 +561,7 @@ function renderInstances() {
         const healthClass = cpu >= 85 ? 'health-critical' : cpu >= 50 ? 'health-warning' : 'health-good';
         const isRunning = inst.state === 'running';
         const name = inst.name || inst.instance_id;
-        const sparkId = `spark-${esc(inst.instance_id)}-${idx}`;
+        const sparkId = `spark-${safeDomId(inst.instance_id)}-${idx}`;
         return `<div class="inst-tile ${isRunning ? 'state-running' : 'state-stopped'} ${isRunning ? healthClass : ''}">
             <div class="inst-row-1">
                 <span class="inst-name">${esc(name)}</span>
@@ -559,7 +586,7 @@ function renderInstances() {
     // Draw per-instance sparklines after DOM insertion
     insts.forEach((inst, idx) => {
         if (inst.state !== 'running') return;
-        const canvas = document.getElementById(`spark-${esc(inst.instance_id)}-${idx}`);
+        const canvas = document.getElementById(`spark-${safeDomId(inst.instance_id)}-${idx}`);
         if (!canvas) return;
         drawInstSparkline(canvas, inst);
     });
@@ -570,7 +597,14 @@ function renderActions() {
     if (!feed) return;
     const acts = state.actions || [];
     if (!acts.length) {
-        feed.innerHTML = `<div class="panel-empty"><span>No recommended actions this cycle.</span></div>`;
+        feed.innerHTML = `
+        <div class="panel-empty">
+            <svg width="48" height="48" viewBox="0 0 28 28" fill="none" opacity=".4">
+                <path d="M14 2L4 15h9L10 26l14-16h-9L14 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+            </svg>
+            <span>No actions scheduled</span>
+            <span style="font-size:0.65rem; color:var(--text-4); margin-top:0.5rem;">Agent is monitoring. Awaiting conditions to trigger automated responses</span>
+        </div>`;
         return;
     }
     const STATUS_MAP = {
@@ -583,7 +617,7 @@ function renderActions() {
         const tool = a.tool || a.tool_name || 'unknown';
         const [cls, lbl] = STATUS_MAP[a.status] || ['st-dryrun', a.status];
         return `<div class="action-entry ${a.status === 'pending_approval' ? 'is-pending' : ''}">
-            <span class="ae-icon">${TOOL_ICONS[tool] || '⚡'}</span>
+                <span class="ae-icon">${TOOL_ICONS[tool] || 'Act'}</span>
             <div class="ae-body">
                 <div class="ae-title">${TOOL_NAMES[tool] || tool}</div>
                 <div class="ae-detail">${esc(a.reason || a.action || '')}</div>
@@ -602,7 +636,15 @@ function renderSecurity() {
     if (!feed) return;
     const findings = state.security_findings || [];
     if (!findings.length) {
-        feed.innerHTML = `<div class="panel-empty"><span>All systems secure.</span></div>`;
+        feed.innerHTML = `
+        <div class="panel-empty">
+            <svg width="48" height="48" viewBox="0 0 28 28" fill="none" opacity=".4">
+                <path d="M14 2L3 8v8c0 6.5 5 11.5 11 12 6-0.5 11-5.5 11-12V8L14 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                <path d="M10 14l2.5 2.5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <span>All systems secure</span>
+            <span style="font-size:0.65rem; color:var(--text-4); margin-top:0.5rem;">No security issues detected</span>
+        </div>`;
         return;
     }
     feed.innerHTML = findings.map(f => `
@@ -611,6 +653,7 @@ function renderSecurity() {
             <div class="finding-body">
                 <div class="finding-type">${esc(f.type)}</div>
                 <div class="finding-detail">${esc(f.detail)}</div>
+                ${f.resource ? `<div class="finding-res">${esc(f.resource)}</div>` : ''}
             </div>
         </div>`).join('');
 }
@@ -620,7 +663,15 @@ function renderDiagnosis() {
     if (!feed) return;
     const diags = (state.actions || []).filter(a => a.diagnosis);
     if (!diags.length) {
-        feed.innerHTML = `<div class="panel-empty"><span>No anomalies requiring analysis.</span></div>`;
+        feed.innerHTML = `
+        <div class="panel-empty">
+            <svg width="48" height="48" viewBox="0 0 28 28" fill="none" opacity=".4">
+                <circle cx="13" cy="13" r="9" stroke="currentColor" stroke-width="1.5" />
+                <path d="M20 20l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+            <span>No anomalies detected</span>
+            <span style="font-size:0.65rem; color:var(--text-4); margin-top:0.5rem;">System health is optimal. All metrics within normal ranges</span>
+        </div>`;
         return;
     }
     feed.innerHTML = diags.map(a => `<div class="diag-entry">
@@ -630,6 +681,7 @@ function renderDiagnosis() {
         </div>
         <div class="diag-cause">${esc(a.diagnosis.root_cause)}</div>
         <div class="diag-explain">${esc(a.diagnosis.explanation)}</div>
+        ${a.diagnosis.recommendation ? `<div class="diag-rec">${esc(a.diagnosis.recommendation)}</div>` : ''}
     </div>`).join('');
 }
 
@@ -643,16 +695,21 @@ async function loadHistory() {
         const badge = document.getElementById('log-badge');
         if (badge) badge.textContent = `${(history || []).length} entries`;
         if (!history || !history.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="table-empty">No history available.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="5" class="table-empty">
+                <svg width="28" height="28" style="opacity:0.4; margin-bottom:0.5rem;" viewBox="0 0 28 28" fill="none">
+                    <path d="M4 6h20M4 14h20M4 22h20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                </svg><br/>
+                No history available yet
+            </td></tr>`;
             return;
         }
         tbody.innerHTML = history.slice(-30).reverse().map(e => `
             <tr>
-                <td class="td-time">${e.timestamp ? new Date(e.timestamp).toLocaleTimeString() : '—'}</td>
+                <td class="td-time">${formatTimestamp(e.timestamp)}</td>
                 <td class="td-tool">${esc(e.tool || e.tool_name)}</td>
                 <td class="td-res">${esc(e.resource || e.resource_id)}</td>
                 <td class="td-action">${esc(e.action || e.action_type)}</td>
-                <td><span class="status-tag st-success">${esc(e.status)}</span></td>
+                <td><span class="status-tag ${statusClass(e.status)}">${esc(e.status || 'unknown')}</span></td>
             </tr>`).join('');
     } catch (_) { }
 }
@@ -814,6 +871,30 @@ function esc(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function safeDomId(value) {
+    return String(value ?? 'item').replace(/[^a-zA-Z0-9_-]/g, '-');
+}
+
+function formatTimestamp(value) {
+    if (!value) return '-';
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? esc(String(value)) : d.toLocaleString([], {
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
+function statusClass(status) {
+    const s = String(status || '').toLowerCase();
+    if (s.includes('error') || s.includes('fail')) return 'st-error';
+    if (s.includes('pending')) return 'st-pending';
+    if (s.includes('dry')) return 'st-dryrun';
+    if (s.includes('warn')) return 'st-warn';
+    return 'st-success';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     tickClock();
     setInterval(tickClock, 1000);
@@ -830,7 +911,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function drawSparkline() {
     const canvas = document.getElementById('kpi-sparkline');
     if (!canvas) return;
-    const daily = (state.costs && (state.costs.daily ?? state.costs.daily_cost)) || 0;
+    const daily = (state.costs && (state.costs.current_daily ?? state.costs.daily ?? state.costs.daily_cost)) || 0;
     const seed = daily || 120;
     // Generate mock 7-point trend
     const data = Array.from({ length: 7 }, (_, i) => {
@@ -917,7 +998,7 @@ function renderDecisionCards() {
         const tool = a.tool || a.tool_name || 'unknown';
         const div = document.createElement('div');
         div.className = 'decision-card dc-done';
-        div.innerHTML = `<div class="dc-done-line">✓ ${esc(TOOL_NAMES[tool] || tool)}: ${esc(a.reason || a.action || a.resource_id || '')}</div>`;
+        div.innerHTML = `<div class="dc-done-line">Done: ${esc(TOOL_NAMES[tool] || tool)}: ${esc(a.reason || a.action || a.resource_id || '')}</div>`;
         container.appendChild(div);
     });
 
@@ -927,13 +1008,13 @@ function renderDecisionCards() {
         const isAuditing = a.status === 'dry_run';
         const conf = 70 + Math.floor(Math.random() * 25); // 70–95%
         const impactType = tool.includes('cost') || tool.includes('idle') || tool.includes('right') ? 'cost' : tool.includes('security') || tool.includes('audit') ? 'risk' : 'info';
-        const impactLabel = impactType === 'cost' ? '💰 Cost saving' : impactType === 'risk' ? '🛡 Risk reduction' : '📊 ' + (a.resource_id || 'Resource');
+        const impactLabel = impactType === 'cost' ? 'Cost saving' : impactType === 'risk' ? 'Risk reduction' : (a.resource_id || 'Resource');
 
         const div = document.createElement('div');
         div.className = `decision-card ${isAuditing ? 'dc-auditing' : 'dc-ready'}`;
         div.innerHTML = `
             <div class="dc-header">
-                <div class="dc-action">${esc(TOOL_ICONS[tool] || '⚡')} ${esc(TOOL_NAMES[tool] || tool)}${a.resource_id ? ' — ' + esc(a.resource_id) : ''}</div>
+                <div class="dc-action">${esc(TOOL_ICONS[tool] || 'Act')} ${esc(TOOL_NAMES[tool] || tool)}${a.resource_id ? ' - ' + esc(a.resource_id) : ''}</div>
                 <span class="dc-impact ${impactType}">${impactLabel}</span>
             </div>
             <div class="dc-reason">${esc(a.reason || a.action || 'Rule-based trigger — no LLM reasoning available.')}</div>
@@ -1046,7 +1127,7 @@ async function exportAuditLog() {
         const a = document.createElement('a');
         a.href = url; a.download = `cloudagent-audit-${Date.now()}.json`; a.click();
         URL.revokeObjectURL(url);
-    } catch (_) { alert('Export failed — no history available.'); }
+    } catch (_) { alert('Export failed - no history available.'); }
 }
 
 // Hook decision card rendering into the main render cycle

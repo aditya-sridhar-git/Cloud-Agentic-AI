@@ -18,6 +18,7 @@ from typing import Any, TYPE_CHECKING
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
 from cloud_agent.agent.baseagent import Plan
 if TYPE_CHECKING:
@@ -31,11 +32,21 @@ _STATIC_DIR = Path(__file__).parent / "static"
 
 app = FastAPI(title="Cloud Agentic AI — Dashboard")
 
+# Add CORS middleware to allow WebSocket connections
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Global state
 _agent: CloudOpsAgent | None = None
 _connected_clients: list[WebSocket] = []
 _current_plan: Plan | None = None
-_main_loop = None
+_cycle_lock = threading.Lock()
+_cycle_thread: threading.Thread | None = None
 _latest_state: dict[str, Any] = {
     "status": "idle",
     "cycle_count": 0,
@@ -160,9 +171,13 @@ async def get_instances():
 @app.post("/api/run-cycle")
 async def trigger_cycle():
     """Manually trigger one agent cycle (Observation -> Planning)."""
+    global _cycle_thread
     if _agent is None:
         return {"error": "Agent not initialized"}
-    threading.Thread(target=_run_agent_cycle, daemon=True).start()
+    if _cycle_thread and _cycle_thread.is_alive():
+        return {"status": "already_running"}
+    _cycle_thread = threading.Thread(target=_run_agent_cycle, daemon=True)
+    _cycle_thread.start()
     return {"status": "cycle_triggered"}
 
 
@@ -288,7 +303,8 @@ async def websocket_endpoint(ws: WebSocket):
             # Keep connection alive, ignore incoming messages
             await ws.receive_text()
     except WebSocketDisconnect:
-        _connected_clients.remove(ws)
+        if ws in _connected_clients:
+            _connected_clients.remove(ws)
         logger.info("[yellow]WebSocket client disconnected[/yellow] (total: %d)", len(_connected_clients))
 
 
@@ -323,30 +339,36 @@ def _run_agent_cycle() -> None:
     global _latest_state, _current_plan
     if _agent is None:
         return
+    if not _cycle_lock.acquire(blocking=False):
+        logger.info("Dashboard cycle skipped because another cycle is already running")
+        return
 
-    _latest_state["status"] = "running"
-    _latest_state["thoughts"] = [] # Clear previous cycle logic
-    _emit_thought("▶ INITIALIZING: Establishing secure handshake with cloud environment...")
-    time.sleep(0.5) 
-    
     try:
+        _latest_state.pop("error", None)
+        _latest_state["status"] = "running"
+        _latest_state["thoughts"] = [] # Clear previous cycle logic
+        _latest_state["security_findings"] = []
+        _broadcast(_latest_state)
+        _emit_thought("Starting secure handshake with cloud environment...")
+        time.sleep(0.5)
+
         # Collect observation
-        _emit_thought("▶ OBSERVING: Scanning infrastructure telemetry and instance states...")
+        _emit_thought("Observing infrastructure telemetry and instance states...")
         time.sleep(0.5)
         observation = _agent.observe()
         _latest_state["instances"] = observation.instances
         _latest_state["volumes"] = observation.disks
         _latest_state["costs"] = observation.costs
-        _emit_thought(f"▶ ANALYZING: {len(observation.instances)} instances and {len(observation.disks)} volumes ingested.")
+        _emit_thought(f"Analyzing {len(observation.instances)} instances and {len(observation.disks)} volumes.")
         time.sleep(0.5)
 
         # Planning
-        _emit_thought("▶ REASONING: Simulating optimization logic via Reasoning Engine...")
+        _emit_thought("Reasoning through optimization and risk signals...")
         time.sleep(0.8)
         plan = _agent.think(observation)
         _current_plan = plan
         
-        _emit_thought(f"▶ PLANNING: Developed intelligence model containing {len(plan.actions)} optimization items.")
+        _emit_thought(f"Planning complete with {len(plan.actions)} optimization item(s).")
         time.sleep(0.5)
         
         # In dashboard mode, we post the planned actions for review
@@ -357,7 +379,7 @@ def _run_agent_cycle() -> None:
         # Map actions to dashboard view
         planned_actions = []
         for a in plan.actions:
-            _emit_thought(f"▶ CORRELATING: Auditing {a.action_type} strategy for {a.resource_id}...")
+            _emit_thought(f"Correlating {a.action_type} strategy for {a.resource_id}...")
             time.sleep(0.4)
             entry = {
                 "tool_name": a.tool_name,
@@ -369,12 +391,12 @@ def _run_agent_cycle() -> None:
             
             # Pre-fetch insights for specific tools (Security and Diagnosis)
             if a.tool_name == "security_auditor":
-                _emit_thought("▶ AUDITING: Performing deep security vulnerability scan...")
+                _emit_thought("Auditing cloud security posture...")
                 res = _agent.act(Plan(actions=[a], summary="Security scan for dashboard"))
-                _latest_state["security_findings"] = res[0].get("findings", [])
+                _latest_state["security_findings"] = res[0].get("findings", []) if res else []
             
             elif a.tool_name == "diagnose_server":
-                _emit_thought(f"▶ DIAGNOSING: Analyzing root cause for {a.resource_id}...")
+                _emit_thought(f"Diagnosing root cause for {a.resource_id}...")
                 res = _agent.act(Plan(actions=[a], summary="Pre-diagnosis for dashboard"))
                 if res and "diagnosis" in res[0]:
                     entry["diagnosis"] = res[0]["diagnosis"]
@@ -382,7 +404,7 @@ def _run_agent_cycle() -> None:
             planned_actions.append(entry)
             
         _latest_state["actions"] = planned_actions
-        _emit_thought("▶ READY: Orchestration strategy ready for review.")
+        _emit_thought("Ready for review.")
         _latest_state["status"] = "idle"
 
         # Log this cycle to the persistent audit trail
@@ -402,7 +424,9 @@ def _run_agent_cycle() -> None:
         logger.exception("Dashboard agent cycle failed")
         _latest_state["status"] = "error"
         _latest_state["error"] = str(exc)
-        _emit_thought(f"▶ CRITICAL: Agent logic failure — {str(exc)}")
+        _emit_thought(f"Agent logic failure: {str(exc)}")
+    finally:
+        _cycle_lock.release()
 
     _broadcast(_latest_state)
 
