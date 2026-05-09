@@ -14,6 +14,10 @@ class TestMockProvider:
         assert len(instances) >= 7
         assert all("instance_id" in i for i in instances)
         assert all("state" in i for i in instances)
+        assert {"pending", "running", "stopping", "stopped", "shutting-down", "terminated"}.issubset(
+            {i["state"] for i in instances}
+        )
+        assert all("sysbench" in i for i in instances)
 
     def test_stop_instance(self):
         provider = MockProvider()

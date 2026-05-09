@@ -1,16 +1,16 @@
 {
-  "timestamp": "2026-05-10T06:56:46.894474+00:00",
-  "cycle_id": "8f9c59ca",
-  "epoch": 1778396206.894474,
+  "timestamp": "2026-05-09T15:36:33.340580+00:00",
+  "cycle_id": "4cc4a301",
+  "epoch": 1778340993.3406012,
   "plan_summary": "3 approved action(s)",
   "actions_count": 0,
   "results": [],
   "observation_summary": {
-    "instances": 6,
-    "disks": 4,
+    "instances": 5,
+    "disks": 3,
     "costs": {
-      "current_daily": -1e-09,
-      "baseline_daily": -6.257142857142857e-09,
+      "current_daily": -7.6e-09,
+      "baseline_daily": -7.1e-09,
       "delta_pct": 0.0,
       "currency": "USD",
       "services": []

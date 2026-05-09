@@ -192,7 +192,8 @@
                 </div>
             </div>
 
-            <div class="kpi-card" data-index="3" id="kpi-card-findings" onclick="navigateTo(null,'security')" style="cursor:pointer">
+            <div class="kpi-card" data-index="3" id="kpi-card-findings" onclick="navigateTo(null,'security')"
+                style="cursor:pointer">
                 <div class="kpi-head">
                     <span class="kpi-label">Findings</span>
                     <div class="kpi-ico kpi-ico-red">
@@ -263,7 +264,7 @@
 
             </div>
         </section>
-        
+
         <!-- NEURAL STRATEGY FEED — Wide visual console -->
         <section id="panel-thoughts">
             <div class="panel-header-alt">
@@ -432,12 +433,12 @@
                         </div>
                     </div>
                     <div class="chat-input-area">
-                        <input type="text" id="chat-input" placeholder="Ask about your cloud infrastructure..." 
-                               onkeypress="if(event.key === 'Enter') sendChatMessage()" />
+                        <input type="text" id="chat-input" placeholder="Ask about your cloud infrastructure..."
+                            onkeypress="if(event.key === 'Enter') sendChatMessage()" />
                         <button class="chat-send-btn" onclick="sendChatMessage()">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" 
-                                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                         </button>
                     </div>
@@ -495,20 +496,23 @@
                     <div class="settings-section-title">Agent Behavior</div>
                     <div class="settings-row">
                         <label>Cycle Interval</label>
-                        <input type="range" id="s-interval" min="1" max="4" step="1" value="2" oninput="updateIntervalLabel(this.value)">
+                        <input type="range" id="s-interval" min="1" max="4" step="1" value="2"
+                            oninput="updateIntervalLabel(this.value)">
                         <span class="settings-range-val" id="s-interval-val">15 min</span>
                     </div>
                     <div class="settings-row">
                         <label>Approval Mode</label>
                         <div class="toggle-switch" id="s-approval-mode">
                             <span class="toggle-option" onclick="selectToggle(this,'s-approval-mode')">Auto-low</span>
-                            <span class="toggle-option selected" onclick="selectToggle(this,'s-approval-mode')">Always</span>
+                            <span class="toggle-option selected"
+                                onclick="selectToggle(this,'s-approval-mode')">Always</span>
                             <span class="toggle-option" onclick="selectToggle(this,'s-approval-mode')">Autonomous</span>
                         </div>
                     </div>
                     <div class="settings-row">
                         <label>Risk Threshold</label>
-                        <input type="range" id="s-risk" min="1" max="5" step="1" value="2" oninput="updateRiskLabel(this.value)">
+                        <input type="range" id="s-risk" min="1" max="5" step="1" value="2"
+                            oninput="updateRiskLabel(this.value)">
                         <span class="settings-range-val" id="s-risk-val">Conservative</span>
                     </div>
                 </div>
@@ -519,13 +523,17 @@
                     <div class="settings-row">
                         <label>Slack Webhook URL</label>
                         <div style="display:flex;gap:0.4rem;">
-                            <input type="text" id="s-slack" class="settings-control" placeholder="https://hooks.slack.com/…" style="min-width:160px;">
+                            <input type="text" id="s-slack" class="settings-control"
+                                placeholder="https://hooks.slack.com/…" style="min-width:160px;">
                             <button class="settings-btn" onclick="testSlack()">Test</button>
                         </div>
                     </div>
-                    <div class="settings-row"><label>Alert on: Critical findings</label><input type="checkbox" checked id="s-alert-critical"></div>
-                    <div class="settings-row"><label>Alert on: Agent actions</label><input type="checkbox" id="s-alert-actions"></div>
-                    <div class="settings-row"><label>Alert on: Cost anomalies</label><input type="checkbox" checked id="s-alert-cost"></div>
+                    <div class="settings-row"><label>Alert on: Critical findings</label><input type="checkbox" checked
+                            id="s-alert-critical"></div>
+                    <div class="settings-row"><label>Alert on: Agent actions</label><input type="checkbox"
+                            id="s-alert-actions"></div>
+                    <div class="settings-row"><label>Alert on: Cost anomalies</label><input type="checkbox" checked
+                            id="s-alert-cost"></div>
                     <div class="settings-row">
                         <label>Quiet Hours</label>
                         <div style="display:flex;gap:0.4rem;align-items:center;">
@@ -542,20 +550,27 @@
                     <div class="settings-row">
                         <label>Monthly Budget Cap</label>
                         <div style="display:flex;gap:0.4rem;align-items:center;">
-                            <select id="s-currency" class="settings-control"><option>USD</option><option>EUR</option><option>GBP</option></select>
-                            <input type="number" id="s-budget" value="500" class="settings-control" style="min-width:90px;">
+                            <select id="s-currency" class="settings-control">
+                                <option>USD</option>
+                                <option>EUR</option>
+                                <option>GBP</option>
+                            </select>
+                            <input type="number" id="s-budget" value="500" class="settings-control"
+                                style="min-width:90px;">
                         </div>
                     </div>
                     <div class="settings-row">
                         <label>Freeze trigger (% above baseline)</label>
                         <div style="display:flex;gap:0.5rem;align-items:center;">
-                            <input type="number" id="s-freeze" value="120" class="settings-control" style="min-width:80px;">
+                            <input type="number" id="s-freeze" value="120" class="settings-control"
+                                style="min-width:80px;">
                             <span style="color:var(--text-3);font-size:0.786rem;">%</span>
                         </div>
                     </div>
                     <div class="settings-row">
                         <label>Protected Instances</label>
-                        <input type="text" id="s-protected" class="settings-control" placeholder="i-xxx, i-yyy" style="min-width:160px;">
+                        <input type="text" id="s-protected" class="settings-control" placeholder="i-xxx, i-yyy"
+                            style="min-width:160px;">
                     </div>
                 </div>
 
@@ -574,7 +589,8 @@
                         <label>Export Audit Log</label>
                         <button class="settings-btn primary" onclick="exportAuditLog()">Download JSON</button>
                     </div>
-                    <div class="settings-row"><label>Require 2-person approval for destructive actions</label><input type="checkbox" id="s-2pa"></div>
+                    <div class="settings-row"><label>Require 2-person approval for destructive actions</label><input
+                            type="checkbox" id="s-2pa"></div>
                 </div>
 
                 <!-- DISPLAY -->
@@ -585,7 +601,8 @@
                             <label>Dashboard Refresh Rate</label>
                             <div class="toggle-switch" id="s-refresh-rate">
                                 <span class="toggle-option" onclick="selectToggle(this,'s-refresh-rate')">5s</span>
-                                <span class="toggle-option selected" onclick="selectToggle(this,'s-refresh-rate')">15s</span>
+                                <span class="toggle-option selected"
+                                    onclick="selectToggle(this,'s-refresh-rate')">15s</span>
                                 <span class="toggle-option" onclick="selectToggle(this,'s-refresh-rate')">30s</span>
                             </div>
                         </div>
@@ -645,6 +662,7 @@
                     </div>
                 </div>
             </div>
+            <div id="provision-result" class="provision-result"></div>
             <div class="modal-footer">
                 <button class="btn-cancel" id="btn-modal-cancel">Cancel</button>
                 <button class="btn-confirm" id="btn-modal-confirm">Confirm Allocation</button>

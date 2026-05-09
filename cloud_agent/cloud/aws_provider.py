@@ -100,31 +100,76 @@ class AWSProvider(CloudProvider):
         self._ec2.start_instances(InstanceIds=[instance_id])
         return {"instance_id": instance_id, "new_type": new_type, "status": "resized"}
 
+    def _resolve_ami(self, region: str) -> str:
+        """Resolve the latest Amazon Linux 2023 AMI for the given region via SSM."""
+        ssm = boto3.client("ssm", region_name=region, config=_RETRY_CONFIG)
+        try:
+            resp = ssm.get_parameter(
+                Name="/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+            )
+            ami_id = resp["Parameter"]["Value"]
+            logger.info("Resolved AMI for %s: %s", region, ami_id)
+            return ami_id
+        except Exception:
+            # Fallback: describe images owned by Amazon filtered for AL2023
+            logger.warning("SSM AMI lookup failed for %s, trying ec2.describe_images fallback", region)
+            ec2 = boto3.client("ec2", region_name=region, config=_RETRY_CONFIG)
+            resp = ec2.describe_images(
+                Owners=["amazon"],
+                Filters=[
+                    {"Name": "name", "Values": ["al2023-ami-2023*-kernel-*-x86_64"]},
+                    {"Name": "state", "Values": ["available"]},
+                    {"Name": "architecture", "Values": ["x86_64"]},
+                ],
+            )
+            images = sorted(
+                resp.get("Images", []),
+                key=lambda i: i.get("CreationDate", ""),
+                reverse=True,
+            )
+            if images:
+                return images[0]["ImageId"]
+            raise RuntimeError(f"Could not resolve a valid AMI for region {region}")
+
     def create_instance(self, instance_type: str, region: str | None = None, tags: list[dict[str, str]] | None = None) -> dict[str, Any]:
         region = region or self._region
         ec2 = boto3.client("ec2", region_name=region, config=_RETRY_CONFIG)
         logger.info("Creating new %s instance in %s", instance_type, region)
-        
-        # In a real scenario we'd need ImageId, KeyName, etc. 
-        # For this tool we'll use a default Amazon Linux 2 AMI if not provided.
-        ami_id = "ami-0c55b159cbfafe1f0" # Placeholder for us-east-1
-        
-        tag_spec = []
-        if tags:
-            tag_spec = [{
-                'ResourceType': 'instance',
-                'Tags': [{"Key": t["Key"], "Value": t["Value"]} for t in tags]
-            }]
+
+        # Dynamically resolve the latest Amazon Linux 2023 AMI for this region
+        ami_id = self._resolve_ami(region)
+
+        # Build default tags if none provided
+        if not tags:
+            import time as _t
+            tags = [
+                {"Key": "Name", "Value": f"cloud-agent-{int(_t.time())}"},
+                {"Key": "Provisioner", "Value": "CloudAgentDashboard"},
+            ]
+
+        tag_spec = [{
+            'ResourceType': 'instance',
+            'Tags': [{"Key": t["Key"], "Value": t["Value"]} for t in tags]
+        }]
 
         resp = ec2.run_instances(
             ImageId=ami_id,
             InstanceType=instance_type,
             MinCount=1,
             MaxCount=1,
-            TagSpecifications=tag_spec
+            TagSpecifications=tag_spec,
         )
-        instance_id = resp["Instances"][0]["InstanceId"]
-        return {"instance_id": instance_id, "status": "creating", "region": region}
+        inst = resp["Instances"][0]
+        instance_id = inst["InstanceId"]
+        logger.info("Instance %s launched successfully in %s", instance_id, region)
+        return {
+            "instance_id": instance_id,
+            "instance_type": instance_type,
+            "state": inst["State"]["Name"],
+            "region": region,
+            "ami_id": ami_id,
+            "status": "launched",
+        }
 
     # ------------------------------------------------------------------
     # Metrics
@@ -408,6 +453,61 @@ class AWSProvider(CloudProvider):
         stdout = result.get("StandardOutputContent", "")
         stderr = result.get("StandardErrorContent", "")
         return f"STDOUT:\n{stdout}\nSTDERR:\n{stderr}" if stderr else stdout
+
+    def run_sysbench_benchmark(self, instance_id: str, timeout: int = 120) -> dict[str, Any]:
+        """Run real sysbench CPU, memory, and file I/O tests through AWS SSM."""
+        script = r"""
+set -eu
+if ! command -v sysbench >/dev/null 2>&1; then
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update -y >/dev/null 2>&1 && sudo apt-get install -y sysbench >/dev/null 2>&1
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y sysbench >/dev/null 2>&1
+  elif command -v yum >/dev/null 2>&1; then
+    sudo yum install -y epel-release >/dev/null 2>&1 || true
+    sudo yum install -y sysbench >/dev/null 2>&1
+  fi
+fi
+command -v sysbench >/dev/null 2>&1 || { echo "SYSBENCH_STATUS=missing"; exit 0; }
+WORKDIR="$(mktemp -d /tmp/cloud-agent-sysbench.XXXXXX)"
+cd "$WORKDIR"
+CPU_OUT="$(sysbench cpu --threads=1 --time=5 run 2>/dev/null || true)"
+MEM_OUT="$(sysbench memory --threads=1 --time=5 run 2>/dev/null || true)"
+sysbench fileio --file-total-size=128M prepare >/dev/null 2>&1 || true
+FILE_OUT="$(sysbench fileio --file-total-size=128M --file-test-mode=rndrw --time=5 run 2>/dev/null || true)"
+sysbench fileio --file-total-size=128M cleanup >/dev/null 2>&1 || true
+rm -rf "$WORKDIR"
+echo "SYSBENCH_STATUS=ok"
+printf '%s\n' "$CPU_OUT" | awk -F: '/events per second/ {gsub(/^[ \t]+/,"",$2); print "CPU_EVENTS_PER_SEC="$2}'
+printf '%s\n' "$MEM_OUT" | awk '/transferred/ {gsub(/[()]/,""); print "MEMORY_MIB_PER_SEC="$4}'
+printf '%s\n' "$FILE_OUT" | awk -F: '/reads\/s|writes\/s|fsyncs\/s/ {gsub(/^[ \t]+/,"",$2); sum+=$2} END {if (sum) print "DISK_IOPS="sum}'
+printf '%s\n' "$FILE_OUT" | awk -F: '/95th percentile/ {gsub(/^[ \t]+/,"",$2); print "P95_LATENCY_MS="$2}'
+"""
+        output = self.run_ssm_command(instance_id, [script], timeout=timeout)
+        data: dict[str, Any] = {
+            "status": "ok" if "SYSBENCH_STATUS=ok" in output else "unavailable",
+            "cpu_events_per_sec": None,
+            "memory_mib_per_sec": None,
+            "disk_iops": None,
+            "p95_latency_ms": None,
+            "raw": output[-2000:],
+        }
+        keys = {
+            "CPU_EVENTS_PER_SEC": "cpu_events_per_sec",
+            "MEMORY_MIB_PER_SEC": "memory_mib_per_sec",
+            "DISK_IOPS": "disk_iops",
+            "P95_LATENCY_MS": "p95_latency_ms",
+        }
+        for line in output.splitlines():
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            if key in keys:
+                try:
+                    data[keys[key]] = round(float(value.strip()), 2)
+                except ValueError:
+                    pass
+        return data
 
     def start_instance(self, instance_id: str) -> dict[str, Any]:
         """Start a stopped instance."""
