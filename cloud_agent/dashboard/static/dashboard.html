@@ -277,6 +277,34 @@
             </div>
         </section>
 
+        <!-- MAIN PANEL GRID -->
+        <div id="panel-grid">
+
+            <!-- INSTANCE HEALTH PANEL -->
+            <section class="panel panel-instances" id="panel-instances">
+                <div class="panel-header">
+                    <div class="panel-title-group">
+                        <span class="panel-tag">Infrastructure</span>
+                        <h2 class="panel-title">Instance Health</h2>
+                    </div>
+                    <div class="panel-header-right">
+                        <div class="live-badge"><span class="live-dot"></span>Live</div>
+                        <span class="count-chip" id="inst-badge">0 instances</span>
+                        <button class="provision-btn" id="btn-provision-instance">+ Provision</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="instance-grid" id="instance-grid">
+                        <div class="panel-empty">
+                            <span>Scanning environment…</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STORAGE PANEL -->
+            <section class="panel panel-volumes" id="panel-volumes">
+                <div class="panel-header">
                     <div class="panel-title-group">
                         <span class="panel-tag">Storage</span>
                         <h2 class="panel-title">Block Storage (EBS)</h2>

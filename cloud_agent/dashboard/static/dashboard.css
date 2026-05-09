@@ -687,9 +687,15 @@ body {
     min-height: 0;
 }
 
+
 .panel-instances {
     grid-column: span 3;
     animation: fadeUp 0.5s var(--ease-out-expo) 0.20s both;
+}
+
+.panel-volumes {
+    grid-column: span 3;
+    animation: fadeUp 0.5s var(--ease-out-expo) 0.22s both;
 }
 
 .panel-cost {
