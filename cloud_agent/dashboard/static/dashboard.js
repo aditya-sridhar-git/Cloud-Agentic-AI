@@ -553,7 +553,7 @@ function renderInstances() {
         </div>`;
         return;
     }
-    grid.innerHTML = insts.map((inst, idx) => {
+    grid.innerHTML = buildInstanceComparison(insts) + insts.map((inst, idx) => {
         const rawCpu = inst.cpu ?? inst.cpu_percent ?? -1;
         const cpu = rawCpu < 0 ? 0 : rawCpu;
         const cpuDisplay = rawCpu < 0 ? '~0%' : `${cpu.toFixed(1)}%`;
@@ -562,6 +562,17 @@ function renderInstances() {
         const isRunning = inst.state === 'running';
         const name = inst.name || inst.instance_id;
         const sparkId = `spark-${safeDomId(inst.instance_id)}-${idx}`;
+        const tags = tagsToObject(inst.tags);
+        const meta = compactMetrics([
+            ['CPU', rawCpu < 0 ? 'unavailable' : `${cpu.toFixed(1)}%`],
+            ['State', inst.state],
+            ['Type', inst.instance_type],
+            ['Env', tags.Environment || inst.env],
+            ['Owner', tags.Owner],
+            ['Project', tags.Project],
+            ['Region', inst.region],
+            ['Launch', formatShortDate(inst.launch_time)]
+        ]);
         return `<div class="inst-tile ${isRunning ? 'state-running' : 'state-stopped'} ${isRunning ? healthClass : ''}">
             <div class="inst-row-1">
                 <span class="inst-name">${esc(name)}</span>
@@ -580,6 +591,7 @@ function renderInstances() {
                 <div class="cpu-track"><div class="cpu-fill" style="width:${cpu}%"></div></div>
                 <canvas class="cpu-sparkline" id="${sparkId}" height="24"></canvas>
             </div>` : ''}
+            <div class="decision-inputs inst-inputs">${meta}</div>
         </div>`;
     }).join('');
 
@@ -616,12 +628,14 @@ function renderActions() {
     feed.innerHTML = acts.map(a => {
         const tool = a.tool || a.tool_name || 'unknown';
         const [cls, lbl] = STATUS_MAP[a.status] || ['st-dryrun', a.status];
+        const inputs = actionInputs(a, findInstance(a.resource_id || a.instance_id));
         return `<div class="action-entry ${a.status === 'pending_approval' ? 'is-pending' : ''}">
                 <span class="ae-icon">${TOOL_ICONS[tool] || 'Act'}</span>
             <div class="ae-body">
                 <div class="ae-title">${TOOL_NAMES[tool] || tool}</div>
                 <div class="ae-detail">${esc(a.reason || a.action || '')}</div>
                 <div class="ae-detail" style="font-family:var(--f-mono); color:var(--cyan); margin-top:4px">${esc(a.resource_id || a.instance_id || '')}</div>
+                <div class="decision-inputs">${inputs}</div>
             </div>
             <div class="ae-right">
                 <span class="status-tag ${cls}">${lbl}</span>
@@ -654,6 +668,7 @@ function renderSecurity() {
                 <div class="finding-type">${esc(f.type)}</div>
                 <div class="finding-detail">${esc(f.detail)}</div>
                 ${f.resource ? `<div class="finding-res">${esc(f.resource)}</div>` : ''}
+                <div class="decision-inputs">${findingInputs(f)}</div>
             </div>
         </div>`).join('');
 }
@@ -681,6 +696,7 @@ function renderDiagnosis() {
         </div>
         <div class="diag-cause">${esc(a.diagnosis.root_cause)}</div>
         <div class="diag-explain">${esc(a.diagnosis.explanation)}</div>
+        <div class="decision-inputs">${diagnosisInputs(a)}</div>
         ${a.diagnosis.recommendation ? `<div class="diag-rec">${esc(a.diagnosis.recommendation)}</div>` : ''}
     </div>`).join('');
 }
@@ -871,6 +887,93 @@ function esc(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function compactMetrics(items) {
+    return items
+        .filter(([, value]) => value !== undefined && value !== null && value !== '')
+        .map(([label, value]) => `<span><b>${esc(label)}</b>${esc(value)}</span>`)
+        .join('');
+}
+
+function tagsToObject(tags) {
+    if (!Array.isArray(tags)) return {};
+    return tags.reduce((acc, tag) => {
+        acc[tag.Key || tag.key] = tag.Value || tag.value;
+        return acc;
+    }, {});
+}
+
+function findInstance(id) {
+    if (!id) return null;
+    return (state.instances || []).find(i => i.instance_id === id || i.id === id) || null;
+}
+
+function actionInputs(action, inst) {
+    const tags = inst ? tagsToObject(inst.tags) : {};
+    const cpu = inst ? (inst.cpu ?? inst.cpu_percent) : null;
+    return compactMetrics([
+        ['Tool', action.tool || action.tool_name],
+        ['Action', action.action || action.action_type],
+        ['Resource', action.resource_id || action.instance_id],
+        ['CPU', cpu === null || cpu === undefined ? null : `${Number(cpu).toFixed(1)}%`],
+        ['State', inst?.state],
+        ['Type', inst?.instance_type],
+        ['Missing tags', inst ? ['Owner', 'Project', 'Environment'].filter(k => !tags[k]).join(', ') || 'none' : null],
+        ['Cost delta', state.costs?.delta_pct !== undefined ? `${state.costs.delta_pct}%` : null]
+    ]);
+}
+
+function findingInputs(finding) {
+    return compactMetrics([
+        ['Severity', finding.severity],
+        ['Rule', finding.type],
+        ['Resource', finding.resource],
+        ['Evidence', finding.detail],
+        ['Source', 'security groups / S3 / EBS encryption']
+    ]);
+}
+
+function diagnosisInputs(action) {
+    const inst = findInstance(action.resource_id || action.instance_id);
+    const cpu = inst ? (inst.cpu ?? inst.cpu_percent) : null;
+    return compactMetrics([
+        ['Instance', action.resource_id || action.instance_id],
+        ['CPU', cpu === null || cpu === undefined ? null : `${Number(cpu).toFixed(1)}%`],
+        ['State', inst?.state],
+        ['Type', inst?.instance_type],
+        ['Severity', action.diagnosis?.severity],
+        ['Signal', action.diagnosis?.root_cause]
+    ]);
+}
+
+function ageInDays(value) {
+    if (!value) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return Math.max(0, Math.round((Date.now() - d.getTime()) / 86400000));
+}
+
+function formatShortDate(value) {
+    if (!value) return null;
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString([], { month: 'short', day: '2-digit' });
+}
+
+function instanceScore(inst, cpu, missingTagCount) {
+    let score = inst.state === 'running' ? 20 : 0;
+    if (cpu !== null) score += cpu >= 85 ? 80 : cpu <= 5 ? 65 : cpu >= 50 ? 40 : 15;
+    score += missingTagCount * 8;
+    return score;
+}
+
+function instanceSignal(inst, cpu, missingTagCount) {
+    if (inst.state !== 'running') return 'Stopped';
+    if (cpu === null) return 'No CPU metric';
+    if (cpu >= 85) return 'High CPU pressure';
+    if (cpu <= 5) return 'Idle candidate';
+    if (missingTagCount) return 'Tag cleanup';
+    return 'Healthy';
+}
+
 function safeDomId(value) {
     return String(value ?? 'item').replace(/[^a-zA-Z0-9_-]/g, '-');
 }
@@ -884,6 +987,40 @@ function formatTimestamp(value) {
         hour: '2-digit',
         minute: '2-digit',
     });
+}
+
+function buildInstanceComparison(insts) {
+    const rows = insts.map(inst => {
+        const cpuRaw = inst.cpu ?? inst.cpu_percent;
+        const cpu = Number.isFinite(Number(cpuRaw)) ? Number(cpuRaw) : null;
+        const tags = tagsToObject(inst.tags);
+        const missingTags = ['Owner', 'Project', 'Environment'].filter(k => !tags[k]);
+        const ageDays = ageInDays(inst.launch_time);
+        const score = instanceScore(inst, cpu, missingTags.length);
+        return { inst, cpu, tags, missingTags, ageDays, score };
+    }).sort((a, b) => b.score - a.score);
+
+    return `<div class="instance-comparison">
+        <div class="comparison-head">
+            <div><span class="panel-tag">Instance Comparison</span><h3>Performance and AWS data pulled this cycle</h3></div>
+            <span>${rows.length} instances ranked</span>
+        </div>
+        <div class="comparison-table-wrap">
+            <table class="comparison-table">
+                <thead><tr><th>Rank</th><th>Instance</th><th>Type</th><th>State</th><th>CPU</th><th>Age</th><th>Tags</th><th>Signal</th></tr></thead>
+                <tbody>${rows.map((r, idx) => `<tr>
+                    <td class="rank-cell">#${idx + 1}</td>
+                    <td><strong>${esc(r.inst.name || r.inst.instance_id)}</strong><span>${esc(r.inst.instance_id)}</span></td>
+                    <td>${esc(r.inst.instance_type || '-')}</td>
+                    <td>${esc(r.inst.state || '-')}</td>
+                    <td>${r.cpu === null ? '-' : `${r.cpu.toFixed(1)}%`}</td>
+                    <td>${r.ageDays === null ? '-' : `${r.ageDays}d`}</td>
+                    <td>${r.missingTags.length ? `${r.missingTags.length} missing` : 'complete'}</td>
+                    <td>${esc(instanceSignal(r.inst, r.cpu, r.missingTags.length))}</td>
+                </tr>`).join('')}</tbody>
+            </table>
+        </div>
+    </div>`;
 }
 
 function statusClass(status) {

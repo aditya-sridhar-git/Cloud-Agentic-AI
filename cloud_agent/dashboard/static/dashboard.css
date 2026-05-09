@@ -2286,6 +2286,103 @@ body {
     border-color: var(--amber-rim);
 }
 
+.instance-comparison {
+    grid-column: 1 / -1;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.comparison-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.95rem 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.comparison-head h3 {
+    margin: 0.15rem 0 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.comparison-head > span {
+    color: var(--text-2);
+    font-family: var(--f-mono);
+    font-size: 0.65rem;
+}
+
+.comparison-table-wrap {
+    overflow-x: auto;
+}
+
+.comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.72rem;
+}
+
+.comparison-table th,
+.comparison-table td {
+    padding: 0.65rem 0.8rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.comparison-table th {
+    color: var(--text-3);
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.comparison-table td span {
+    display: block;
+    margin-top: 0.15rem;
+    color: var(--text-3);
+    font-family: var(--f-mono);
+    font-size: 0.58rem;
+}
+
+.rank-cell {
+    color: var(--cyan);
+    font-family: var(--f-mono);
+}
+
+.decision-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.55rem;
+}
+
+.decision-inputs span {
+    display: inline-flex;
+    gap: 0.3rem;
+    align-items: center;
+    max-width: 100%;
+    padding: 0.18rem 0.42rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.025);
+    color: var(--text-2);
+    font-size: 0.58rem;
+    line-height: 1.25;
+}
+
+.decision-inputs b {
+    color: var(--text-3);
+    font-weight: 700;
+}
+
+.inst-inputs {
+    margin-top: 0.75rem;
+}
+
 @media (max-width: 1200px) {
     #kpi-strip {
         grid-template-columns: repeat(3, minmax(150px, 1fr));
@@ -2336,5 +2433,10 @@ body {
 
     .settings-section[style] {
         grid-column: auto !important;
+    }
+
+    .comparison-head {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
