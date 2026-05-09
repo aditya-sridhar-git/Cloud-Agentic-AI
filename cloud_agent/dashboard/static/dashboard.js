@@ -550,54 +550,7 @@ function renderInstances() {
         </div>`;
         return;
     }
-    grid.innerHTML = buildInstanceComparison(insts) + insts.map((inst, idx) => {
-        const rawCpu = inst.cpu ?? inst.cpu_percent ?? -1;
-        const cpu = rawCpu < 0 ? 0 : rawCpu;
-        const cpuDisplay = rawCpu < 0 ? '~0%' : `${cpu.toFixed(1)}%`;
-        const cpuClass = cpu >= 85 ? 'cpu-high' : cpu >= 50 ? 'cpu-med' : 'cpu-low';
-        const healthClass = cpu >= 85 ? 'health-critical' : cpu >= 50 ? 'health-warning' : 'health-good';
-        const isRunning = inst.state === 'running';
-        const name = inst.name || inst.instance_id;
-        const sparkId = `spark-${safeDomId(inst.instance_id)}-${idx}`;
-        const tags = tagsToObject(inst.tags);
-        const meta = compactMetrics([
-            ['CPU', rawCpu < 0 ? 'unavailable' : `${cpu.toFixed(1)}%`],
-            ['State', inst.state],
-            ['Type', inst.instance_type],
-            ['Env', tags.Environment || inst.env],
-            ['Owner', tags.Owner],
-            ['Project', tags.Project],
-            ['Region', inst.region],
-            ['Launch', formatShortDate(inst.launch_time)]
-        ]);
-        return `<div class="inst-tile ${isRunning ? 'state-running' : 'state-stopped'} ${isRunning ? healthClass : ''}">
-            <div class="inst-row-1">
-                <span class="inst-name">${esc(name)}</span>
-                <span class="inst-badge"><span class="inst-badge-dot"></span>${esc(inst.state)}</span>
-            </div>
-            <div class="inst-row-2">
-                <span class="inst-id">${esc(inst.instance_id)}</span>
-                <span class="inst-type">${esc(inst.instance_type)}</span>
-            </div>
-            ${isRunning ? `
-            <div class="cpu-section ${cpuClass}">
-                <div class="cpu-row">
-                    <span class="cpu-lbl">CPU UTIL</span>
-                    <span class="cpu-pct">${cpuDisplay}</span>
-                </div>
-                <div class="cpu-track"><div class="cpu-fill" style="width:${cpu}%"></div></div>
-                <canvas class="cpu-sparkline" id="${sparkId}" height="24"></canvas>
-            </div>` : ''}
-            <div class="decision-inputs inst-inputs">${meta}</div>
-        </div>`;
-    }).join('');
-
-    insts.forEach((inst, idx) => {
-        if (inst.state !== 'running') return;
-        const canvas = document.getElementById(`spark-${safeDomId(inst.instance_id)}-${idx}`);
-        if (!canvas) return;
-        drawInstSparkline(canvas, inst);
-    });
+    grid.innerHTML = buildInstanceComparison(insts);
 }
 
 function renderActions() {
@@ -927,6 +880,11 @@ function formatShortDate(value) {
     return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString([], { month: 'short', day: '2-digit' });
 }
 
+function pct(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? `${n.toFixed(0)}%` : null;
+}
+
 function instanceScore(inst, cpu, missingTagCount) {
     let score = inst.state === 'running' ? 20 : 0;
     if (cpu !== null) score += cpu >= 85 ? 80 : cpu <= 5 ? 65 : cpu >= 50 ? 40 : 15;
@@ -935,7 +893,7 @@ function instanceScore(inst, cpu, missingTagCount) {
 }
 
 function instanceSignal(inst, cpu, missingTagCount) {
-    if (inst.state !== 'running') return 'Stopped';
+    if (inst.state !== 'running') return String(inst.state || 'stopped').replace('-', ' ');
     if (cpu === null) return 'No CPU metric';
     if (cpu >= 85) return 'High CPU pressure';
     if (cpu <= 5) return 'Idle candidate';
@@ -971,25 +929,40 @@ function buildInstanceComparison(insts) {
 
     return `<div class="instance-comparison">
         <div class="comparison-head">
-            <div><span class="panel-tag">Instance Comparison</span><h3>Performance and AWS data pulled this cycle</h3></div>
+            <div><span class="panel-tag">Sysbench EC2 Benchmark</span><h3>Instance state and live benchmark results</h3></div>
             <span>${rows.length} instances ranked</span>
         </div>
         <div class="comparison-table-wrap">
             <table class="comparison-table">
-                <thead><tr><th>Rank</th><th>Instance</th><th>Type</th><th>State</th><th>CPU</th><th>Age</th><th>Tags</th><th>Signal</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Rank</th><th>Instance</th><th>Type</th><th>State</th><th>CPU</th>
+                        <th>Memory</th><th>CPU eps</th><th>Mem/s</th><th>IOPS</th><th>p95</th><th>Signal</th>
+                    </tr>
+                </thead>
                 <tbody>${rows.map((r, idx) => `<tr>
                     <td class="rank-cell">#${idx + 1}</td>
                     <td><strong>${esc(r.inst.name || r.inst.instance_id)}</strong><span>${esc(r.inst.instance_id)}</span></td>
                     <td>${esc(r.inst.instance_type || '-')}</td>
                     <td>${esc(r.inst.state || '-')}</td>
                     <td>${r.cpu === null ? '-' : `${r.cpu.toFixed(1)}%`}</td>
-                    <td>${r.ageDays === null ? '-' : `${r.ageDays}d`}</td>
-                    <td>${r.missingTags.length ? `${r.missingTags.length} missing` : 'complete'}</td>
+                    <td>${pct(r.inst.memory_percent) || '-'}</td>
+                    <td>${fmtBench(r.inst.sysbench?.cpu_events_per_sec)}</td>
+                    <td>${fmtBench(r.inst.sysbench?.memory_mib_per_sec)}</td>
+                    <td>${fmtBench(r.inst.sysbench?.disk_iops)}</td>
+                    <td>${fmtBench(r.inst.sysbench?.p95_latency_ms, 'ms')}</td>
                     <td>${esc(instanceSignal(r.inst, r.cpu, r.missingTags.length))}</td>
                 </tr>`).join('')}</tbody>
             </table>
         </div>
     </div>`;
+}
+
+function fmtBench(value, suffix = '') {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '-';
+    const out = n >= 100 ? n.toFixed(0) : n.toFixed(1);
+    return `${out}${suffix}`;
 }
 
 function statusClass(status) {
@@ -1146,7 +1119,7 @@ function applyRoute(view) {
     const ps = document.getElementById('panel-settings');
     if (ps) ps.classList.toggle('active', isSettings);
 
-    ['panel-grid', 'panel-thoughts', 'kpi-strip', 'ai-strategy-strip'].forEach(id => {
+    ['panel-grid', 'panel-thoughts', 'kpi-strip'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = isSettings ? 'none' : '';
     });
@@ -1537,16 +1510,30 @@ async function confirmProvision() {
                 resultEl.textContent = '✕ ' + result.error;
             }
         } else {
-            // ✅ Show success then close after a moment
+            // Build a detailed success message
             const id = result.instance_id || result.volume_id || '';
+            let details = '';
+            if (currentProvisionType === 'instance') {
+                details = [
+                    id ? `ID: ${id}` : '',
+                    result.instance_type ? `Type: ${result.instance_type}` : '',
+                    result.region ? `Region: ${result.region}` : '',
+                    result.state ? `State: ${result.state}` : '',
+                ].filter(Boolean).join(' · ');
+            } else {
+                details = id ? `Volume: ${id}` : '';
+            }
+
             if (resultEl) {
                 resultEl.className = 'provision-result success';
-                resultEl.textContent = `✓ ${currentProvisionType === 'instance' ? 'Instance' : 'Volume'} allocated${id ? ': ' + id : ''}`;
+                resultEl.textContent = `✓ ${currentProvisionType === 'instance' ? 'Instance' : 'Volume'} provisioned${details ? ' — ' + details : ''}`;
             }
-            setTimeout(closeProvisionModal, 1800);
+            setTimeout(closeProvisionModal, 2500);
 
-            // Refresh state from the server immediately
+            // Refresh state from the server immediately — the WebSocket will also push updates
             fetch('/api/status').then(r => r.json()).then(d => { state = d; render(); }).catch(() => { });
+            // Also refresh the action history to show the provision log entry
+            loadHistory();
         }
     } catch (e) {
         if (resultEl) {

@@ -113,6 +113,16 @@ class CloudProvider(abc.ABC):
     def run_ssm_command(self, instance_id: str, commands: list[str], timeout: int = 30) -> str:
         """Execute shell commands on an instance and return output."""
 
+    def run_sysbench_benchmark(self, instance_id: str, timeout: int = 90) -> dict[str, Any]:
+        """Run a sysbench benchmark on a running instance when the provider supports it."""
+        return {
+            "status": "unsupported",
+            "cpu_events_per_sec": None,
+            "memory_mib_per_sec": None,
+            "disk_iops": None,
+            "p95_latency_ms": None,
+        }
+
     # ------------------------------------------------------------------
     # Security
     # ------------------------------------------------------------------

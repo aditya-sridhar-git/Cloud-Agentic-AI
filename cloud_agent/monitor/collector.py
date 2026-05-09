@@ -39,6 +39,20 @@ class MetricsCollector:
                 except Exception:
                     logger.warning("Could not get CPU for %s", inst["instance_id"])
                     inst["cpu_percent"] = -1.0
+                if self._config.get("benchmarks", {}).get("sysbench", {}).get("enabled", True):
+                    try:
+                        inst["sysbench"] = self._provider.run_sysbench_benchmark(
+                            inst["instance_id"],
+                            timeout=self._config.get("benchmarks", {}).get("sysbench", {}).get("timeout_seconds", 120),
+                        )
+                        inst["benchmark_profile"] = inst["sysbench"].get("status", "ok")
+                    except Exception as exc:
+                        logger.warning("Could not run sysbench for %s: %s", inst["instance_id"], exc)
+                        inst["sysbench"] = {"status": "error", "error": str(exc)}
+                        inst["benchmark_profile"] = "error"
+            else:
+                inst["sysbench"] = {"status": "skipped", "reason": f"instance is {inst.get('state')}"}
+                inst["benchmark_profile"] = "skipped"
 
         logger.info("Collecting volumes …")
         disks = self._provider.list_volumes()

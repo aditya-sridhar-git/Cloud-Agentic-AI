@@ -12,6 +12,11 @@ provider:
   name: aws                         # Cloud provider (aws | gcp | azure | mock)
   region: ap-southeast-1
 
+benchmarks:
+  sysbench:
+    enabled: true                    # Runs real sysbench through SSM on running EC2 instances
+    timeout_seconds: 120
+
 # ---------------------------------------------------------------------------
 # Notification settings (optional)
 # ---------------------------------------------------------------------------

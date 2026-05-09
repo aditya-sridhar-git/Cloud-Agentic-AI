@@ -449,10 +449,10 @@ async def approve_action(request: Request):
 
 @app.post("/api/allocate-instance")
 async def allocate_instance(request: Request):
-    """Proactively provision a new compute instance."""
+    """Proactively provision a new compute instance on AWS."""
     data = await request.json()
     instance_type = data.get("instance_type", "t3.micro")
-    region = data.get("region")
+    region = data.get("region") or None
     tags = data.get("tags", [
         {"Key": "Name", "Value": f"auto-allocated-{int(time.time())}"},
         {"Key": "Provisioner", "Value": "CloudAgentDashboard"}
@@ -462,13 +462,43 @@ async def allocate_instance(request: Request):
         return {"error": "Agent not initialized"}
         
     try:
+        _emit_thought(f"Provisioning {instance_type} in {region or 'default region'}...")
         result = _agent.provider.create_instance(instance_type, region, tags)
-        # Update state so it appears immediately
+        
+        _emit_thought(f"Instance {result.get('instance_id')} launched — refreshing infrastructure state...")
+
+        # Re-observe to pick up the new instance with full metadata
         observation = _agent.observe()
         _latest_state["instances"] = observation.instances
+        _latest_state["volumes"] = observation.disks
+        _latest_state["costs"] = observation.costs
+
+        _emit_thought(f"Fleet updated: {len(observation.instances)} instances now tracked.")
+
+        # Log the provision action to the audit trail
+        import uuid
+        _agent.action_logger.log_cycle(
+            cycle_id=str(uuid.uuid4())[:8],
+            plan_summary=f"Manual provision: {instance_type} in {result.get('region', 'default')}",
+            results=[{
+                "tool": "provision",
+                "resource_id": result.get("instance_id"),
+                "action": "create_instance",
+                "status": result.get("status", "launched"),
+                "reason": f"User-requested {instance_type} via dashboard",
+            }],
+            observation_summary={
+                "instances": len(observation.instances),
+                "disks": len(observation.disks),
+                "costs": observation.costs,
+            }
+        )
+
         _broadcast(_latest_state)
         return result
     except Exception as e:
+        logger.exception("Instance provisioning failed")
+        _emit_thought(f"Provisioning failed: {str(e)}")
         return {"error": str(e)}
 
 

@@ -33,6 +33,10 @@ _MOCK_INSTANCES = [
     {"instance_id": "i-0a1b2c3d4e5f60006", "instance_type": "t3.small",   "state": "running",  "name": "legacy-api-prod",    "env": "prod"},
     {"instance_id": "i-0a1b2c3d4e5f60007", "instance_type": "t3.medium",  "state": "stopped",  "name": "legacy-backend",     "env": "dev"},
     {"instance_id": "i-0a1b2c3d4e5f60008", "instance_type": "m5.large",   "state": "running",  "name": "monitoring-stack",   "env": "prod"},
+    {"instance_id": "i-0a1b2c3d4e5f60009", "instance_type": "t3.micro",   "state": "pending",  "name": "bench-pending",      "env": "test"},
+    {"instance_id": "i-0a1b2c3d4e5f60010", "instance_type": "t3.micro",   "state": "stopping", "name": "bench-stopping",     "env": "test"},
+    {"instance_id": "i-0a1b2c3d4e5f60011", "instance_type": "t3.micro",   "state": "shutting-down", "name": "bench-shutdown", "env": "test"},
+    {"instance_id": "i-0a1b2c3d4e5f60012", "instance_type": "t3.micro",   "state": "terminated", "name": "bench-terminated", "env": "test"},
 ]
 
 _MOCK_VOLUMES = [
@@ -108,7 +112,50 @@ _CPU_PROFILES: dict[str, float] = {
     "i-0a1b2c3d4e5f60005": 88.0,   # ML training — hot
     "i-0a1b2c3d4e5f60006": 1.5,    # legacy api — idle!
     "i-0a1b2c3d4e5f60008": 35.0,   # monitoring — moderate
+    "i-0a1b2c3d4e5f60009": 12.0,   # pending benchmark boot
+    "i-0a1b2c3d4e5f60010": 4.0,    # stopping benchmark drain
+    "i-0a1b2c3d4e5f60011": 0.0,    # shutdown benchmark
+    "i-0a1b2c3d4e5f60012": 0.0,    # terminated benchmark
 }
+
+_SYSBENCH_PROFILES: dict[str, dict[str, Any]] = {
+    "api-server-prod": {"profile": "steady", "cpu_eps": 1840, "memory_mib_s": 5120, "disk_iops": 1280, "latency_ms": 4.8, "memory_percent": 61, "disk_percent": 42, "network_in": 74},
+    "worker-node-01": {"profile": "balanced", "cpu_eps": 1625, "memory_mib_s": 4860, "disk_iops": 960, "latency_ms": 6.2, "memory_percent": 54, "disk_percent": 48, "network_in": 58},
+    "dev-webserver": {"profile": "idle", "cpu_eps": 210, "memory_mib_s": 1180, "disk_iops": 120, "latency_ms": 1.1, "memory_percent": 18, "disk_percent": 9, "network_in": 3},
+    "staging-api": {"profile": "low", "cpu_eps": 520, "memory_mib_s": 2250, "disk_iops": 280, "latency_ms": 2.4, "memory_percent": 28, "disk_percent": 18, "network_in": 12},
+    "ml-training-gpu": {"profile": "saturated", "cpu_eps": 2920, "memory_mib_s": 7420, "disk_iops": 2140, "latency_ms": 18.6, "memory_percent": 91, "disk_percent": 89, "network_in": 122},
+    "legacy-api-prod": {"profile": "idle", "cpu_eps": 180, "memory_mib_s": 970, "disk_iops": 90, "latency_ms": 1.0, "memory_percent": 16, "disk_percent": 11, "network_in": 2},
+    "legacy-backend": {"profile": "stopped", "cpu_eps": 0, "memory_mib_s": 0, "disk_iops": 0, "latency_ms": 0, "memory_percent": 0, "disk_percent": 0, "network_in": 0},
+    "monitoring-stack": {"profile": "observability", "cpu_eps": 1320, "memory_mib_s": 3980, "disk_iops": 840, "latency_ms": 5.4, "memory_percent": 47, "disk_percent": 57, "network_in": 41},
+}
+
+
+def _sysbench_for(instance: dict[str, Any], state: str) -> dict[str, Any]:
+    """Synthetic sysbench-style EC2 pressure profile for UI and tests."""
+    profile = dict(_SYSBENCH_PROFILES.get(instance["name"], {}))
+    if not profile:
+        active = state == "running"
+        profile = {
+            "profile": state,
+            "cpu_eps": 840 if active else 0,
+            "memory_mib_s": 2600 if active else 0,
+            "disk_iops": 420 if active else 0,
+            "latency_ms": 3.8 if active else 0,
+            "memory_percent": 42 if active else 0,
+            "disk_percent": 24 if active else 0,
+            "network_in": 18 if active else 0,
+        }
+    if state != "running":
+        profile.update({
+            "profile": state,
+            "cpu_eps": 0,
+            "memory_mib_s": 0,
+            "disk_iops": 0,
+            "latency_ms": 0,
+            "memory_percent": 0,
+            "network_in": 0,
+        })
+    return profile
 
 
 class MockProvider(CloudProvider):
@@ -158,12 +205,23 @@ class MockProvider(CloudProvider):
             tags = existing
 
             launch_time = datetime.now(timezone.utc) - timedelta(days=random.randint(5, 90))
+            sysbench = _sysbench_for(m, state)
             instances.append({
                 "instance_id": iid,
                 "instance_type": m["instance_type"],
                 "state": state,
                 "launch_time": str(launch_time),
                 "tags": tags,
+                "benchmark_profile": sysbench["profile"],
+                "sysbench": {
+                    "cpu_events_per_sec": sysbench["cpu_eps"],
+                    "memory_mib_per_sec": sysbench["memory_mib_s"],
+                    "disk_iops": sysbench["disk_iops"],
+                    "p95_latency_ms": sysbench["latency_ms"],
+                },
+                "memory_percent": sysbench["memory_percent"],
+                "disk_percent": sysbench["disk_percent"],
+                "network_in": sysbench["network_in"],
             })
         return instances
 
