@@ -176,7 +176,6 @@ function connectWS() {
         wsRetryTimer = setTimeout(() => {
             connectWS();
         }, 3000);
-        // After 10s in disconnected state, show attempt count + last-seen
         setTimeout(() => {
             const el = document.getElementById('ws-status');
             if (!el || el.classList.contains('connected')) return;
@@ -203,7 +202,6 @@ function setWSStatus(connected) {
         wsConnectedAt = Date.now();
         wsReconnectAttempt = 0;
         if (text) text.textContent = 'Live Connection';
-        // Clear any reconnect message
         const msg = el.querySelector('.ws-reconnect-msg');
         if (msg) msg.remove();
     } else {
@@ -283,6 +281,7 @@ function render() {
     try { renderKPIs(); } catch (e) { console.error(e); }
     try { renderReasoning(); } catch (e) { console.error(e); }
     try { renderInstances(); } catch (e) { console.error(e); }
+    try { renderVolumeGrid(); } catch (e) { console.error(e); }
     try { renderCostBreakdown(); } catch (e) { console.error(e); }
     try { renderActions(); } catch (e) { console.error(e); }
     try { renderSecurity(); } catch (e) { console.error(e); }
@@ -299,7 +298,7 @@ function renderCostBreakdown() {
     if (!panel) return;
     const costs = state.costs || {};
     const services = costs.services || [];
-    const daily    = costs.current_daily  ?? 0;
+    const daily = costs.current_daily ?? 0;
     const baseline = costs.baseline_daily ?? 0;
     const deltaPct = costs.delta_pct ?? 0;
 
@@ -330,7 +329,7 @@ function renderCostBreakdown() {
 
     services.slice(0, 10).forEach(svc => {
         const share = totalFromServices > 0 ? ((svc.amount / totalFromServices) * 100).toFixed(1) : '0.0';
-        const barW  = Math.min((svc.amount / (totalFromServices || 1)) * 100, 100);
+        const barW = Math.min((svc.amount / (totalFromServices || 1)) * 100, 100);
         const rowCls = svc.amount === Math.max(...services.map(s => s.amount)) ? 'cost-row-top' : '';
         html += `<tr class="${rowCls}">
             <td class="cost-svc">${esc(svc.service)}</td>
@@ -342,7 +341,6 @@ function renderCostBreakdown() {
 
     html += `</tbody></table>`;
 
-    // Suggest a fix if any cost action is pending
     const costActions = (state.actions || []).filter(a => a.tool_name === 'cost_monitor' && a.status === 'pending_approval');
     if (costActions.length > 0) {
         costActions.forEach(a => {
@@ -357,7 +355,6 @@ function renderCostBreakdown() {
 
     panel.innerHTML = html;
 }
-
 
 function renderStatus() {
     const dot = document.getElementById('sb-status-dot');
@@ -386,10 +383,9 @@ let lastThoughtCount = 0;
 function renderThoughts() {
     const container = document.getElementById('thought-console');
     if (!container) return;
-    
+
     const thoughts = state.thoughts || [];
-    
-    // Reset if the cycle just restarted
+
     if (thoughts.length === 0 && lastThoughtCount > 0) {
         container.innerHTML = '<div class="thought-line init">▶ System Ready. Awaiting next intelligence cycle...</div>';
         lastThoughtCount = 0;
@@ -397,7 +393,6 @@ function renderThoughts() {
     }
 
     if (thoughts.length > lastThoughtCount) {
-        // We only append the new thoughts to avoid full re-renders and flickering
         const newBatch = thoughts.slice(lastThoughtCount);
         newBatch.forEach(t => {
             const line = document.createElement('div');
@@ -405,15 +400,9 @@ function renderThoughts() {
             line.textContent = t.text;
             container.appendChild(line);
         });
-        
         lastThoughtCount = thoughts.length;
-        
-        // Auto-scroll to the latest thought
         setTimeout(() => {
-            container.scrollTo({
-                top: container.scrollHeight,
-                behavior: 'smooth'
-            });
+            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
         }, 100);
     }
 }
@@ -426,8 +415,6 @@ function renderReasoning() {
     if (!el) return;
 
     let reason = state.reasoning_summary;
-
-    // 🚨 Detect broken/gibberish text
     const isGarbage = !reason || reason.length < 5 || /[^a-zA-Z0-9 .,:%()\-/_!?[\]]/.test(reason);
 
     if (isGarbage) {
@@ -450,7 +437,6 @@ function renderReasoning() {
 
     el.textContent = reason;
 
-    // Update Overall Confidence
     const confEl = document.getElementById('ai-confidence');
     if (confEl) {
         const conf = state.overall_confidence || 0;
@@ -470,18 +456,16 @@ function renderKPIs() {
     const critical = secs.filter(f => (f.severity || '').toLowerCase() === 'critical').length;
     const low = secs.length - critical;
 
-    // FIX: collector stores keys as current_daily / baseline_daily
-    const daily    = costs.current_daily  ?? costs.daily    ?? costs.daily_cost    ?? 0;
+    const daily = costs.current_daily ?? costs.daily ?? costs.daily_cost ?? 0;
     const baseline = costs.baseline_daily ?? costs.baseline ?? costs.baseline_cost ?? null;
     const deltaPct = costs.delta_pct ?? 0;
 
-        setText('kpi-instances', insts.length);
+    setText('kpi-instances', insts.length);
     setText('kpi-running', `${running} running`);
     setText('kpi-volumes', vols.length);
     setText('kpi-orphaned', `${orphaned} orphaned`);
     const monthlyProjection = Number(daily || 0) * 30;
     setText('kpi-cost', formatCurrency(daily));
-    // Baseline: null → establishing message
     const baselineEl = document.getElementById('kpi-baseline');
     if (baselineEl) {
         if (!baseline) {
@@ -495,13 +479,11 @@ function renderKPIs() {
         }
     }
 
-    // Draw 7-day mock sparkline
     drawSparkline();
     setText('kpi-findings', secs.length);
     setText('kpi-actions', acts.length);
     setText('kpi-last', state.last_cycle ? `Last: ${state.last_cycle}` : 'Last: never');
 
-    // Findings critical/low split sub-label + card escalation
     const critEl = document.getElementById('kpi-critical');
     const lowEl = document.getElementById('kpi-low-findings');
     const card = document.getElementById('kpi-card-findings');
@@ -542,10 +524,19 @@ function animBar(id, val, max) {
     el.style.width = pct + '%';
 }
 
+// ============================================================
+// FIX 1: renderInstances — updates inst-badge count
+// ============================================================
+
 function renderInstances() {
     const grid = document.getElementById('instance-grid');
     if (!grid) return;
     const insts = state.instances || [];
+
+    // ✅ Update badge counter
+    const badge = document.getElementById('inst-badge');
+    if (badge) badge.textContent = `${insts.length} instance${insts.length !== 1 ? 's' : ''}`;
+
     if (!insts.length) {
         grid.innerHTML = `
         <div class="panel-empty">
@@ -601,7 +592,6 @@ function renderInstances() {
         </div>`;
     }).join('');
 
-    // Draw per-instance sparklines after DOM insertion
     insts.forEach((inst, idx) => {
         if (inst.state !== 'running') return;
         const canvas = document.getElementById(`spark-${safeDomId(inst.instance_id)}-${idx}`);
@@ -752,23 +742,16 @@ async function sendChatMessage() {
     const input = document.getElementById('chat-input');
     const message = input.value.trim();
     if (!message) return;
-
-    // Add user message to chat
     addChatMessage(message, 'user');
     input.value = '';
-
-    // Show loading indicator
     showChatLoading();
-
     try {
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query: message })
         });
-
         hideChatLoading();
-
         if (response.ok) {
             const data = await response.json();
             addChatMessage(data.response, 'bot', data.data);
@@ -784,33 +767,21 @@ async function sendChatMessage() {
 function renderMarkdown(text) {
     if (!text) return '';
     let html = escapeHtml(text);
-    
-    // 1. Headers: ### Title
     html = html.replace(/^### (.*$)/gim, '<h3 style="color:var(--cyan); margin: 0.8rem 0 0.4rem 0; font-size: 0.9rem; border-bottom: 1px solid var(--border); padding-bottom: 2px;">$1</h3>');
-    
-    // 2. Bold: **text**
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text-1); font-weight: 700;">$1</strong>');
-    
-    // 3. Lists: - Item (only at start of line)
     html = html.replace(/^- (.*$)/gim, '<div style="padding-left: 1rem; position: relative; margin-bottom: 0.2rem;"><span style="position: absolute; left: 0; color: var(--cyan);">•</span> $1</div>');
-    
     return html;
 }
 
 function addChatMessage(text, type, data = null) {
     const container = document.getElementById('chat-messages');
     if (!container) return;
-
     const msgDiv = document.createElement('div');
     msgDiv.className = `chat-message ${type}`;
-    
     const avatar = type === 'bot' ? '🤖' : '👤';
-    
     let contentHtml = `<div class="chat-avatar">${avatar}</div>`;
     contentHtml += `<div class="chat-bubble">`;
-    
     const formattedBody = renderMarkdown(text);
-
     if (data && Array.isArray(data) && data.length > 0) {
         contentHtml += `<div class="chat-result-title">${formattedBody}</div>`;
         contentHtml += `<ul class="chat-result-list">`;
@@ -820,7 +791,6 @@ function addChatMessage(text, type, data = null) {
             if (severity === 'critical' || severity === 'high' || severity === 'error') statusClass = 'critical';
             else if (severity === 'warning' || severity === 'medium' || severity === 'warn') statusClass = 'warning';
             else if (severity === 'success' || severity === 'healthy' || severity === 'running') statusClass = 'success';
-            
             const itemText = item.domain || item.resource || item.resource_id || item.instance_id || item.id || item.name || item.message || JSON.stringify(item);
             contentHtml += `<li class="chat-result-item ${statusClass}">${escapeHtml(itemText)}</li>`;
         });
@@ -831,7 +801,6 @@ function addChatMessage(text, type, data = null) {
     } else {
         contentHtml += `<div>${formattedBody}</div>`;
     }
-    
     contentHtml += `</div>`;
     msgDiv.innerHTML = contentHtml;
     container.appendChild(msgDiv);
@@ -841,7 +810,6 @@ function addChatMessage(text, type, data = null) {
 function showChatLoading() {
     const container = document.getElementById('chat-messages');
     if (!container) return;
-
     const loadingDiv = document.createElement('div');
     loadingDiv.className = 'chat-message bot';
     loadingDiv.id = 'chat-loading-indicator';
@@ -868,15 +836,6 @@ function escapeHtml(text) {
     if (typeof text !== 'string') return String(text ?? '');
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
-// Allow clicking on suggestion items
-document.addEventListener('click', (e) => {
-    if (e.target.matches('.chat-suggestions li')) {
-        const input = document.getElementById('chat-input');
-        input.value = e.target.textContent.replace(/^"|"$/g, '');
-        sendChatMessage();
-    }
-});
 
 function tickClock() {
     const el = document.getElementById('footer-time');
@@ -1042,26 +1001,15 @@ function statusClass(status) {
     return 'st-success';
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    tickClock();
-    setInterval(tickClock, 1000);
-    navigateTo(null, viewFromPath(), true);
-    connectWS();
-    loadHistory();
-    setInterval(loadHistory, 30000);
-    fetch('/api/status').then(r => r.json()).then(d => { state = d; render(); }).catch(() => { });
-});
 // ============================================================
 // SPARKLINE HELPERS
 // ============================================================
 
-// Mock 7-day spend data seeded from daily value
 function drawSparkline() {
     const canvas = document.getElementById('kpi-sparkline');
     if (!canvas) return;
     const daily = (state.costs && (state.costs.current_daily ?? state.costs.daily ?? state.costs.daily_cost)) || 0;
     const seed = daily || 120;
-    // Generate mock 7-point trend
     const data = Array.from({ length: 7 }, (_, i) => {
         const jitter = (Math.sin(i * 1.7 + seed) * 0.25 + Math.cos(i * 0.9) * 0.15);
         return Math.max(0, seed * (0.7 + jitter));
@@ -1094,17 +1042,13 @@ function _drawSparkCanvas(canvas, data, strokeColor, fillColor) {
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, w, h);
-
     const min = Math.min(...data);
     const max = Math.max(...data) || 1;
     const pad = 2;
-
     const pts = data.map((v, i) => ({
         x: (i / (data.length - 1)) * (w - pad * 2) + pad,
         y: h - pad - ((v - min) / (max - min || 1)) * (h - pad * 2),
     }));
-
-    // Fill
     ctx.beginPath();
     ctx.moveTo(pts[0].x, h);
     pts.forEach(p => ctx.lineTo(p.x, p.y));
@@ -1112,8 +1056,6 @@ function _drawSparkCanvas(canvas, data, strokeColor, fillColor) {
     ctx.closePath();
     ctx.fillStyle = fillColor;
     ctx.fill();
-
-    // Line
     ctx.beginPath();
     pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
     ctx.strokeStyle = strokeColor;
@@ -1123,7 +1065,7 @@ function _drawSparkCanvas(canvas, data, strokeColor, fillColor) {
 }
 
 // ============================================================
-// DECISION CARDS — structured Strategy Feed
+// DECISION CARDS
 // ============================================================
 
 document.addEventListener('click', (e) => {
@@ -1145,7 +1087,6 @@ function confidenceBreakdown(action) {
     const missingTags = inst ? ['Owner', 'Project', 'Environment'].filter(k => !tags[k]) : [];
     const factors = [];
     let score = 62;
-
     if (action.reason) { score += 8; factors.push('Planner reason present'); }
     if (action.resource_id || action.instance_id) { score += 6; factors.push('Resource matched'); }
     if (inst) { score += 8; factors.push(`State ${inst.state || 'known'}`); }
@@ -1160,16 +1101,11 @@ function confidenceBreakdown(action) {
         score += 4;
         factors.push(`Cost delta ${state.costs.delta_pct}%`);
     }
-
     return { score: Math.max(50, Math.min(score, 96)), factors: factors.slice(0, 5) };
 }
 
 // ============================================================
-// SCROLL / NAVIGATION HELPERS
-// ============================================================
-
-// ============================================================
-// NAVIGATION ROUTER — works from any view
+// NAVIGATION ROUTER
 // ============================================================
 
 const NAV_MAP = {
@@ -1226,7 +1162,6 @@ function applyRoute(view) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Keep these as aliases for backward compat
 function scrollToPanel(id) {
     const map = { 'panel-instances': 'instances', 'panel-actions': 'actions', 'panel-security': 'security', 'panel-diag': 'diag' };
     navigateTo(null, map[id] || 'dashboard');
@@ -1237,7 +1172,7 @@ function hideSettings() { navigateTo(null, 'dashboard'); }
 window.addEventListener('popstate', () => applyRoute(viewFromPath()));
 
 // ============================================================
-// SETTINGS PANEL HELPERS
+// SETTINGS HELPERS
 // ============================================================
 
 const INTERVAL_LABELS = ['5 min', '15 min', '30 min', '1 hr'];
@@ -1275,19 +1210,269 @@ async function exportAuditLog() {
     } catch (_) { alert('Export failed - no history available.'); }
 }
 
-// Hook decision card rendering into the main render cycle
-const _origRender = render;
-window.render = function() {
-    _origRender();
-    try { 
-        renderDecisionCards(); 
-        renderVolumeGrid();
-    } catch(e) { console.error(e); }
-};
 
 // ============================================================
-// PROACTIVE PROVISIONING
+// FIX 2: renderVolumeGrid — normalises field names + updates badge
 // ============================================================
+
+function renderVolumeGrid() {
+    const container = document.getElementById('volume-grid');
+    if (!container) return;
+
+    const volumes = state.volumes || [];
+
+    // Update volume counter badge
+    const badge = document.getElementById('vol-badge');
+    if (badge) {
+        badge.textContent = `${volumes.length} volume${volumes.length !== 1 ? 's' : ''}`;
+    }
+
+    // Empty state
+    if (!volumes.length) {
+        container.innerHTML = `
+            <div class="panel-empty">
+                <div class="empty-icon">
+                    <svg width="48" height="48" viewBox="0 0 28 28" fill="none" opacity=".4">
+                        <ellipse 
+                            cx="14" 
+                            cy="8" 
+                            rx="10" 
+                            ry="3.5"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                        />
+                        <path 
+                            d="M4 8v12c0 1.9 4.5 3.5 10 3.5s10-1.6 10-3.5V8"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                        />
+                    </svg>
+                </div>
+
+                <div class="empty-title">No volumes detected</div>
+
+                <div class="empty-subtitle">
+                    Run a cycle to discover block storage
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    // Render volume cards
+    container.innerHTML = volumes.map(volume => {
+
+        // Normalize backend response fields
+        const volumeId =
+            volume.volume_id ||
+            volume.id ||
+            '—';
+
+        const volumeSize =
+            volume.size_gb ??
+            volume.size ??
+            '?';
+
+        const volumeType =
+            volume.volume_type ||
+            volume.type ||
+            'gp2';
+
+        const volumeState =
+            volume.state ||
+            'unknown';
+
+        const volumeRegion =
+            volume.region ||
+            '—';
+
+        // Detect attached instance
+        let attachedInstance = null;
+
+        if (volume.attached_to) {
+            attachedInstance = volume.attached_to;
+        } else if (
+            Array.isArray(volume.attachments) &&
+            volume.attachments.length
+        ) {
+            attachedInstance =
+                volume.attachments[0].instance_id ||
+                'attached';
+        }
+
+        // State color mapping
+        let stateColor = 'var(--text-3)';
+
+        if (volumeState === 'available') {
+            stateColor = 'var(--green)';
+        } else if (volumeState === 'in-use') {
+            stateColor = 'var(--cyan)';
+        }
+
+        return `
+            <div class="vol-card">
+
+                <!-- Volume Icon -->
+                <div class="vol-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <ellipse 
+                            cx="12" 
+                            cy="6" 
+                            rx="7" 
+                            ry="3"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                        />
+                        <path 
+                            d="M5 6v8c0 1.7 3.1 3 7 3s7-1.3 7-3V6"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                        />
+                    </svg>
+                </div>
+
+                <!-- Volume Information -->
+                <div class="vol-info">
+
+                    <!-- Volume ID -->
+                    <div 
+                        class="vol-id"
+                        title="${esc(volumeId)}"
+                    >
+                        ${esc(
+            volumeId.length > 20
+                ? volumeId.slice(0, 20) + '…'
+                : volumeId
+        )}
+                    </div>
+
+                    <!-- Main Metadata -->
+                    <div class="vol-meta">
+                        <span>${esc(String(volumeSize))} GiB</span>
+
+                        <span style="opacity:.5">•</span>
+
+                        <span class="vol-status ${esc(volumeState)}">
+                            ${esc(volumeState)}
+                        </span>
+
+                        <span style="opacity:.5">•</span>
+
+                        <span>${esc(volumeType)}</span>
+                    </div>
+
+                    <!-- Attachment Info -->
+                    ${attachedInstance
+                ? `
+                                <div class="vol-meta attachment-info">
+                                    Attached to ${esc(attachedInstance)}
+                                </div>
+                            `
+                : `
+                                <div class="vol-meta unattached-info">
+                                    Unattached
+                                </div>
+                            `
+            }
+
+                    <!-- Region -->
+                    <div class="vol-meta region-info">
+                        ${esc(volumeRegion)}
+                    </div>
+
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ============================================================
+// FIX 3 + 4: Provision modal — guaranteed visible, modal CSS injected
+// ============================================================
+
+// Inject modal styles so the modal works even if dashboard.css is missing them
+(function injectModalStyles() {
+    if (document.getElementById('provision-modal-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'provision-modal-styles';
+    s.textContent = `
+    .modal-overlay {
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+        display: flex; align-items: center; justify-content: center;
+    }
+    .modal-content {
+        background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+        width: 420px; max-width: 94vw; box-shadow: 0 24px 64px rgba(0,0,0,.6);
+        font-family: 'DM Mono', monospace; color: #e6edf3;
+        animation: modalIn .18s ease;
+    }
+    @keyframes modalIn { from { opacity:0; transform:translateY(-12px) scale(.97); } to { opacity:1; transform:none; } }
+    .modal-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 16px 20px; border-bottom: 1px solid #30363d;
+    }
+    .modal-header h3 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: .04em; }
+    .modal-close {
+        background: none; border: none; color: #8b949e; font-size: 20px;
+        cursor: pointer; line-height: 1; padding: 0 4px; border-radius: 4px;
+        transition: color .12s;
+    }
+    .modal-close:hover { color: #e6edf3; }
+    .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group label {
+        font-size: 10px; font-weight: 600; letter-spacing: .08em;
+        text-transform: uppercase; color: #8b949e;
+    }
+    .modal-select, .modal-input {
+        background: #0d1117; border: 1px solid #30363d; border-radius: 7px;
+        color: #e6edf3; padding: 8px 12px; font-family: inherit; font-size: 13px;
+        outline: none; transition: border-color .15s; width: 100%; box-sizing: border-box;
+    }
+    .modal-select:focus, .modal-input:focus { border-color: #58a6ff; }
+    .modal-select option { background: #161b22; }
+    .modal-footer {
+        display: flex; justify-content: flex-end; gap: 8px;
+        padding: 14px 20px; border-top: 1px solid #30363d;
+    }
+    .btn-cancel {
+        padding: 8px 16px; border-radius: 7px; border: 1px solid #30363d;
+        background: transparent; color: #8b949e; cursor: pointer; font-size: 13px;
+        transition: border-color .12s, color .12s;
+    }
+    .btn-cancel:hover { border-color: #58a6ff; color: #e6edf3; }
+    .btn-confirm {
+        padding: 8px 18px; border-radius: 7px; border: none;
+        background: linear-gradient(135deg, #58a6ff, #1f6feb);
+        color: #fff; cursor: pointer; font-size: 13px; font-weight: 600;
+        transition: opacity .15s, transform .12s;
+    }
+    .btn-confirm:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+    .btn-confirm:disabled { opacity: .45; cursor: not-allowed; }
+    .provision-result {
+        margin: 0 20px 14px; padding: 9px 12px; border-radius: 7px;
+        font-size: 12px; line-height: 1.5; display: none;
+    }
+    .provision-result.success {
+        background: rgba(63,185,80,.12); border: 1px solid rgba(63,185,80,.3);
+        color: #3fb950; display: block;
+    }
+    .provision-result.error {
+        background: rgba(248,81,73,.12); border: 1px solid rgba(248,81,73,.3);
+        color: #f85149; display: block;
+    }
+    /* provision button in panel header */
+    .provision-btn {
+        padding: 5px 12px; border-radius: 20px; border: 1px solid #58a6ff;
+        background: rgba(88,166,255,.1); color: #58a6ff; font-size: 11px;
+        font-weight: 600; cursor: pointer; letter-spacing: .04em;
+        transition: background .15s, transform .12s;
+    }
+    .provision-btn:hover { background: rgba(88,166,255,.2); transform: translateY(-1px); }
+    `;
+    document.head.appendChild(s);
+})();
 
 let currentProvisionType = 'instance';
 
@@ -1297,86 +1482,115 @@ function openProvisionModal(type) {
     const title = document.getElementById('modal-title');
     const instForm = document.getElementById('instance-form');
     const volForm = document.getElementById('volume-form');
+    const resultEl = document.getElementById('provision-result');
 
-    title.textContent = `Provision New ${type === 'instance' ? 'Compute Instance' : 'Storage Volume'}`;
-    instForm.style.display = type === 'instance' ? 'block' : 'none';
-    volForm.style.display = type === 'volume' ? 'block' : 'none';
-    
-    if (modal) modal.style.display = 'flex';
+    if (title) title.textContent = type === 'instance' ? 'Provision Compute Instance' : 'Provision Storage Volume';
+    if (instForm) instForm.style.display = type === 'instance' ? 'block' : 'none';
+    if (volForm) volForm.style.display = type === 'volume' ? 'block' : 'none';
+    if (resultEl) { resultEl.className = 'provision-result'; resultEl.textContent = ''; }
+
+    // ✅ Force display regardless of any conflicting CSS
+    if (modal) {
+        modal.style.cssText = 'display:flex !important; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); align-items:center; justify-content:center;';
+    }
 }
 
 function closeProvisionModal() {
     const modal = document.getElementById('provision-modal');
-    if (modal) modal.style.display = 'none';
+    if (modal) modal.style.cssText = 'display:none !important;';
 }
 
 async function confirmProvision() {
     const btn = document.getElementById('btn-modal-confirm');
-    btn.disabled = true;
-    btn.textContent = 'Allocating...';
+    const resultEl = document.getElementById('provision-result');
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Allocating…'; }
+    if (resultEl) { resultEl.className = 'provision-result'; resultEl.textContent = ''; }
 
     try {
-        let endpoint = '/api/allocate-instance';
-        let payload = {};
+        let endpoint, payload;
 
         if (currentProvisionType === 'instance') {
+            endpoint = '/api/allocate-instance';
             payload = {
-                instance_type: document.getElementById('provision-inst-type').value,
-                region: document.getElementById('provision-inst-region').value || 'us-east-1'
+                instance_type: document.getElementById('provision-inst-type')?.value || 't3.micro',
+                region: document.getElementById('provision-inst-region')?.value?.trim() || undefined,
             };
         } else {
             endpoint = '/api/allocate-volume';
             payload = {
-                size_gb: document.getElementById('provision-vol-size').value,
-                region: document.getElementById('provision-vol-region').value || 'us-east-1'
+                size_gb: parseInt(document.getElementById('provision-vol-size')?.value || '10', 10),
+                region: document.getElementById('provision-vol-region')?.value?.trim() || undefined,
             };
         }
 
         const resp = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
         });
         const result = await resp.json();
 
         if (result.error) {
-            alert('Error: ' + result.error);
+            if (resultEl) {
+                resultEl.className = 'provision-result error';
+                resultEl.textContent = '✕ ' + result.error;
+            }
         } else {
-            closeProvisionModal();
-            // The background websocket will update the state, 
-            // but we can trigger a refresh if needed.
+            // ✅ Show success then close after a moment
+            const id = result.instance_id || result.volume_id || '';
+            if (resultEl) {
+                resultEl.className = 'provision-result success';
+                resultEl.textContent = `✓ ${currentProvisionType === 'instance' ? 'Instance' : 'Volume'} allocated${id ? ': ' + id : ''}`;
+            }
+            setTimeout(closeProvisionModal, 1800);
+
+            // Refresh state from the server immediately
+            fetch('/api/status').then(r => r.json()).then(d => { state = d; render(); }).catch(() => { });
         }
     } catch (e) {
-        alert('Failed to provision: ' + e.message);
+        if (resultEl) {
+            resultEl.className = 'provision-result error';
+            resultEl.textContent = '✕ Failed: ' + e.message;
+        }
     } finally {
-        btn.disabled = false;
-        btn.textContent = 'Confirm Allocation';
+        if (btn) { btn.disabled = false; btn.textContent = 'Confirm Allocation'; }
     }
 }
 
-function renderVolumeGrid() {
-    const container = document.getElementById('volume-grid');
-    if (!container) return;
-    const volumes = state.volumes || [];
-    if (!volumes.length) {
-        container.innerHTML = '<div class="panel-empty"><span>No volumes detected.</span></div>';
-        return;
-    }
+// ============================================================
+// FIX 4: All click handlers inside DOMContentLoaded
+// ============================================================
 
-    container.innerHTML = volumes.map(v => `
-        <div class="vol-card">
-            <div class="vol-icon">💾</div>
-            <div class="vol-info">
-                <div class="vol-id">${v.volume_id}</div>
-                <div class="vol-meta">${v.size_gb} GB • ${v.state}</div>
-            </div>
-        </div>
-    `).join('');
-}
+document.addEventListener('DOMContentLoaded', () => {
+    tickClock();
+    setInterval(tickClock, 1000);
+    navigateTo(null, viewFromPath(), true);
+    connectWS();
+    loadHistory();
+    setInterval(loadHistory, 30000);
+    fetch('/api/status').then(r => r.json()).then(d => { state = d; render(); }).catch(() => { });
 
-document.addEventListener('click', (e) => {
-    if (e.target.id === 'btn-provision-instance') openProvisionModal('instance');
-    if (e.target.id === 'btn-provision-volume') openProvisionModal('volume');
-    if (e.target.id === 'modal-close-btn' || e.target.id === 'btn-modal-cancel') closeProvisionModal();
-    if (e.target.id === 'btn-modal-confirm') confirmProvision();
+    // Chat suggestion clicks
+    document.addEventListener('click', (e) => {
+        if (e.target.matches('.chat-suggestions li')) {
+            const input = document.getElementById('chat-input');
+            if (input) {
+                input.value = e.target.textContent.replace(/^"|"$/g, '');
+                sendChatMessage();
+            }
+        }
+    });
+
+    // ✅ Provision buttons — now safely wired after DOM exists
+    document.addEventListener('click', (e) => {
+        const id = e.target.id || e.target.closest('button')?.id;
+        if (id === 'btn-provision-instance') { openProvisionModal('instance'); return; }
+        if (id === 'btn-provision-volume') { openProvisionModal('volume'); return; }
+        if (id === 'modal-close-btn' || id === 'btn-modal-cancel') { closeProvisionModal(); return; }
+        if (id === 'btn-modal-confirm') { confirmProvision(); return; }
+
+        // Close modal when clicking the dark overlay itself
+        if (e.target.id === 'provision-modal') { closeProvisionModal(); }
+    });
 });

@@ -173,7 +173,8 @@ body {
 }
 
 .sb-section-label {
-    font-size: 0.714rem; /* 10px at 14px base */
+    font-size: 0.714rem;
+    /* 10px at 14px base */
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -189,7 +190,8 @@ body {
     padding: 0.55rem 1.1rem;
     color: var(--text-2);
     text-decoration: none;
-    font-size: 0.929rem; /* 13px at 14px base */
+    font-size: 0.929rem;
+    /* 13px at 14px base */
     font-weight: 500;
     border-radius: 0;
     transition: color 0.15s, background 0.15s;
@@ -573,7 +575,8 @@ body {
 }
 
 .kpi-label {
-    font-size: 0.786rem; /* 11px at 14px base */
+    font-size: 0.786rem;
+    /* 11px at 14px base */
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -622,7 +625,8 @@ body {
 
 .kpi-value {
     font-family: var(--f-mono);
-    font-size: 2.571rem; /* ~36px at 14px base */
+    font-size: 2.571rem;
+    /* ~36px at 14px base */
     font-weight: 500;
     color: var(--text-1);
     line-height: 1;
@@ -632,7 +636,8 @@ body {
 }
 
 .kpi-sub {
-    font-size: 0.857rem; /* 12px at 14px base */
+    font-size: 0.857rem;
+    /* 12px at 14px base */
     color: var(--text-2);
 }
 
@@ -771,7 +776,8 @@ body {
 
 .panel-title {
     font-family: var(--f-display);
-    font-size: 1rem; /* 14px at 14px base */
+    font-size: 1rem;
+    /* 14px at 14px base */
     font-weight: 500;
     color: var(--text-1);
     letter-spacing: 0;
@@ -879,6 +885,7 @@ body {
         opacity: 0;
         transform: translateY(12px);
     }
+
     to {
         opacity: 1;
         transform: none;
@@ -886,9 +893,12 @@ body {
 }
 
 @keyframes floatIcon {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateY(0);
     }
+
     50% {
         transform: translateY(-8px);
     }
@@ -1672,7 +1682,10 @@ body {
 #panel-thoughts::before {
     content: '';
     position: absolute;
-    top: 0; left: 0; right: 0; height: 1px;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
     background: linear-gradient(90deg, transparent, var(--purple), transparent);
     opacity: 0.5;
 }
@@ -1712,17 +1725,32 @@ body {
     animation: neuralLevelPulse 0.8s infinite ease-in-out;
 }
 
-.activity-bars span:nth-child(2) { animation-delay: 0.2s }
-.activity-bars span:nth-child(3) { animation-delay: 0.4s }
+.activity-bars span:nth-child(2) {
+    animation-delay: 0.2s
+}
+
+.activity-bars span:nth-child(3) {
+    animation-delay: 0.4s
+}
 
 @keyframes neuralLevelPulse {
-    0%, 100% { height: 6px; opacity: 0.3; }
-    50% { height: 14px; opacity: 1; }
+
+    0%,
+    100% {
+        height: 6px;
+        opacity: 0.3;
+    }
+
+    50% {
+        height: 14px;
+        opacity: 1;
+    }
 }
 
 .thought-console {
     font-family: var(--f-mono);
-    font-size: 0.857rem; /* 12px at 14px base */
+    font-size: 0.857rem;
+    /* 12px at 14px base */
     color: #9C9FB1;
     max-height: 160px;
     overflow-y: auto;
@@ -1730,7 +1758,10 @@ body {
     line-height: 1.8;
 }
 
-.thought-console::-webkit-scrollbar { width: 4px }
+.thought-console::-webkit-scrollbar {
+    width: 4px
+}
+
 .thought-console::-webkit-scrollbar-thumb {
     background: var(--purple-rim);
     border-radius: 99px;
@@ -1747,10 +1778,16 @@ body {
 }
 
 @keyframes lineFadeIn {
-    to { opacity: 1; transform: none; }
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 
-.thought-line.init { color: var(--text-3); font-style: italic; }
+.thought-line.init {
+    color: var(--text-3);
+    font-style: italic;
+}
 
 .thought-line:last-child {
     border-left-color: var(--purple);
@@ -1802,6 +1839,7 @@ body {
         opacity: 0;
         transform: translateY(8px);
     }
+
     to {
         opacity: 1;
         transform: none;
@@ -1982,14 +2020,23 @@ body {
     animation: chatLoadingBounce 1.4s infinite ease-in-out both;
 }
 
-.chat-loading-dot:nth-child(1) { animation-delay: -0.32s; }
-.chat-loading-dot:nth-child(2) { animation-delay: -0.16s; }
+.chat-loading-dot:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.chat-loading-dot:nth-child(2) {
+    animation-delay: -0.16s;
+}
 
 @keyframes chatLoadingBounce {
-    0%, 80%, 100% {
+
+    0%,
+    80%,
+    100% {
         transform: scale(0);
         opacity: 0.5;
     }
+
     40% {
         transform: scale(1);
         opacity: 1;
@@ -2212,10 +2259,21 @@ body {
     opacity: 1;
 }
 
-.kpi-card[data-index="1"]::before { background: var(--green); }
-.kpi-card[data-index="2"]::before { background: var(--purple); }
-.kpi-card[data-index="3"]::before { background: var(--red); }
-.kpi-card[data-index="4"]::before { background: var(--amber); }
+.kpi-card[data-index="1"]::before {
+    background: var(--green);
+}
+
+.kpi-card[data-index="2"]::before {
+    background: var(--purple);
+}
+
+.kpi-card[data-index="3"]::before {
+    background: var(--red);
+}
+
+.kpi-card[data-index="4"]::before {
+    background: var(--amber);
+}
 
 .kpi-head {
     margin-bottom: 0;
@@ -2244,10 +2302,21 @@ body {
     line-height: 1.35;
 }
 
-.kpi-sub-good { color: var(--green); }
-.kpi-sub-warning { color: var(--amber); }
-.kpi-sub-critical { color: var(--red); }
-.kpi-sub-establishing { color: var(--text-2); }
+.kpi-sub-good {
+    color: var(--green);
+}
+
+.kpi-sub-warning {
+    color: var(--amber);
+}
+
+.kpi-sub-critical {
+    color: var(--red);
+}
+
+.kpi-sub-establishing {
+    color: var(--text-2);
+}
 
 .kpi-sub-row {
     display: flex;
@@ -2315,7 +2384,7 @@ body {
     font-weight: 600;
 }
 
-.comparison-head > span {
+.comparison-head>span {
     color: var(--text-2);
     font-family: var(--f-mono);
     font-size: 0.65rem;
@@ -2334,7 +2403,7 @@ body {
 .comparison-table th,
 .comparison-table td {
     padding: 0.65rem 0.8rem;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     text-align: left;
     white-space: nowrap;
 }
@@ -2374,7 +2443,7 @@ body {
     padding: 0.18rem 0.42rem;
     border: 1px solid var(--border);
     border-radius: 6px;
-    background: rgba(255,255,255,0.025);
+    background: rgba(255, 255, 255, 0.025);
     color: var(--text-2);
     font-size: 0.58rem;
     line-height: 1.25;
@@ -2400,7 +2469,7 @@ body {
     border: 1px solid var(--border);
     border-left: 3px solid var(--purple);
     border-radius: 8px;
-    background: rgba(255,255,255,0.025);
+    background: rgba(255, 255, 255, 0.025);
     padding: 0.9rem 1rem;
 }
 
@@ -2428,8 +2497,17 @@ body {
     padding: 0.18rem 0.55rem;
 }
 
-.dc-impact.cost { color: var(--green); border-color: var(--green-rim); background: var(--green-soft); }
-.dc-impact.risk { color: var(--red); border-color: var(--red-rim); background: var(--red-soft); }
+.dc-impact.cost {
+    color: var(--green);
+    border-color: var(--green-rim);
+    background: var(--green-soft);
+}
+
+.dc-impact.risk {
+    color: var(--red);
+    border-color: var(--red-rim);
+    background: var(--red-soft);
+}
 
 .dc-reason {
     margin: 0.65rem 0;
@@ -2495,7 +2573,7 @@ body {
     min-width: 120px;
     height: 5px;
     border-radius: 99px;
-    background: rgba(255,255,255,0.06);
+    background: rgba(255, 255, 255, 0.06);
     overflow: hidden;
 }
 
@@ -2583,6 +2661,7 @@ body {
 }
 
 @media (max-width: 1000px) {
+
     .panel-cost,
     .panel-chat {
         grid-column: span 2;
@@ -2590,6 +2669,7 @@ body {
 }
 
 @media (max-width: 768px) {
+
     #topbar,
     .topbar-right,
     .settings-header,
@@ -2624,4 +2704,237 @@ body {
         grid-template-columns: 1fr;
     }
 
+}
 
+/* =========================
+   Volume Grid Layout
+========================= */
+
+#volume-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+
+/* =========================
+   Volume Card
+========================= */
+
+.vol-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+
+    padding: 1rem;
+    border-radius: 16px;
+
+    transition: all 0.22s ease;
+
+    backdrop-filter: blur(8px);
+    position: relative;
+    overflow: hidden;
+}
+
+.vol-card:hover {
+    border-color: rgba(0, 140, 255, 0.35);
+    background: rgba(255, 255, 255, 0.04);
+    transform: translateY(-2px);
+}
+
+
+/* =========================
+   Left Icon
+========================= */
+
+.vol-icon {
+    width: 42px;
+    height: 42px;
+
+    min-width: 42px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 12px;
+
+    background: rgba(0, 140, 255, 0.08);
+    border: 1px solid rgba(0, 140, 255, 0.15);
+
+    color: #5ab2ff;
+}
+
+.vol-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+
+/* =========================
+   Content
+========================= */
+
+.vol-info {
+    flex: 1;
+    min-width: 0;
+}
+
+
+/* =========================
+   Volume ID
+========================= */
+
+.vol-id {
+    font-size: 0.96rem;
+    font-weight: 600;
+    color: #f5f7ff;
+
+    letter-spacing: 0.2px;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    margin-bottom: 0.45rem;
+}
+
+
+/* =========================
+   Meta Row
+========================= */
+
+.vol-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+
+    font-size: 0.78rem;
+    color: #9ca3af;
+
+    margin-top: 0.28rem;
+}
+
+
+/* =========================
+   Status Badge
+========================= */
+
+.vol-status {
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+
+    text-transform: capitalize;
+}
+
+.vol-status.available {
+    background: rgba(0, 255, 140, 0.08);
+    color: #33d17a;
+}
+
+.vol-status.in-use {
+    background: rgba(0, 170, 255, 0.1);
+    color: #3db8ff;
+}
+
+.vol-status.unknown {
+    background: rgba(255, 255, 255, 0.06);
+    color: #b6bcc8;
+}
+
+
+/* =========================
+   Attachment / Region
+========================= */
+
+.attachment-info {
+    color: #c6d1e3;
+    margin-top: 0.55rem;
+}
+
+.unattached-info {
+    color: #7d8596;
+    margin-top: 0.55rem;
+}
+
+.region-info {
+    color: #667085;
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+}
+
+
+/* =========================
+   Optional Action Button
+========================= */
+
+.vol-action {
+    margin-top: 0.8rem;
+}
+
+.vol-action button {
+    background: rgba(0, 140, 255, 0.08);
+    border: 1px solid rgba(0, 140, 255, 0.2);
+
+    color: #5ab2ff;
+
+    font-size: 0.74rem;
+    font-weight: 600;
+
+    padding: 0.45rem 0.8rem;
+    border-radius: 10px;
+
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.vol-action button:hover {
+    background: rgba(0, 140, 255, 0.16);
+    border-color: rgba(0, 140, 255, 0.35);
+}
+
+
+/* =========================
+   Empty State
+========================= */
+
+.panel-empty {
+    width: 100%;
+    padding: 3rem 1rem;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
+
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.empty-title {
+    margin-top: 1rem;
+
+    font-size: 1rem;
+    font-weight: 600;
+
+    color: #dce3f1;
+}
+
+.empty-subtitle {
+    margin-top: 0.4rem;
+
+    font-size: 0.78rem;
+    color: #7b8496;
+}

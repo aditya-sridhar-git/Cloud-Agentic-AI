@@ -96,7 +96,7 @@ function animateCounter(el) {
 // ============================================================
 
 function initAgentStatus() {
-    const dot   = document.querySelector('.ws-dot');
+    const dot = document.querySelector('.ws-dot');
     const label = document.getElementById('ws-label');
     if (!dot || !label) return;
 
@@ -105,14 +105,14 @@ function initAgentStatus() {
             const resp = await fetch('/api/status', { signal: AbortSignal.timeout(2000) });
             if (resp.ok) {
                 const data = await resp.json();
-                dot.className   = 'ws-dot connected';
+                dot.className = 'ws-dot connected';
                 const cycles = data.cycle_count || 0;
                 label.textContent = `Agent live · ${cycles} cycle${cycles !== 1 ? 's' : ''} run`;
             } else {
                 throw new Error('not ok');
             }
         } catch {
-            dot.className   = 'ws-dot disconnected';
+            dot.className = 'ws-dot disconnected';
             label.textContent = 'Agent offline — run --dashboard';
         }
     }
