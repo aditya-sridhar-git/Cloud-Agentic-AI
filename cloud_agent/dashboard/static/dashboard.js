@@ -143,6 +143,7 @@ let state = {
     costs: {},
     actions: [],
     security_findings: [],
+    query_optimizations: {},
     reasoning_summary: 'Initializing command center...',
     thoughts: [],
 };
@@ -283,6 +284,7 @@ function render() {
     try { renderInstances(); } catch (e) { console.error(e); }
     try { renderVolumeGrid(); } catch (e) { console.error(e); }
     try { renderCostBreakdown(); } catch (e) { console.error(e); }
+    try { renderQueryOptimizer(); } catch (e) { console.error(e); }
     try { renderActions(); } catch (e) { console.error(e); }
     try { renderSecurity(); } catch (e) { console.error(e); }
     try { renderDiagnosis(); } catch (e) { console.error(e); }
@@ -356,6 +358,127 @@ function renderCostBreakdown() {
     panel.innerHTML = html;
 }
 
+function countQuerySuggestions() {
+    const result = state.query_optimizations || {};
+    return (result.optimizations || []).reduce((sum, db) => {
+        return sum + (db.optimizations || []).length;
+    }, 0);
+}
+
+function renderQueryOptimizer() {
+    const feed = document.getElementById('query-feed');
+    if (!feed) return;
+
+    const result = state.query_optimizations || {};
+    const groups = result.optimizations || [];
+    const total = countQuerySuggestions();
+    const badge = document.getElementById('query-badge');
+    if (badge) badge.textContent = `${total} quer${total === 1 ? 'y' : 'ies'}`;
+
+    if (!Object.keys(result).length) {
+        feed.innerHTML = `
+        <div class="panel-empty">
+            <span>No query scan has run yet</span>
+            <span style="font-size:0.65rem; color:var(--text-4); margin-top:0.5rem;">Run a cycle or click Analyze after generating RDS query load</span>
+        </div>`;
+        return;
+    }
+
+    if (!groups.length || total === 0) {
+        const errors = result.errors || [];
+        const metrics = result.database_metrics || [];
+        feed.innerHTML = `
+        <div class="query-summary-row">
+            <span class="status-tag ${statusClass(result.status)}">${esc(result.status || 'scanned')}</span>
+            <span>${esc(result.summary || 'No slow query samples returned yet')}</span>
+        </div>
+        ${metrics.length ? `<div class="query-db-grid">${metrics.map(renderQueryMetricCard).join('')}</div>` : ''}
+        ${errors.length ? `<div class="query-errors">${errors.map(e => `<div>${esc(e.db_instance_id)}: ${esc(e.error)}</div>`).join('')}</div>` : ''}`;
+        return;
+    }
+
+    feed.innerHTML = `
+        <div class="query-summary-row">
+            <span class="status-tag st-warn">${total} suggestion${total === 1 ? '' : 's'}</span>
+            <span>${esc(result.summary || 'Slow query candidates found')}</span>
+        </div>
+        ${groups.map(group => `
+            <div class="query-db-block">
+                <div class="query-db-head">
+                    <div>
+                        <div class="query-db-title">${esc(group.db_instance_id || 'database')}</div>
+                        <div class="query-db-sub">${esc(group.engine || 'engine')} · ${esc(group.database_metrics?.instance_class || '')} · ${esc(group.database_metrics?.region || '')}</div>
+                    </div>
+                    <span class="status-tag ${statusClass(group.optimizations?.[0]?.severity)}">${esc(group.summary || '')}</span>
+                </div>
+                <div class="query-list">
+                    ${(group.optimizations || []).map(renderQueryOptimization).join('')}
+                </div>
+            </div>
+        `).join('')}`;
+}
+
+function renderQueryMetricCard(db) {
+    return `<div class="query-metric-card">
+        <div class="query-db-title">${esc(db.db_instance_id)}</div>
+        <div class="query-db-sub">${esc(db.engine)} · ${esc(db.instance_class)} · ${esc(db.region)}</div>
+        <div class="query-metrics">
+            <span><b>Read</b>${Number(db.read_latency_ms || 0).toFixed(2)}ms</span>
+            <span><b>Write</b>${Number(db.write_latency_ms || 0).toFixed(2)}ms</span>
+            <span><b>CPU</b>${Number(db.cpu_percent || 0).toFixed(1)}%</span>
+        </div>
+    </div>`;
+}
+
+function renderQueryOptimization(opt) {
+    const indexes = opt.index_suggestions || [];
+    const severity = String(opt.severity || 'warning').toLowerCase();
+    return `<article class="query-card query-${esc(severity)}">
+        <div class="query-card-top">
+            <span class="query-severity">${esc(severity.toUpperCase())}</span>
+            <span class="query-source">${esc(opt.source || 'Performance Insights')} · load ${Number(opt.db_load || 0).toFixed(3)}</span>
+            <span class="query-improvement">${esc(opt.estimated_improvement || 'Improvement estimate pending')}</span>
+        </div>
+        <div class="query-problem">${esc(opt.problem || opt.explanation || 'Slow query candidate')}</div>
+        <div class="query-code-grid">
+            <div class="query-code-block">
+                <div class="query-code-label">Slow Query</div>
+                <pre><code>${esc(opt.original_query || 'SQL text unavailable')}</code></pre>
+            </div>
+            <div class="query-code-block optimized">
+                <div class="query-code-label">Optimized Version</div>
+                <pre><code>${esc(opt.optimized_query || 'Manual rewrite recommended')}</code></pre>
+            </div>
+        </div>
+        ${indexes.length ? `<div class="query-indexes">
+            <div class="query-code-label">Suggested Indexes</div>
+            ${indexes.map(idx => `<pre><code>${esc(idx)}</code></pre>`).join('')}
+        </div>` : ''}
+        <div class="query-explanation">${esc(opt.explanation || '')}</div>
+    </article>`;
+}
+
+async function runQueryOptimizerNow(btn) {
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Analyzing...';
+    }
+    try {
+        const resp = await fetch('/api/query-optimizer/run', { method: 'POST' });
+        const data = await resp.json();
+        state.query_optimizations = data;
+        renderQueryOptimizer();
+        if (data.error) alert('Query optimizer error: ' + data.error);
+    } catch (err) {
+        alert('Query optimizer request failed: ' + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Analyze';
+        }
+    }
+}
+
 function renderStatus() {
     const dot = document.getElementById('sb-status-dot');
     const txt = document.getElementById('sb-status-text');
@@ -363,6 +486,7 @@ function renderStatus() {
     const sbI = document.getElementById('sb-instances');
     const sbA = document.getElementById('sb-actions');
     const sbF = document.getElementById('sb-findings');
+    const sbQ = document.getElementById('sb-queries');
 
     const s = state.status || 'idle';
     if (dot) dot.className = 'sb-agent-dot ' + s;
@@ -377,6 +501,7 @@ function renderStatus() {
     if (sbI) sbI.textContent = (state.instances || []).length;
     if (sbA) sbA.textContent = (state.actions || []).length;
     if (sbF) sbF.textContent = (state.security_findings || []).length;
+    if (sbQ) sbQ.textContent = countQuerySuggestions();
 }
 
 let lastThoughtCount = 0;
@@ -1087,6 +1212,7 @@ const NAV_MAP = {
     actions: { navId: 'sb-nav-actions', path: '/dashboard/actions', title: 'Actions' },
     security: { navId: 'sb-audit-link', path: '/dashboard/audit', title: 'Audit' },
     diag: { navId: 'sb-nav-diag', path: '/dashboard/diagnostics', title: 'Diagnostics' },
+    queries: { navId: 'sb-nav-queries', path: '/dashboard/queries', title: 'Slow Queries' },
     settings: { navId: 'sb-settings-link', path: '/dashboard/settings', title: 'Settings' },
 };
 
@@ -1095,6 +1221,7 @@ function viewFromPath(path = location.pathname) {
     if (path.endsWith('/actions')) return 'actions';
     if (path.endsWith('/audit')) return 'security';
     if (path.endsWith('/diagnostics')) return 'diag';
+    if (path.endsWith('/queries')) return 'queries';
     if (path.endsWith('/settings')) return 'settings';
     return 'dashboard';
 }
@@ -1136,7 +1263,7 @@ function applyRoute(view) {
 }
 
 function scrollToPanel(id) {
-    const map = { 'panel-instances': 'instances', 'panel-actions': 'actions', 'panel-security': 'security', 'panel-diag': 'diag' };
+    const map = { 'panel-instances': 'instances', 'panel-actions': 'actions', 'panel-security': 'security', 'panel-diag': 'diag', 'panel-query': 'queries' };
     navigateTo(null, map[id] || 'dashboard');
 }
 function showSettings(e) { navigateTo(e, 'settings'); }
@@ -1574,6 +1701,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const id = e.target.id || e.target.closest('button')?.id;
         if (id === 'btn-provision-instance') { openProvisionModal('instance'); return; }
         if (id === 'btn-provision-volume') { openProvisionModal('volume'); return; }
+        if (id === 'btn-run-query-optimizer') { runQueryOptimizerNow(e.target.closest('button')); return; }
         if (id === 'modal-close-btn' || id === 'btn-modal-cancel') { closeProvisionModal(); return; }
         if (id === 'btn-modal-confirm') { confirmProvision(); return; }
 
