@@ -1,0 +1,34 @@
+/* OVERALL CONFIDENCE BADGE */
+.ai-confidence {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-family: var(--f-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--text-2);
+    margin-left: 12px;
+    display: flex;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.ai-confidence::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 6px;
+    background: var(--text-4);
+}
+
+.ai-confidence.conf-high { color: var(--green); border-color: var(--green-rim); }
+.ai-confidence.conf-high::before { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+.ai-confidence.conf-med { color: var(--amber); border-color: var(--amber-rim); }
+.ai-confidence.conf-med::before { background: var(--amber); }
+
+.ai-confidence.conf-low { color: var(--red); border-color: var(--red-rim); }
+.ai-confidence.conf-low::before { background: var(--red); }

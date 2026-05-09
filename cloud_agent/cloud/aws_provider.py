@@ -100,6 +100,32 @@ class AWSProvider(CloudProvider):
         self._ec2.start_instances(InstanceIds=[instance_id])
         return {"instance_id": instance_id, "new_type": new_type, "status": "resized"}
 
+    def create_instance(self, instance_type: str, region: str | None = None, tags: list[dict[str, str]] | None = None) -> dict[str, Any]:
+        region = region or self._region
+        ec2 = boto3.client("ec2", region_name=region, config=_RETRY_CONFIG)
+        logger.info("Creating new %s instance in %s", instance_type, region)
+        
+        # In a real scenario we'd need ImageId, KeyName, etc. 
+        # For this tool we'll use a default Amazon Linux 2 AMI if not provided.
+        ami_id = "ami-0c55b159cbfafe1f0" # Placeholder for us-east-1
+        
+        tag_spec = []
+        if tags:
+            tag_spec = [{
+                'ResourceType': 'instance',
+                'Tags': [{"Key": t["Key"], "Value": t["Value"]} for t in tags]
+            }]
+
+        resp = ec2.run_instances(
+            ImageId=ami_id,
+            InstanceType=instance_type,
+            MinCount=1,
+            MaxCount=1,
+            TagSpecifications=tag_spec
+        )
+        instance_id = resp["Instances"][0]["InstanceId"]
+        return {"instance_id": instance_id, "status": "creating", "region": region}
+
     # ------------------------------------------------------------------
     # Metrics
     # ------------------------------------------------------------------
@@ -177,6 +203,24 @@ class AWSProvider(CloudProvider):
         logger.info("Deleting volume %s", volume_id)
         self._ec2.delete_volume(VolumeId=volume_id)
         return {"volume_id": volume_id, "status": "deleted"}
+
+    def create_volume(self, size_gb: int, region: str | None = None, tags: list[dict[str, str]] | None = None) -> dict[str, Any]:
+        region = region or self._region
+        ec2 = boto3.client("ec2", region_name=region, config=_RETRY_CONFIG)
+        logger.info("Creating %d GB volume in %s", size_gb, region)
+        
+        kwargs: dict[str, Any] = {
+            "Size": size_gb,
+            "AvailabilityZone": f"{region}a", # Simplification
+        }
+        if tags:
+            kwargs["TagSpecifications"] = [{
+                'ResourceType': 'volume',
+                'Tags': [{"Key": t["Key"], "Value": t["Value"]} for t in tags]
+            }]
+
+        resp = ec2.create_volume(**kwargs)
+        return {"volume_id": resp["VolumeId"], "status": "creating", "region": region}
 
     # ------------------------------------------------------------------
     # Tags

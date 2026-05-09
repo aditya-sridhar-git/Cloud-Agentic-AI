@@ -2618,12 +2618,4 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .settings-section[style] {
-        grid-column: auto !important;
-    }
 
-    .comparison-head {
-        align-items: flex-start;
-        flex-direction: column;
-    }
-}

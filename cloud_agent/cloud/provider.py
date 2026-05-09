@@ -38,6 +38,10 @@ class CloudProvider(abc.ABC):
     def start_instance(self, instance_id: str) -> dict[str, Any]:
         """Start a stopped instance."""
 
+    @abc.abstractmethod
+    def create_instance(self, instance_type: str, region: str | None = None, tags: list[dict[str, str]] | None = None) -> dict[str, Any]:
+        """Create a new compute instance."""
+
     # ------------------------------------------------------------------
     # Metrics
     # ------------------------------------------------------------------
@@ -65,6 +69,10 @@ class CloudProvider(abc.ABC):
     @abc.abstractmethod
     def delete_volume(self, volume_id: str) -> dict[str, Any]:
         """Delete a volume."""
+
+    @abc.abstractmethod
+    def create_volume(self, size_gb: int, region: str | None = None, tags: list[dict[str, str]] | None = None) -> dict[str, Any]:
+        """Create a new block-storage volume."""
 
     # ------------------------------------------------------------------
     # Tags

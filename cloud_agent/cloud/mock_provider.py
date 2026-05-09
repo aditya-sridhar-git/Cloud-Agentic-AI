@@ -121,6 +121,8 @@ class MockProvider(CloudProvider):
         self._terminated: set[str] = set()
         self._deleted_volumes: set[str] = set()
         self._applied_tags: dict[str, list[dict[str, str]]] = {}
+        self._extra_instances: list[dict[str, Any]] = []
+        self._extra_volumes: list[dict[str, Any]] = []
         self._action_log: list[dict[str, Any]] = []
         logger.info("[green]Mock provider initialised[/green] (region=%s, scenario=%s)", region, scenario)
 
@@ -130,7 +132,7 @@ class MockProvider(CloudProvider):
 
     def list_instances(self, filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         instances = []
-        for m in _MOCK_INSTANCES:
+        for m in _MOCK_INSTANCES + self._extra_instances:
             iid = m["instance_id"]
             if iid in self._terminated:
                 continue
@@ -188,6 +190,23 @@ class MockProvider(CloudProvider):
         logger.info("[mock] Started %s", instance_id)
         return {"instance_id": instance_id, "status": "starting"}
 
+    def create_instance(self, instance_type: str, region: str | None = None, tags: list[dict[str, str]] | None = None) -> dict[str, Any]:
+        instance_id = f"i-mock-{random.getrandbits(64):x}"
+        new_inst = {
+            "instance_id": instance_id,
+            "instance_type": instance_type,
+            "state": "running",
+            "name": f"new-instance-{instance_id[-4:]}",
+            "env": "prod"
+        }
+        self._extra_instances.append(new_inst)
+        if tags:
+            self._applied_tags[instance_id] = tags
+        
+        self._action_log.append({"action": "create_instance", "instance_id": instance_id, "time": time.time()})
+        logger.info("[mock] Created instance %s", instance_id)
+        return {"instance_id": instance_id, "status": "creating"}
+
     # ------------------------------------------------------------------
     # Metrics
     # ------------------------------------------------------------------
@@ -206,7 +225,7 @@ class MockProvider(CloudProvider):
 
     def list_volumes(self, filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         volumes = []
-        for v in _MOCK_VOLUMES:
+        for v in _MOCK_VOLUMES + self._extra_volumes:
             if v["volume_id"] in self._deleted_volumes:
                 continue
             create_time = datetime.now(timezone.utc) - timedelta(days=v["days_old"])
@@ -231,6 +250,23 @@ class MockProvider(CloudProvider):
         self._action_log.append({"action": "delete_volume", "volume_id": volume_id, "time": time.time()})
         logger.info("[mock] Deleted volume %s", volume_id)
         return {"volume_id": volume_id, "status": "deleted"}
+
+    def create_volume(self, size_gb: int, region: str | None = None, tags: list[dict[str, str]] | None = None) -> dict[str, Any]:
+        volume_id = f"vol-mock-{random.getrandbits(64):x}"
+        new_vol = {
+            "volume_id": volume_id,
+            "state": "available",
+            "size_gb": size_gb,
+            "encrypted": True,
+            "days_old": 0
+        }
+        self._extra_volumes.append(new_vol)
+        if tags:
+            self._applied_tags[volume_id] = tags
+            
+        self._action_log.append({"action": "create_volume", "volume_id": volume_id, "time": time.time()})
+        logger.info("[mock] Created volume %s", volume_id)
+        return {"volume_id": volume_id, "status": "creating"}
 
     # ------------------------------------------------------------------
     # Tags

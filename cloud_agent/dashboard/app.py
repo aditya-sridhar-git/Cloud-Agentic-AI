@@ -111,9 +111,16 @@ async def dashboard_view_page(view: str):
     return HTMLResponse(content=html_file.read_text(encoding="utf-8"))
 
 
+
+
 @app.get("/dashboard.css")
 async def dashboard_style():
     return FileResponse(_STATIC_DIR / "dashboard.css", media_type="text/css")
+
+
+@app.get("/confidence.css")
+async def confidence_style():
+    return FileResponse(_STATIC_DIR / "confidence.css", media_type="text/css")
 
 
 @app.get("/dashboard.js")
@@ -173,6 +180,206 @@ async def clear_history():
 async def get_instances():
     """Return current instance list."""
     return {"instances": _latest_state.get("instances", [])}
+
+
+@app.get("/api/confidence-metrics")
+async def get_confidence_metrics():
+    """
+    Return a 4-pillar confidence score reflecting true infrastructure health.
+
+    Pillars & weights
+    -----------------
+    Resource Health   50 %  — CPU (cloud-native curve), memory, idle ratio, network I/O
+    Financial Health  20 %  — cost vs baseline delta, 7-day trend direction
+    Security & Compliance 20 % — critical/warning findings (hard-capped), tag compliance
+    Operational Health 10 % — alert noise ratio, SLO proxy via uptime ratio
+
+    The old "action completion" pillar (10 %) has been removed: it measured
+    the agent's own output, not infrastructure state, making it circular.
+    """
+    instances       = _latest_state.get("instances", [])
+    security        = _latest_state.get("security_findings", [])
+    costs           = _latest_state.get("costs", {})
+    actions         = _latest_state.get("actions", [])
+
+    running = [i for i in instances if i.get("state") == "running"]
+
+    # ------------------------------------------------------------------
+    # PILLAR 1 — Resource Health (50 %)
+    # Sub-metrics: CPU (30 %), memory (26 %), idle ratio (22 %), network (22 %)
+    # ------------------------------------------------------------------
+    cpu_score = 0.0
+    mem_score = 0.0
+    idle_score = 0.0
+    net_score = 0.0
+
+    if running:
+        # CPU: cloud-native bell curve peaking at 70 %, tolerable to 95 %
+        cpus = [max(0.0, float(i.get("cpu_percent", i.get("cpu", 50)))) for i in running]
+        avg_cpu = sum(cpus) / len(cpus)
+        if avg_cpu <= 70:
+            cpu_score = (avg_cpu / 70) * 100          # ramp up to 100 at 70 %
+        else:
+            cpu_score = max(0, 100 - (avg_cpu - 70) * (100 / 30))  # drops to 0 at 100 %
+
+        # Memory: healthy band 30–80 %; penalise extremes
+        mems = [max(0.0, float(i.get("memory_percent", i.get("mem", 50)))) for i in running]
+        avg_mem = sum(mems) / len(mems)
+        if 30 <= avg_mem <= 80:
+            mem_score = 100.0
+        elif avg_mem < 30:
+            mem_score = (avg_mem / 30) * 100
+        else:
+            mem_score = max(0, 100 - (avg_mem - 80) * 5)
+
+        # Idle ratio: penalise if >40 % of running fleet is near-zero CPU
+        idle_count = sum(1 for c in cpus if c < 5)
+        idle_ratio = idle_count / len(running)
+        idle_score = max(0, (1.0 - idle_ratio * 2.5)) * 100  # 40 % idle → 0
+
+        # Network: normalised — non-zero I/O signals active workload
+        nets = [max(0.0, float(i.get("network_in", i.get("network", 10)))) for i in running]
+        avg_net = sum(nets) / len(nets)
+        net_score = min(100, (avg_net / 50) * 100) if avg_net > 0 else 50.0  # unknown → neutral
+
+    resource_pillar = (
+        0.30 * cpu_score +
+        0.26 * mem_score +
+        0.22 * idle_score +
+        0.22 * net_score
+    )
+
+    # ------------------------------------------------------------------
+    # PILLAR 2 — Financial Health (20 %)
+    # Sub-metrics: spend vs baseline (60 %), 7-day trend (40 %)
+    # ------------------------------------------------------------------
+    baseline  = float(costs.get("baseline_daily", 0) or 0)
+    current   = float(costs.get("daily", costs.get("current_daily", costs.get("daily_cost", 0))) or 0)
+    delta_pct = abs(current - baseline) / max(baseline, 0.01) * 100
+
+    # Spend score: up to 30 % over baseline is fine; beyond that, linear decay
+    if delta_pct <= 10:
+        spend_score = 100.0
+    elif delta_pct <= 30:
+        spend_score = 100 - (delta_pct - 10) * 2.5       # 100 → 50 over the 10-30 % band
+    else:
+        spend_score = max(0, 50 - (delta_pct - 30) * 1.0) # hard drop beyond 30 %
+
+    # Trend: positive delta (costs rising) penalises; negative (falling) rewards
+    trend_pct = float(costs.get("delta_pct", 0) or 0)    # signed: + means rising
+    if trend_pct <= 0:
+        trend_score = min(100, 70 + abs(trend_pct))       # falling costs = bonus
+    else:
+        trend_score = max(0, 100 - trend_pct * 2)
+
+    financial_pillar = 0.60 * spend_score + 0.40 * trend_score
+
+    # ------------------------------------------------------------------
+    # PILLAR 3 — Security & Compliance (20 %)
+    # Each critical: -18 pts (hard cap prevents one finding from killing score)
+    # Each warning:  -4 pts
+    # Tag compliance adds up to +20 bonus pts within this pillar
+    # ------------------------------------------------------------------
+    critical_count = sum(1 for f in security if f.get("severity") == "critical")
+    warning_count  = len(security) - critical_count
+
+    security_base = 100.0
+    security_base -= min(critical_count * 18, 70)  # hard cap: max -70 from criticals
+    security_base -= min(warning_count  *  4, 30)  # hard cap: max -30 from warnings
+    security_base  = max(0.0, security_base)
+
+    # Tag compliance bonus (0 – 20 pts)
+    required_tags = {"Owner", "Environment", "Project"}
+    compliant = sum(
+        1 for inst in instances
+        if required_tags.issubset({t.get("Key") for t in inst.get("tags", [])})
+    )
+    tag_pct      = (compliant / len(instances) * 100) if instances else 100.0
+    tag_bonus    = tag_pct * 0.20   # max +20 pts into the pillar base
+    security_pillar = min(100, security_base + tag_bonus)
+
+    # ------------------------------------------------------------------
+    # PILLAR 4 — Operational Health (10 %)
+    # Sub-metrics: SLO proxy — % instances healthy (60 %),
+    #              alert noise — % actions that are alerts vs real actions (40 %)
+    # ------------------------------------------------------------------
+    # SLO proxy: running & CPU < 85 %
+    healthy = sum(
+        1 for i in running
+        if float(i.get("cpu_percent", i.get("cpu", 0))) < 85
+    )
+    slo_score = (healthy / len(running) * 100) if running else 100.0
+
+    # Alert noise: high proportion of alert/freeze actions signals instability
+    alert_actions = sum(
+        1 for a in actions
+        if a.get("action_type") in ("alert", "freeze")
+    )
+    noise_ratio   = alert_actions / max(len(actions), 1)
+    noise_score   = max(0, 100 - noise_ratio * 100)
+
+    ops_pillar = 0.60 * slo_score + 0.40 * noise_score
+
+    # ------------------------------------------------------------------
+    # Overall weighted confidence
+    # ------------------------------------------------------------------
+    overall = (
+        0.50 * resource_pillar +
+        0.20 * financial_pillar +
+        0.20 * security_pillar +
+        0.10 * ops_pillar
+    )
+
+    metrics = {
+        "resource_health": {
+            "label": "Resource Health",
+            "weight": 0.50,
+            "value": round(resource_pillar, 1),
+            "description": "CPU (cloud-native 70% peak), memory, idle-instance ratio, and network I/O across running fleet.",
+            "sub": {
+                "cpu":   round(cpu_score,  1),
+                "memory": round(mem_score, 1),
+                "idle":  round(idle_score, 1),
+                "network": round(net_score, 1),
+            },
+        },
+        "financial_health": {
+            "label": "Financial Health",
+            "weight": 0.20,
+            "value": round(financial_pillar, 1),
+            "description": "Spend vs baseline delta (±30% tolerance) combined with 7-day cost trend direction.",
+            "sub": {
+                "spend_vs_baseline": round(spend_score, 1),
+                "trend":             round(trend_score, 1),
+            },
+        },
+        "security_compliance": {
+            "label": "Security & Compliance",
+            "weight": 0.20,
+            "value": round(security_pillar, 1),
+            "description": "Critical findings cap at -70 pts; warnings at -30 pts. Tag compliance adds up to +20 pts.",
+            "sub": {
+                "findings_base": round(security_base, 1),
+                "tag_bonus":     round(tag_bonus, 1),
+            },
+        },
+        "operational_health": {
+            "label": "Operational Health",
+            "weight": 0.10,
+            "value": round(ops_pillar, 1),
+            "description": "SLO proxy (% instances below 85% CPU) weighted with alert noise ratio.",
+            "sub": {
+                "slo_proxy":   round(slo_score,   1),
+                "noise_score": round(noise_score, 1),
+            },
+        },
+    }
+
+    return {
+        "overall_confidence": round(overall, 1),
+        "metrics": metrics,
+    }
+
 
 
 @app.post("/api/run-cycle")
@@ -236,6 +443,56 @@ async def approve_action(request: Request):
 
         _broadcast(_latest_state)
         return {"status": "executed", "results": results}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/allocate-instance")
+async def allocate_instance(request: Request):
+    """Proactively provision a new compute instance."""
+    data = await request.json()
+    instance_type = data.get("instance_type", "t3.micro")
+    region = data.get("region")
+    tags = data.get("tags", [
+        {"Key": "Name", "Value": f"auto-allocated-{int(time.time())}"},
+        {"Key": "Provisioner", "Value": "CloudAgentDashboard"}
+    ])
+    
+    if not _agent:
+        return {"error": "Agent not initialized"}
+        
+    try:
+        result = _agent.provider.create_instance(instance_type, region, tags)
+        # Update state so it appears immediately
+        observation = _agent.observe()
+        _latest_state["instances"] = observation.instances
+        _broadcast(_latest_state)
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/allocate-volume")
+async def allocate_volume(request: Request):
+    """Proactively provision a new block storage volume."""
+    data = await request.json()
+    size_gb = int(data.get("size_gb", 10))
+    region = data.get("region")
+    tags = data.get("tags", [
+        {"Key": "Name", "Value": f"auto-volume-{int(time.time())}"},
+        {"Key": "Provisioner", "Value": "CloudAgentDashboard"}
+    ])
+    
+    if not _agent:
+        return {"error": "Agent not initialized"}
+        
+    try:
+        result = _agent.provider.create_volume(size_gb, region, tags)
+        # Update state so it appears immediately
+        observation = _agent.observe()
+        _latest_state["volumes"] = observation.disks
+        _broadcast(_latest_state)
+        return result
     except Exception as e:
         return {"error": str(e)}
 
@@ -388,12 +645,52 @@ def _run_agent_cycle() -> None:
         for a in plan.actions:
             _emit_thought(f"Correlating {a.action_type} strategy for {a.resource_id}...")
             time.sleep(0.4)
+
+            # ----------------------------------------------------------
+            # Per-action confidence: data-driven, replaces Math.random()
+            # resource_sub: how clearly the resource telemetry justifies
+            #               this specific action (CPU/memory signals)
+            # security_sub: no security risk introduced by this action
+            # cost_sub:     clear financial benefit expected
+            # ----------------------------------------------------------
+            target_inst = next(
+                (i for i in observation.instances if i.get("instance_id") == a.resource_id),
+                None,
+            )
+            t_cpu = float((target_inst or {}).get("cpu_percent",
+                          (target_inst or {}).get("cpu", 50)) or 50)
+            t_mem = float((target_inst or {}).get("memory_percent",
+                          (target_inst or {}).get("mem", 50)) or 50)
+
+            # resource_sub: idle tools score high when CPU is near 0;
+            #               diagnose/security tools score high when CPU is high
+            if a.tool_name in ("idle_server", "rightsizer", "scheduler"):
+                resource_sub = max(0, 1.0 - t_cpu / 30)      # CPU < 30 → high confidence
+            elif a.tool_name in ("diagnose_server", "security_auditor"):
+                resource_sub = min(1.0, t_cpu / 80)           # CPU > 80 → high confidence
+            else:
+                resource_sub = 0.65                            # neutral for cost/tag tools
+
+            # security_sub: tag/security tools boost; destructive actions penalise slightly
+            destructive = a.action_type in ("terminate", "snapshot_delete", "freeze")
+            security_sub = 0.55 if destructive else 0.85
+
+            # cost_sub: cost-saving tools get high marks; pure alerts are neutral
+            savings_tools = {"idle_server", "rightsizer", "disk_cleanup",
+                             "cost_monitor", "scheduler"}
+            cost_sub = 0.90 if a.tool_name in savings_tools else 0.60
+
+            action_confidence = round(
+                (resource_sub * 0.40 + security_sub * 0.30 + cost_sub * 0.30) * 100, 1
+            )
+
             entry = {
                 "tool_name": a.tool_name,
                 "resource_id": a.resource_id,
                 "action_type": a.action_type,
                 "reason": a.reason,
-                "status": "pending_approval"
+                "status": "pending_approval",
+                "confidence": action_confidence,
             }
             
             # Pre-fetch insights for specific tools (Security and Diagnosis)

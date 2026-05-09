@@ -10,6 +10,7 @@
         href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="/dashboard.css?v=201" />
+    <link rel="stylesheet" href="/confidence.css?v=201" />
 </head>
 
 <body>
@@ -251,6 +252,7 @@
                     </div>
 
                     <div class="ai-pill">Neural Intelligence Active</div>
+                    <div class="ai-confidence" id="ai-confidence">Confidence: 98%</div>
                 </div>
 
             </div>
@@ -275,31 +277,20 @@
             </div>
         </section>
 
-        <!-- MAIN PANEL GRID -->
-        <div id="panel-grid">
-
-            <!-- INSTANCE HEALTH — full width -->
-            <section class="panel panel-instances" id="panel-instances">
-                <div class="panel-header">
                     <div class="panel-title-group">
-                        <span class="panel-tag">Compute</span>
-                        <h2 class="panel-title">Instance Health</h2>
+                        <span class="panel-tag">Storage</span>
+                        <h2 class="panel-title">Block Storage (EBS)</h2>
                     </div>
                     <div class="panel-header-right">
                         <div class="live-badge"><span class="live-dot"></span>Live</div>
-                        <span class="count-chip" id="inst-badge">0 instances</span>
+                        <span class="count-chip" id="vol-badge">0 volumes</span>
+                        <button class="provision-btn" id="btn-provision-volume">+ Provision</button>
                     </div>
                 </div>
                 <div class="panel-body">
-                    <div class="instance-grid" id="instance-grid">
+                    <div class="volume-grid" id="volume-grid">
                         <div class="panel-empty">
-                            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" opacity=".3">
-                                <rect x="3" y="6" width="26" height="16" rx="3" stroke="currentColor"
-                                    stroke-width="1.5" />
-                                <path d="M10 26h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                                <path d="M16 22v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                            </svg>
-                            <span>Waiting for instance data…</span>
+                            <span>Waiting for storage data…</span>
                         </div>
                     </div>
                 </div>
@@ -586,7 +577,48 @@
 
     </div><!-- /main-content -->
 
-    <script src="/dashboard.js?v=201"></script>
+    <!-- PROVISIONING MODAL -->
+    <div id="provision-modal" class="modal-overlay" style="display:none">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Provision New Resource</h3>
+                <button class="modal-close" id="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="instance-form">
+                    <div class="form-group">
+                        <label>Instance Type</label>
+                        <select id="provision-inst-type" class="modal-select">
+                            <option value="t3.micro">t3.micro (1 vCPU, 1 GiB)</option>
+                            <option value="t3.small">t3.small (2 vCPU, 2 GiB)</option>
+                            <option value="t3.medium">t3.medium (2 vCPU, 4 GiB)</option>
+                            <option value="m5.large">m5.large (2 vCPU, 8 GiB)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Region</label>
+                        <input type="text" id="provision-inst-region" class="modal-input" placeholder="us-east-1">
+                    </div>
+                </div>
+                <div id="volume-form" style="display:none">
+                    <div class="form-group">
+                        <label>Size (GB)</label>
+                        <input type="number" id="provision-vol-size" class="modal-input" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label>Region</label>
+                        <input type="text" id="provision-vol-region" class="modal-input" placeholder="us-east-1">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="btn-modal-cancel">Cancel</button>
+                <button class="btn-confirm" id="btn-modal-confirm">Confirm Allocation</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/dashboard.js?v=202"></script>
 </body>
 
 </html>

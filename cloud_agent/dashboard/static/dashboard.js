@@ -433,17 +433,14 @@ function renderReasoning() {
     if (isGarbage) {
         const insts = state.instances || [];
         const findings = state.security_findings || [];
-
         const idle = insts.filter(i => (i.cpu ?? 0) < 5 && i.state === 'running');
 
         if (state.status === 'running') {
             if (findings.length > 0) {
                 reason = `Detected ${findings.length} security risk(s). Taking action.`;
-            }
-            else if (idle.length > 0) {
+            } else if (idle.length > 0) {
                 reason = `Detected ${idle.length} idle instance(s). Optimizing usage.`;
-            }
-            else {
+            } else {
                 reason = "System healthy. Monitoring in progress.";
             }
         } else {
@@ -452,6 +449,13 @@ function renderReasoning() {
     }
 
     el.textContent = reason;
+
+    // Update Overall Confidence
+    const confEl = document.getElementById('ai-confidence');
+    if (confEl) {
+        const conf = state.overall_confidence || 0;
+        confEl.textContent = `Confidence: ${conf}%`;
+    }
 }
 
 function renderKPIs() {
@@ -471,7 +475,7 @@ function renderKPIs() {
     const baseline = costs.baseline_daily ?? costs.baseline ?? costs.baseline_cost ?? null;
     const deltaPct = costs.delta_pct ?? 0;
 
-    setText('kpi-instances', insts.length);
+        setText('kpi-instances', insts.length);
     setText('kpi-running', `${running} running`);
     setText('kpi-volumes', vols.length);
     setText('kpi-orphaned', `${orphaned} orphaned`);
@@ -1122,60 +1126,6 @@ function _drawSparkCanvas(canvas, data, strokeColor, fillColor) {
 // DECISION CARDS — structured Strategy Feed
 // ============================================================
 
-function renderDecisionCards() {
-    const container = document.getElementById('thought-console');
-    if (!container) return;
-    const acts = state.actions || [];
-    if (!acts.length) return;
-
-    // Only replace with decision cards if we have structured pending actions
-    const pending = acts.filter(a => a.status === 'pending_approval' || a.status === 'dry_run');
-    const executed = acts.filter(a => a.status === 'executed' || a.status === 'success');
-
-    if (!pending.length && !executed.length) return;
-
-    container.classList.add('decision-mode');
-    container.innerHTML = '';
-
-    // Executed: collapsed to 1 line
-    executed.forEach(a => {
-        const tool = a.tool || a.tool_name || 'unknown';
-        const div = document.createElement('div');
-        div.className = 'decision-card dc-done';
-        div.innerHTML = `<div class="dc-done-line">Done: ${esc(TOOL_NAMES[tool] || tool)}: ${esc(a.reason || a.action || a.resource_id || '')}</div>`;
-        container.appendChild(div);
-    });
-
-    // Pending: full decision card
-    pending.forEach(a => {
-        const tool = a.tool || a.tool_name || 'unknown';
-        const isAuditing = a.status === 'dry_run';
-        const confData = confidenceBreakdown(a);
-        const conf = confData.score;
-        const impactType = tool.includes('cost') || tool.includes('idle') || tool.includes('right') ? 'cost' : tool.includes('security') || tool.includes('audit') ? 'risk' : 'info';
-        const impactLabel = impactType === 'cost' ? 'Cost saving' : impactType === 'risk' ? 'Risk reduction' : (a.resource_id || 'Resource');
-
-        const div = document.createElement('div');
-        div.className = `decision-card ${isAuditing ? 'dc-auditing' : 'dc-ready'}`;
-        div.innerHTML = `
-            <div class="dc-header">
-                <div class="dc-action">${esc(TOOL_ICONS[tool] || 'Act')} ${esc(TOOL_NAMES[tool] || tool)}${a.resource_id ? ' - ' + esc(a.resource_id) : ''}</div>
-                <span class="dc-impact ${impactType}">${impactLabel}</span>
-            </div>
-            <div class="dc-reason">${esc(a.reason || a.action || 'Rule-based trigger — no LLM reasoning available.')}</div>
-            <div class="dc-actions">
-                <button class="dc-btn approve" data-decision="approve" data-tool="${attr(tool)}" data-resource="${attr(a.resource_id || '')}" data-action="${attr(a.action_type || '')}">Approve</button>
-                <button class="dc-btn skip" data-decision="skip">Skip</button>
-            </div>
-            <div class="dc-confidence">
-                <span class="dc-conf-label">Confidence ${conf}%</span>
-                <div class="dc-conf-track"><div class="dc-conf-fill" style="width:${conf}%"></div></div>
-            </div>
-            <div class="dc-factors">${confData.factors.map(f => `<span>${esc(f)}</span>`).join('')}</div>`;
-        container.appendChild(div);
-    });
-}
-
 document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-decision]');
     if (!btn) return;
@@ -1329,5 +1279,104 @@ async function exportAuditLog() {
 const _origRender = render;
 window.render = function() {
     _origRender();
-    try { renderDecisionCards(); } catch(e) { console.error(e); }
+    try { 
+        renderDecisionCards(); 
+        renderVolumeGrid();
+    } catch(e) { console.error(e); }
 };
+
+// ============================================================
+// PROACTIVE PROVISIONING
+// ============================================================
+
+let currentProvisionType = 'instance';
+
+function openProvisionModal(type) {
+    currentProvisionType = type;
+    const modal = document.getElementById('provision-modal');
+    const title = document.getElementById('modal-title');
+    const instForm = document.getElementById('instance-form');
+    const volForm = document.getElementById('volume-form');
+
+    title.textContent = `Provision New ${type === 'instance' ? 'Compute Instance' : 'Storage Volume'}`;
+    instForm.style.display = type === 'instance' ? 'block' : 'none';
+    volForm.style.display = type === 'volume' ? 'block' : 'none';
+    
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeProvisionModal() {
+    const modal = document.getElementById('provision-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function confirmProvision() {
+    const btn = document.getElementById('btn-modal-confirm');
+    btn.disabled = true;
+    btn.textContent = 'Allocating...';
+
+    try {
+        let endpoint = '/api/allocate-instance';
+        let payload = {};
+
+        if (currentProvisionType === 'instance') {
+            payload = {
+                instance_type: document.getElementById('provision-inst-type').value,
+                region: document.getElementById('provision-inst-region').value || 'us-east-1'
+            };
+        } else {
+            endpoint = '/api/allocate-volume';
+            payload = {
+                size_gb: document.getElementById('provision-vol-size').value,
+                region: document.getElementById('provision-vol-region').value || 'us-east-1'
+            };
+        }
+
+        const resp = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await resp.json();
+
+        if (result.error) {
+            alert('Error: ' + result.error);
+        } else {
+            closeProvisionModal();
+            // The background websocket will update the state, 
+            // but we can trigger a refresh if needed.
+        }
+    } catch (e) {
+        alert('Failed to provision: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Confirm Allocation';
+    }
+}
+
+function renderVolumeGrid() {
+    const container = document.getElementById('volume-grid');
+    if (!container) return;
+    const volumes = state.volumes || [];
+    if (!volumes.length) {
+        container.innerHTML = '<div class="panel-empty"><span>No volumes detected.</span></div>';
+        return;
+    }
+
+    container.innerHTML = volumes.map(v => `
+        <div class="vol-card">
+            <div class="vol-icon">💾</div>
+            <div class="vol-info">
+                <div class="vol-id">${v.volume_id}</div>
+                <div class="vol-meta">${v.size_gb} GB • ${v.state}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+document.addEventListener('click', (e) => {
+    if (e.target.id === 'btn-provision-instance') openProvisionModal('instance');
+    if (e.target.id === 'btn-provision-volume') openProvisionModal('volume');
+    if (e.target.id === 'modal-close-btn' || e.target.id === 'btn-modal-cancel') closeProvisionModal();
+    if (e.target.id === 'btn-modal-confirm') confirmProvision();
+});
