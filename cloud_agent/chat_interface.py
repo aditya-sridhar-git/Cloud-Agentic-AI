@@ -19,6 +19,7 @@ from cloud_agent.tools.rightsizer import RightsizeTool
 from cloud_agent.tools.scheduler import SchedulerTool
 from cloud_agent.tools.cross_domain import CrossDomainCorrelationTool
 from cloud_agent.tools.tag_enforcer import TagEnforcerTool
+from cloud_agent.tools.query_optimizer import QueryOptimizerTool
 from cloud_agent.cloud.provider import CloudProvider
 from cloud_agent.utils.logger import get_logger
 from cloud_agent.utils.config import load_config
@@ -44,6 +45,7 @@ class ChatInterface:
             "scheduler": SchedulerTool(provider, self.config),
             "cross_domain": CrossDomainCorrelationTool(provider, self.config),
             "tag_enforcer": TagEnforcerTool(provider, self.config),
+            "query_optimizer": QueryOptimizerTool(provider, self.config),
         }
         self.intent_map = self._build_intent_map()
 
@@ -87,7 +89,12 @@ class ChatInterface:
                 "current", "what", "how many", "count", "health",
                 "infrastructure", "fleet", "ec2", "compute", "machine",
                 "machines", "node", "nodes", "cpu", "utilization"
-            ]
+            ],
+            "query_optimizer": [
+                "query", "sql", "database", "rds", "slow query", "slow queries",
+                "postgres", "postgresql", "mysql", "index", "explain", "latency",
+                "db performance", "optimize query", "query optimizer"
+            ],
         }
 
     def _detect_intent(self, query: str) -> Tuple[Optional[str], str, Optional[str]]:
@@ -200,6 +207,8 @@ class ChatInterface:
             return self._format_security_response(data)
         elif intent == "disk_cleanup":
             return self._format_disk_response(data)
+        elif intent == "query_optimizer":
+            return self._format_query_optimizer_response(data)
         elif intent == "backup_manager":
             return self._format_backup_response(data)
         elif intent == "general_status":
@@ -352,6 +361,27 @@ class ChatInterface:
         if freed > 0 or files_removed > 0:
             return f"🧹 **Cleanup Complete:** Freed {freed:.2f} GB by removing {files_removed} files."
         return "🧹 No unnecessary files found to clean up."
+
+    def _format_query_optimizer_response(self, data: Dict) -> str:
+        status = data.get("status", "unknown")
+        scanned = data.get("databases_scanned", 0)
+        slow = data.get("slow_databases", [])
+        analyses = data.get("optimizations", [])
+        total_opts = sum(len(a.get("optimizations", [])) for a in analyses)
+
+        if status in ("no_databases", "all_healthy", "no_slow_queries") or total_opts == 0:
+            return f"### Query Optimizer\nScanned **{scanned}** RDS database(s). No slow queries above threshold were found."
+
+        msg = [f"### Query Optimizer Report"]
+        msg.append(f"Scanned **{scanned}** RDS database(s), found **{len(slow)}** high-latency database(s), and suggested **{total_opts}** optimization(s).")
+        for analysis in analyses:
+            msg.append(f"\n**{analysis.get('db_instance_id')}** ({analysis.get('engine')})")
+            for opt in analysis.get("optimizations", [])[:5]:
+                msg.append(f"- **{opt.get('severity', 'info').upper()}**: {opt.get('problem')}")
+                if opt.get("index_suggestions"):
+                    msg.append(f"  Index: `{opt['index_suggestions'][0]}`")
+                msg.append(f"  Improvement: {opt.get('estimated_improvement', 'unknown')}")
+        return "\n".join(msg)
 
     def _format_backup_response(self, data: Dict) -> str:
         status = data.get("status", "unknown")
@@ -514,6 +544,8 @@ Type 'exit' to quit.
                 data_list = tool_data.get("risks", [])
             elif intent == "disk_cleanup":
                 data_list = [tool_data]  # Single summary object
+            elif intent == "query_optimizer":
+                data_list = tool_data.get("optimizations", [])
             elif intent == "backup_manager":
                 data_list = tool_data.get("snapshots", [])
             elif intent == "general_status":

@@ -104,6 +104,13 @@ async def dashboard_page():
     return HTMLResponse(content=html_file.read_text(encoding="utf-8"))
 
 
+@app.get("/dashboard/{view}", response_class=HTMLResponse)
+async def dashboard_view_page(view: str):
+    """Serve dashboard subroutes for client-side focused views."""
+    html_file = _STATIC_DIR / "dashboard.html"
+    return HTMLResponse(content=html_file.read_text(encoding="utf-8"))
+
+
 @app.get("/dashboard.css")
 async def dashboard_style():
     return FileResponse(_STATIC_DIR / "dashboard.css", media_type="text/css")

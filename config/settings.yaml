@@ -94,6 +94,12 @@ tools:
     cloudtrail_hours: 24            # How far back to look in CloudTrail
     auto_trigger_on_cost_spike: true
 
+  query_optimizer:
+    enabled: true                    # RDS slow-query optimizer
+    latency_threshold_ms: 100        # Trigger analysis above this read/write latency
+    slow_query_threshold_ms: 1000    # Analyze queries slower than this
+    max_queries_to_analyze: 10
+
   # --- NEW TOOLS (Phase 1) ---
 
   backup_manager:

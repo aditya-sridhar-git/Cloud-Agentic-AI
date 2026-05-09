@@ -148,3 +148,19 @@ class CloudProvider(abc.ABC):
     @abc.abstractmethod
     def list_certificates(self) -> list[dict[str, Any]]:
         """Return list of SSL/TLS certificates (ACM and imported)."""
+
+    # ------------------------------------------------------------------
+    # RDS / Query Optimization
+    # ------------------------------------------------------------------
+
+    def list_rds_instances(self) -> list[dict[str, Any]]:
+        """Return RDS instances available for query optimization."""
+        return []
+
+    def get_rds_metrics(self, db_instance_id: str, metric_name: str) -> float:
+        """Return a recent RDS CloudWatch metric value."""
+        return 0.0
+
+    def get_slow_queries(self, db_instance_id: str, engine: str, limit: int = 10) -> list[dict[str, Any]]:
+        """Return slow SQL evidence when available."""
+        return []

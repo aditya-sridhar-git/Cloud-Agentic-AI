@@ -82,6 +82,23 @@ _MOCK_S3_BUCKETS = [
     {"bucket_name": "temp-upload-bucket",       "is_public": True},
 ]
 
+_MOCK_RDS_INSTANCES = [
+    {
+        "db_instance_id": "orders-prod",
+        "engine": "postgres",
+        "instance_class": "db.r6g.large",
+        "status": "available",
+        "dbi_resource_id": "db-ABCDEFGHIJKLMNOP",
+    },
+    {
+        "db_instance_id": "analytics-dev",
+        "engine": "mysql",
+        "instance_class": "db.t3.medium",
+        "status": "available",
+        "dbi_resource_id": "db-QRSTUVWXYZ123456",
+    },
+]
+
 # CPU profiles: (instance_index) → base CPU
 _CPU_PROFILES: dict[str, float] = {
     "i-0a1b2c3d4e5f60001": 62.0,   # prod API — healthy
@@ -263,6 +280,43 @@ class MockProvider(CloudProvider):
             {"service": "AWS Lambda",         "amount": round(random.uniform(1.0, 3.0), 2),    "currency": "USD"},
             {"service": "Amazon CloudWatch",  "amount": round(random.uniform(2.0, 5.0), 2),    "currency": "USD"},
         ]
+
+    # ------------------------------------------------------------------
+    # RDS / Query Optimization
+    # ------------------------------------------------------------------
+
+    def list_rds_instances(self) -> list[dict[str, Any]]:
+        return list(_MOCK_RDS_INSTANCES)
+
+    def get_rds_metrics(self, db_instance_id: str, metric_name: str) -> float:
+        if db_instance_id == "orders-prod":
+            values = {"ReadLatency": 0.142, "WriteLatency": 0.068, "CPUUtilization": 71.4}
+        else:
+            values = {"ReadLatency": 0.026, "WriteLatency": 0.018, "CPUUtilization": 22.0}
+        return values.get(metric_name, 0.0)
+
+    def get_slow_queries(self, db_instance_id: str, engine: str, limit: int = 10) -> list[dict[str, Any]]:
+        if db_instance_id != "orders-prod":
+            return []
+        queries = [
+            {
+                "query": "SELECT * FROM orders WHERE customer_id = 42 ORDER BY created_at DESC;",
+                "calls": 1840,
+                "avg_time_ms": 2480,
+                "rows_examined": 920000,
+                "rows_returned": 45,
+                "explain_output": "Seq Scan on orders  Filter: (customer_id = 42)\nSort Key: created_at",
+            },
+            {
+                "query": "SELECT * FROM order_events WHERE event_payload LIKE '%refund%';",
+                "calls": 420,
+                "avg_time_ms": 5310,
+                "rows_examined": 2400000,
+                "rows_returned": 119,
+                "explain_output": "Seq Scan on order_events  Filter: (event_payload ~~ '%refund%')",
+            },
+        ]
+        return queries[:limit]
 
 
     # ------------------------------------------------------------------

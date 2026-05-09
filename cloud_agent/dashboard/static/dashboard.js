@@ -108,6 +108,7 @@ const TOOL_ICONS = {
     log_analyzer: 'Log',
     cost_optimizer: 'Save',
     scanner: 'Scan',
+    query_optimizer: 'SQL',
 };
 
 const TOOL_NAMES = {
@@ -126,6 +127,7 @@ const TOOL_NAMES = {
     log_analyzer: 'Analyze Server Logs',
     cost_optimizer: 'Optimize Spends',
     scanner: 'Infrastructure Analysis',
+    query_optimizer: 'Optimize Slow Queries',
 };
 
 // ============================================================
@@ -887,6 +889,10 @@ function esc(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function attr(str) {
+    return esc(str).replace(/'/g, '&#39;');
+}
+
 function compactMetrics(items) {
     return items
         .filter(([, value]) => value !== undefined && value !== null && value !== '')
@@ -1035,6 +1041,7 @@ function statusClass(status) {
 document.addEventListener('DOMContentLoaded', () => {
     tickClock();
     setInterval(tickClock, 1000);
+    navigateTo(null, viewFromPath(), true);
     connectWS();
     loadHistory();
     setInterval(loadHistory, 30000);
@@ -1143,7 +1150,8 @@ function renderDecisionCards() {
     pending.forEach(a => {
         const tool = a.tool || a.tool_name || 'unknown';
         const isAuditing = a.status === 'dry_run';
-        const conf = 70 + Math.floor(Math.random() * 25); // 70–95%
+        const confData = confidenceBreakdown(a);
+        const conf = confData.score;
         const impactType = tool.includes('cost') || tool.includes('idle') || tool.includes('right') ? 'cost' : tool.includes('security') || tool.includes('audit') ? 'risk' : 'info';
         const impactLabel = impactType === 'cost' ? 'Cost saving' : impactType === 'risk' ? 'Risk reduction' : (a.resource_id || 'Resource');
 
@@ -1156,15 +1164,54 @@ function renderDecisionCards() {
             </div>
             <div class="dc-reason">${esc(a.reason || a.action || 'Rule-based trigger — no LLM reasoning available.')}</div>
             <div class="dc-actions">
-                <button class="dc-btn approve" onclick="approveAction('${esc(tool)}','${esc(a.resource_id || '')}','${esc(a.action_type || '')}', this)">Approve</button>
-                <button class="dc-btn skip" onclick="this.closest('.decision-card').remove()">Skip</button>
+                <button class="dc-btn approve" data-decision="approve" data-tool="${attr(tool)}" data-resource="${attr(a.resource_id || '')}" data-action="${attr(a.action_type || '')}">Approve</button>
+                <button class="dc-btn skip" data-decision="skip">Skip</button>
             </div>
             <div class="dc-confidence">
                 <span class="dc-conf-label">Confidence ${conf}%</span>
                 <div class="dc-conf-track"><div class="dc-conf-fill" style="width:${conf}%"></div></div>
-            </div>`;
+            </div>
+            <div class="dc-factors">${confData.factors.map(f => `<span>${esc(f)}</span>`).join('')}</div>`;
         container.appendChild(div);
     });
+}
+
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-decision]');
+    if (!btn) return;
+    const card = btn.closest('.decision-card');
+    if (btn.dataset.decision === 'skip') {
+        card?.remove();
+        return;
+    }
+    approveAction(btn.dataset.tool || '', btn.dataset.resource || '', btn.dataset.action || '', btn);
+});
+
+function confidenceBreakdown(action) {
+    const tool = action.tool || action.tool_name || '';
+    const inst = findInstance(action.resource_id || action.instance_id);
+    const cpu = inst ? Number(inst.cpu ?? inst.cpu_percent) : null;
+    const tags = inst ? tagsToObject(inst.tags) : {};
+    const missingTags = inst ? ['Owner', 'Project', 'Environment'].filter(k => !tags[k]) : [];
+    const factors = [];
+    let score = 62;
+
+    if (action.reason) { score += 8; factors.push('Planner reason present'); }
+    if (action.resource_id || action.instance_id) { score += 6; factors.push('Resource matched'); }
+    if (inst) { score += 8; factors.push(`State ${inst.state || 'known'}`); }
+    if (cpu !== null && Number.isFinite(cpu)) {
+        const cpuSignal = cpu <= 5 ? 'idle CPU' : cpu >= 85 ? 'high CPU' : 'CPU observed';
+        score += cpu <= 5 || cpu >= 85 ? 10 : 4;
+        factors.push(`${cpuSignal} ${cpu.toFixed(1)}%`);
+    }
+    if (missingTags.length) { score += 5; factors.push(`Missing tags: ${missingTags.join(', ')}`); }
+    if (tool.includes('security') || tool.includes('audit')) { score += 10; factors.push('Security scan requested'); }
+    if (state.costs?.delta_pct !== undefined && Number(state.costs.delta_pct) > 0) {
+        score += 4;
+        factors.push(`Cost delta ${state.costs.delta_pct}%`);
+    }
+
+    return { score: Math.max(50, Math.min(score, 96)), factors: factors.slice(0, 5) };
 }
 
 // ============================================================
@@ -1175,58 +1222,69 @@ function renderDecisionCards() {
 // NAVIGATION ROUTER — works from any view
 // ============================================================
 
-const DASHBOARD_PANELS = ['panel-grid', 'panel-thoughts', 'kpi-strip', 'ai-strategy-strip'];
-
 const NAV_MAP = {
-    dashboard:  { panel: null,            navId: 'sb-nav-dashboard' },
-    instances:  { panel: 'panel-instances', navId: 'sb-nav-instances' },
-    actions:    { panel: 'panel-actions',   navId: 'sb-nav-actions'   },
-    security:   { panel: 'panel-security',  navId: 'sb-audit-link'    },
-    diag:       { panel: 'panel-diag',      navId: 'sb-nav-diag'      },
-    settings:   { panel: null,             navId: 'sb-settings-link'  },
+    dashboard: { navId: 'sb-nav-dashboard', path: '/dashboard', title: 'Command Center' },
+    instances: { navId: 'sb-nav-instances', path: '/dashboard/instances', title: 'Instances' },
+    actions: { navId: 'sb-nav-actions', path: '/dashboard/actions', title: 'Actions' },
+    security: { navId: 'sb-audit-link', path: '/dashboard/audit', title: 'Audit' },
+    diag: { navId: 'sb-nav-diag', path: '/dashboard/diagnostics', title: 'Diagnostics' },
+    settings: { navId: 'sb-settings-link', path: '/dashboard/settings', title: 'Settings' },
 };
 
-function navigateTo(e, view) {
+function viewFromPath(path = location.pathname) {
+    if (path.endsWith('/instances')) return 'instances';
+    if (path.endsWith('/actions')) return 'actions';
+    if (path.endsWith('/audit')) return 'security';
+    if (path.endsWith('/diagnostics')) return 'diag';
+    if (path.endsWith('/settings')) return 'settings';
+    return 'dashboard';
+}
+
+function navigateTo(e, view, replace = false) {
     if (e) e.preventDefault();
+    if (!NAV_MAP[view]) view = 'dashboard';
+    const targetPath = NAV_MAP[view].path;
+    if (location.pathname !== targetPath) {
+        history[replace ? 'replaceState' : 'pushState']({ view }, '', targetPath);
+    }
+    applyRoute(view);
+}
 
+function applyRoute(view) {
     const isSettings = view === 'settings';
-    const isDashboard = view === 'dashboard' || !NAV_MAP[view];
+    const content = document.getElementById('main-content');
+    const grid = document.getElementById('panel-grid');
+    if (content) content.dataset.view = view;
+    if (grid) grid.dataset.view = view;
 
-    // Show/hide settings panel
     const ps = document.getElementById('panel-settings');
     if (ps) ps.classList.toggle('active', isSettings);
 
-    // Show/hide main dashboard panels
-    DASHBOARD_PANELS.forEach(id => {
+    ['panel-grid', 'panel-thoughts', 'kpi-strip', 'ai-strategy-strip'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = isSettings ? 'none' : '';
     });
 
-    // Update active state on all nav items
     document.querySelectorAll('.sb-item').forEach(el => el.classList.remove('active'));
     const activeNav = NAV_MAP[view]?.navId;
     if (activeNav) document.getElementById(activeNav)?.classList.add('active');
 
-    // If it's a sub-panel inside dashboard, scroll to it
-    if (!isSettings) {
-        const targetPanel = NAV_MAP[view]?.panel;
-        if (targetPanel) {
-            // Small delay to ensure panels are visible before scroll
-            setTimeout(() => {
-                const el = document.getElementById(targetPanel);
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 50);
-        } else {
-            // Dashboard root — scroll to top
-            document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-    }
+    const title = document.querySelector('.page-title');
+    const eyebrow = document.querySelector('.page-eyebrow');
+    if (title) title.textContent = NAV_MAP[view]?.title || 'Command Center';
+    if (eyebrow) eyebrow.textContent = view === 'dashboard' ? 'Live Dashboard' : 'Focused View';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // Keep these as aliases for backward compat
-function scrollToPanel(id) { navigateTo(null, Object.keys(NAV_MAP).find(k => NAV_MAP[k].panel === id) || 'dashboard'); }
-function showSettings(e)   { navigateTo(e, 'settings'); }
-function hideSettings()    { navigateTo(null, 'dashboard'); }
+function scrollToPanel(id) {
+    const map = { 'panel-instances': 'instances', 'panel-actions': 'actions', 'panel-security': 'security', 'panel-diag': 'diag' };
+    navigateTo(null, map[id] || 'dashboard');
+}
+function showSettings(e) { navigateTo(e, 'settings'); }
+function hideSettings() { navigateTo(null, 'dashboard'); }
+
+window.addEventListener('popstate', () => applyRoute(viewFromPath()));
 
 // ============================================================
 // SETTINGS PANEL HELPERS

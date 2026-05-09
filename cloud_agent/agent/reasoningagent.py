@@ -34,6 +34,7 @@ Available tools:
 - diagnose_server   : SSM into a troubled instance, run diagnostics, explain the root cause
 - security_auditor  : scan for open security groups, public S3 buckets, unencrypted EBS
 - cross_domain      : correlate events across CloudTrail, costs, security, and infrastructure
+- query_optimizer   : discover RDS databases, inspect latency and slow SQL, suggest rewrites/indexes
 
 Respond with a JSON object:
 {
@@ -42,7 +43,7 @@ Respond with a JSON object:
     {
       "tool_name": "<tool>",
       "resource_id": "<id>",
-      "action_type": "<stop|terminate|resize|tag|alert|freeze|snapshot_delete|diagnose|full_scan|correlate|start>",
+      "action_type": "<stop|terminate|resize|tag|alert|freeze|snapshot_delete|diagnose|full_scan|correlate|start|analyze>",
       "parameters": {},
       "reason": "<why this action is needed>"
     }
@@ -55,7 +56,8 @@ IMPORTANT RULES:
 3. If a cost spike is detected, also suggest cross_domain correlation.
 4. Always suggest security_auditor with action_type "full_scan" once per cycle.
 5. For idle instances (CPU < threshold), suggest idle_server to stop them.
-6. If no actions are needed, return {"summary": "All clear", "actions": []}.
+6. If query_optimizer is enabled, suggest query_optimizer with action_type "analyze" once per cycle.
+7. If no actions are needed, return {"summary": "All clear", "actions": []}.
 """
 
 
@@ -134,6 +136,17 @@ class ReasoningEngine:
                     plan.actions.append(sa)
             plan.summary += f" (plus {len(scheduler_actions)} scheduler actions)"
 
+        query_cfg = config.get("tools", {}).get("query_optimizer", {})
+        if query_cfg.get("enabled", False) and not any(a.tool_name == "query_optimizer" for a in plan.actions):
+            plan.actions.append(
+                Action(
+                    tool_name="query_optimizer",
+                    resource_id="rds",
+                    action_type="analyze",
+                    reason="Periodic RDS query optimization scan",
+                )
+            )
+
         return plan
 
     # ------------------------------------------------------------------
@@ -182,6 +195,17 @@ class ReasoningEngine:
                     resource_id="account",
                     action_type="correlate",
                     reason=f"Cross-domain analysis triggered by cost anomaly: {cost_actions[0].reason}",
+                )
+            )
+
+        query_cfg = config.get("tools", {}).get("query_optimizer", {})
+        if query_cfg.get("enabled", False) and not any(a.tool_name == "query_optimizer" for a in actions):
+            actions.append(
+                Action(
+                    tool_name="query_optimizer",
+                    resource_id="rds",
+                    action_type="analyze",
+                    reason="Periodic RDS query optimization scan",
                 )
             )
 

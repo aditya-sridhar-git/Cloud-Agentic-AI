@@ -30,6 +30,7 @@ class ThresholdEvaluator:
         actions.extend(self._check_cost_spike(observation))
         actions.extend(self._check_tags(observation))
         actions.extend(self._check_scheduler(observation))
+        actions.extend(self._check_query_optimizer(observation))
         return actions
 
     # ------------------------------------------------------------------
@@ -189,3 +190,19 @@ class ThresholdEvaluator:
                     )
                 )
         return results
+
+    def _check_query_optimizer(self, obs: Observation) -> list[Action]:
+        cfg = self._tools_cfg.get("query_optimizer", {})
+        if not cfg.get("enabled"):
+            return []
+        return [
+            Action(
+                tool_name="query_optimizer",
+                resource_id="rds",
+                action_type="analyze",
+                reason=(
+                    "Discover RDS instances, check CloudWatch latency, collect slow query "
+                    "evidence, and produce optimization recommendations"
+                ),
+            )
+        ]

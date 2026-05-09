@@ -43,6 +43,8 @@ class AWSProvider(CloudProvider):
         self._ssm = boto3.client("ssm", region_name=self._region, config=_RETRY_CONFIG)
         self._s3 = boto3.client("s3", region_name=self._region, config=_RETRY_CONFIG)
         self._cloudtrail = boto3.client("cloudtrail", region_name=self._region, config=_RETRY_CONFIG)
+        self._rds = boto3.client("rds", region_name=self._region, config=_RETRY_CONFIG)
+        self._pi = boto3.client("pi", region_name=self._region, config=_RETRY_CONFIG)
         self._active_regions = self._get_active_regions()
         logger.info("[green]AWS provider initialised[/green] (region=%s, multi-region: %d active)", self._region, len(self._active_regions))
 
@@ -243,6 +245,95 @@ class AWSProvider(CloudProvider):
         except Exception as e:
             logger.warning("Could not fetch per-service costs: %s", e)
             return []
+
+    # ------------------------------------------------------------------
+    # RDS / Query Optimization
+    # ------------------------------------------------------------------
+
+    def list_rds_instances(self) -> list[dict[str, Any]]:
+        """Return RDS instances across active regions."""
+        databases: list[dict[str, Any]] = []
+        for region in self._active_regions:
+            try:
+                rds = boto3.client("rds", region_name=region, config=_RETRY_CONFIG)
+                paginator = rds.get_paginator("describe_db_instances")
+                for page in paginator.paginate():
+                    for db in page.get("DBInstances", []):
+                        databases.append({
+                            "db_instance_id": db["DBInstanceIdentifier"],
+                            "engine": db.get("Engine", "unknown"),
+                            "instance_class": db.get("DBInstanceClass", "unknown"),
+                            "status": db.get("DBInstanceStatus", "unknown"),
+                            "region": region,
+                            "dbi_resource_id": db.get("DbiResourceId"),
+                        })
+            except Exception as e:
+                logger.warning("Could not list RDS instances in %s: %s", region, e)
+        return databases
+
+    def get_rds_metrics(self, db_instance_id: str, metric_name: str) -> float:
+        """Return recent average RDS metric. Latency metrics are seconds; CPU is percent."""
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(minutes=15)
+        resp = self._cloudwatch.get_metric_statistics(
+            Namespace="AWS/RDS",
+            MetricName=metric_name,
+            Dimensions=[{"Name": "DBInstanceIdentifier", "Value": db_instance_id}],
+            StartTime=start,
+            EndTime=end,
+            Period=300,
+            Statistics=["Average"],
+        )
+        datapoints = resp.get("Datapoints", [])
+        if not datapoints:
+            return 0.0
+        return sum(dp["Average"] for dp in datapoints) / len(datapoints)
+
+    def get_slow_queries(self, db_instance_id: str, engine: str, limit: int = 10) -> list[dict[str, Any]]:
+        """Best-effort slow SQL evidence from RDS Performance Insights.
+
+        Performance Insights does not expose EXPLAIN ANALYZE through AWS APIs, so
+        the returned explain_output contains the PI evidence the optimizer can use.
+        """
+        db_meta = next((db for db in self.list_rds_instances() if db["db_instance_id"] == db_instance_id), None)
+        resource_id = db_meta.get("dbi_resource_id") if db_meta else None
+        if not resource_id:
+            return []
+
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(hours=1)
+        try:
+            resp = self._pi.describe_dimension_keys(
+                ServiceType="RDS",
+                Identifier=resource_id,
+                StartTime=start,
+                EndTime=end,
+                Metric="db.load.avg",
+                PeriodInSeconds=300,
+                GroupBy={"Group": "db.sql_tokenized", "Limit": limit},
+            )
+        except Exception as e:
+            logger.warning("Could not read Performance Insights for %s: %s", db_instance_id, e)
+            return []
+
+        queries: list[dict[str, Any]] = []
+        for item in resp.get("Keys", [])[:limit]:
+            dims = item.get("Dimensions", {})
+            sql = (
+                dims.get("db.sql_tokenized.statement")
+                or dims.get("db.sql_tokenized.id")
+                or "SQL text unavailable from Performance Insights"
+            )
+            load = float(item.get("Total", 0.0))
+            queries.append({
+                "query": sql,
+                "calls": 0,
+                "avg_time_ms": max(load * 1000, 0),
+                "rows_examined": 0,
+                "rows_returned": 0,
+                "explain_output": f"Performance Insights db.load.avg={load:.3f}; EXPLAIN ANALYZE not available via AWS API",
+            })
+        return queries
 
 
     # ------------------------------------------------------------------

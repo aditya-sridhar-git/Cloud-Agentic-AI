@@ -47,6 +47,7 @@ import cloud_agent.tools.cost_monitor     # noqa: F401
 import cloud_agent.tools.diagnose_server  # noqa: F401
 import cloud_agent.tools.security_auditor # noqa: F401
 import cloud_agent.tools.cross_domain     # noqa: F401
+import cloud_agent.tools.query_optimizer  # noqa: F401
 
 logger = get_logger(__name__)
 
