@@ -1626,6 +1626,266 @@ body {
     }
 }
 
+/* ============================================================
+   AI STRATEGY BAR
+   ============================================================ */
+
+#ai-strategy-strip {
+    padding: 1rem 1.4rem 0;
+    animation: fadeUp 0.5s var(--ease-out-expo) 0.08s both;
+}
+
+.ai-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 1rem;
+
+    padding: 1rem 1.25rem;
+
+    background:
+        linear-gradient(180deg,
+            rgba(155, 109, 255, 0.08),
+            rgba(0, 0, 0, 0)),
+        var(--bg-raised);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+
+    position: relative;
+    overflow: hidden;
+}
+
+.ai-bar::before {
+    content: '';
+
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+
+    height: 1px;
+
+    background: linear-gradient(90deg,
+            transparent,
+            var(--purple),
+            transparent);
+
+    opacity: 0.5;
+}
+
+.ai-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+
+    min-width: 0;
+    flex: 1;
+}
+
+.ai-label {
+    font-size: 0.58rem;
+    font-weight: 800;
+
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+
+    color: var(--purple);
+
+    font-family: var(--f-display);
+}
+
+.ai-text {
+    font-size: 0.82rem;
+    line-height: 1.5;
+
+    color: var(--text-2);
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ai-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    flex-shrink: 0;
+}
+
+.ai-pill {
+    padding: 0.4rem 0.7rem;
+
+    border-radius: 999px;
+
+    background: var(--purple-soft);
+    border: 1px solid var(--purple-rim);
+
+    color: var(--purple);
+
+    font-size: 0.62rem;
+    font-weight: 700;
+
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+
+    white-space: nowrap;
+}
+
+.ai-pulse {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.ai-pulse span {
+    width: 3px;
+    height: 12px;
+
+    border-radius: 999px;
+
+    background: var(--purple);
+
+    animation: aiPulse 1s infinite ease-in-out;
+}
+
+.ai-pulse span:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.ai-pulse span:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.ai-pulse span:nth-child(4) {
+    animation-delay: 0.3s;
+}
+
+.ai-pulse span:nth-child(5) {
+    animation-delay: 0.4s;
+}
+
+@keyframes aiPulse {
+
+    0%,
+    100% {
+        transform: scaleY(0.4);
+        opacity: 0.35;
+    }
+
+    50% {
+        transform: scaleY(1);
+        opacity: 1;
+    }
+}
+
+.ai-confidence-container {
+    position: relative;
+}
+
+.ai-confidence {
+    padding: 0.42rem 0.72rem;
+
+    border-radius: 999px;
+
+    background: var(--cyan-soft);
+    border: 1px solid var(--cyan-rim);
+
+    color: var(--cyan);
+
+    font-family: var(--f-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s,
+        border-color 0.2s,
+        transform 0.2s;
+}
+
+.ai-confidence:hover {
+    transform: translateY(-1px);
+
+    border-color: var(--cyan);
+
+    background: rgba(0, 200, 232, 0.18);
+}
+
+.confidence-tooltip {
+    position: absolute;
+
+    top: calc(100% + 10px);
+    right: 0;
+
+    width: 280px;
+
+    background: var(--bg-panel);
+
+    border: 1px solid var(--border-h);
+    border-radius: 8px;
+
+    padding: 0.9rem;
+
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+
+    opacity: 0;
+    visibility: hidden;
+
+    transform: translateY(6px);
+
+    transition: all 0.2s ease;
+
+    z-index: 100;
+}
+
+.ai-confidence-container:hover .confidence-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.tooltip-header {
+    font-size: 0.72rem;
+    font-weight: 700;
+
+    color: var(--text-1);
+
+    margin-bottom: 0.7rem;
+}
+
+.tooltip-body {
+    font-size: 0.68rem;
+
+    color: var(--text-2);
+
+    line-height: 1.55;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 900px) {
+
+    .ai-bar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .ai-right {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .confidence-tooltip {
+        right: auto;
+        left: 0;
+    }
+}
 
 
 /* ── NEURAL STRATEGY FEED ────────────────────────────────────── */
@@ -1763,9 +2023,6 @@ body {
    AI CHAT INTERFACE
    ============================================================ */
 
-.panel-chat {
-    grid-column: span 1;
-}
 
 .chat-container {
     display: flex;
@@ -2308,6 +2565,11 @@ body {
     grid-column: span 3;
 }
 
+.panel-query {
+    grid-column: span 4;
+    animation: fadeUp 0.5s var(--ease-out-expo) 0.26s both;
+}
+
 .ae-icon {
     min-width: 42px;
     height: 28px;
@@ -2708,6 +2970,7 @@ body {
 
 
 @media (max-width: 1500px) {
+
     .panel-volumes,
     .panel-cost,
     .panel-query,
