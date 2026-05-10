@@ -218,6 +218,11 @@ function setWSStatus(connected) {
 // ============================================================
 
 setInterval(async () => {
+    try {
+        const confRes = await fetch('/api/confidence-metrics');
+        if (confRes.ok) { window._confidenceMetrics = await confRes.json(); }
+    } catch (_) {}
+
     if (ws && ws.readyState === WebSocket.OPEN) return;
     try {
         const r = await fetch('/api/status');
@@ -574,9 +579,32 @@ function renderReasoning() {
     el.textContent = reason;
 
     const confEl = document.getElementById('ai-confidence');
-    if (confEl) {
-        const conf = state.overall_confidence || 0;
+    const tooltipBody = document.getElementById('confidence-metrics-body');
+    if (confEl && window._confidenceMetrics) {
+        const conf = window._confidenceMetrics.overall_confidence || state.overall_confidence || 0;
         confEl.textContent = `Confidence: ${conf}%`;
+        
+        let confClass = 'conf-low';
+        if (conf >= 85) confClass = 'conf-high';
+        else if (conf >= 60) confClass = 'conf-med';
+        confEl.className = `ai-confidence ${confClass}`;
+
+        if (tooltipBody && window._confidenceMetrics.metrics) {
+            const m = window._confidenceMetrics.metrics;
+            let html = '';
+            for (const key in m) {
+                const metric = m[key];
+                let vClass = 'warn';
+                if (metric.value >= 85) vClass = 'good';
+                else if (metric.value < 60) vClass = 'crit';
+                
+                html += `<div class="metric-row">
+                    <span class="metric-label">${esc(metric.label)}</span>
+                    <span class="metric-value ${vClass}">${esc(metric.value)}</span>
+                </div>`;
+            }
+            tooltipBody.innerHTML = html;
+        }
     }
 }
 
@@ -714,6 +742,13 @@ function renderActions() {
         const tool = a.tool || a.tool_name || 'unknown';
         const [cls, lbl] = STATUS_MAP[a.status] || ['st-dryrun', a.status];
         const inputs = actionInputs(a, findInstance(a.resource_id || a.instance_id));
+        
+        const { score: actionScore, factors: actionFactors } = confidenceBreakdown(a);
+        const finalScore = Math.round(a.confidence || actionScore);
+        let actConfClass = 'conf-low';
+        if (finalScore >= 85) actConfClass = 'conf-high';
+        else if (finalScore >= 60) actConfClass = 'conf-med';
+        
         return `<div class="action-entry ${a.status === 'pending_approval' ? 'is-pending' : ''}">
                 <span class="ae-icon">${TOOL_ICONS[tool] || 'Act'}</span>
             <div class="ae-body">
@@ -721,6 +756,13 @@ function renderActions() {
                 <div class="ae-detail">${esc(a.reason || a.action || '')}</div>
                 <div class="ae-detail" style="font-family:var(--f-mono); color:var(--cyan); margin-top:4px">${esc(a.resource_id || a.instance_id || '')}</div>
                 <div class="decision-inputs">${inputs}</div>
+                ${a.status === 'pending_approval' || true ? `
+                <div class="action-confidence-wrap">
+                    <span class="action-conf-badge ${actConfClass}">${finalScore}% Confident</span>
+                    <div class="action-conf-why">
+                        ${actionFactors.map(f => `<span>✓ ${esc(f)}</span>`).join('')}
+                    </div>
+                </div>` : ''}
             </div>
             <div class="ae-right">
                 <span class="status-tag ${cls}">${lbl}</span>
