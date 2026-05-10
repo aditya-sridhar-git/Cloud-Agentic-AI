@@ -367,7 +367,17 @@ class ChatInterface:
         scanned = data.get("databases_scanned", 0)
         slow = data.get("slow_databases", [])
         analyses = data.get("optimizations", [])
+        pi_unavailable = data.get("pi_unavailable", [])
         total_opts = sum(len(a.get("optimizations", [])) for a in analyses)
+
+        if status == "pi_unavailable" or pi_unavailable:
+            msg = [f"### Query Optimizer"]
+            msg.append(f"Scanned **{scanned}** RDS database(s), but Performance Insights was unavailable for **{len(pi_unavailable)}** high-latency database(s).")
+            for item in pi_unavailable[:5]:
+                msg.append(f"- **{item.get('db_instance_id')}**: {item.get('diagnostic')}")
+                if item.get("recommendation"):
+                    msg.append(f"  Fix: {item.get('recommendation')}")
+            return "\n".join(msg)
 
         if status in ("no_databases", "all_healthy", "no_slow_queries") or total_opts == 0:
             return f"### Query Optimizer\nScanned **{scanned}** RDS database(s). No slow queries above threshold were found."
@@ -545,7 +555,7 @@ Type 'exit' to quit.
             elif intent == "disk_cleanup":
                 data_list = [tool_data]  # Single summary object
             elif intent == "query_optimizer":
-                data_list = tool_data.get("optimizations", [])
+                data_list = tool_data.get("optimizations", []) or tool_data.get("pi_unavailable", [])
             elif intent == "backup_manager":
                 data_list = tool_data.get("snapshots", [])
             elif intent == "general_status":

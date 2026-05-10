@@ -358,6 +358,8 @@ class AWSProvider(CloudProvider):
                             "status": db.get("DBInstanceStatus", "unknown"),
                             "region": region,
                             "dbi_resource_id": db.get("DbiResourceId"),
+                            "performance_insights_enabled": db.get("PerformanceInsightsEnabled", False),
+                            "performance_insights_retention_days": db.get("PerformanceInsightsRetentionPeriod"),
                         })
             except Exception as e:
                 logger.warning("Could not list RDS instances in %s: %s", region, e)
@@ -392,14 +394,30 @@ class AWSProvider(CloudProvider):
         """
         db_meta = next((db for db in self.list_rds_instances() if db["db_instance_id"] == db_instance_id), None)
         resource_id = db_meta.get("dbi_resource_id") if db_meta else None
-        region = db_meta.get("region", self._region) if db_meta else self._region
+        region = (db_meta or {}).get("region", self._region)
         if not resource_id:
-            return []
+            return [{
+                "status": "pi_unavailable",
+                "query": "Performance Insights unavailable",
+                "avg_time_ms": 0,
+                "diagnostic": "RDS did not return a DbiResourceId for this DB instance.",
+                "recommendation": "Verify the DB instance exists and is available before collecting PI SQL dimensions.",
+            }]
+        if db_meta and not db_meta.get("performance_insights_enabled", False):
+            return [{
+                "status": "pi_unavailable",
+                "query": "Performance Insights disabled",
+                "avg_time_ms": 0,
+                "diagnostic": "Performance Insights / Database Insights is not enabled for this DB instance.",
+                "recommendation": "Enable Performance Insights or Database Insights on the RDS instance, then wait for initialization.",
+                "dbi_resource_id": resource_id,
+                "region": region,
+            }]
 
         end = datetime.now(timezone.utc)
         start = end - timedelta(hours=1)
-        pi = boto3.client("pi", region_name=region, config=_RETRY_CONFIG)
         try:
+            pi = boto3.client("pi", region_name=region, config=_RETRY_CONFIG)
             resp = pi.describe_dimension_keys(
                 ServiceType="RDS",
                 Identifier=resource_id,
@@ -410,18 +428,41 @@ class AWSProvider(CloudProvider):
                 GroupBy={"Group": "db.sql_tokenized", "Limit": limit},
             )
         except ClientError as e:
-            code = e.response.get("Error", {}).get("Code", "")
+            code = e.response.get("Error", {}).get("Code", "ClientError")
             message = e.response.get("Error", {}).get("Message", str(e))
-            logger.warning("Could not read Performance Insights for %s: %s", db_instance_id, message)
-            if code == "NotAuthorizedException":
-                raise RuntimeError(
-                    f"Performance Insights is not authorized for {db_instance_id}. "
-                    "Enable Database Insights/Performance Insights for this DB and grant pi:DescribeDimensionKeys."
-                ) from e
-            raise
+            if code in {"NotAuthorizedException", "AccessDeniedException", "UnauthorizedException"}:
+                diagnostic = (
+                    "Performance Insights denied DescribeDimensionKeys for this DB resource. "
+                    "The DB may not be authorized for PI/Database Insights yet, or the IAM principal "
+                    "is missing pi:DescribeDimensionKeys for the DB DbiResourceId."
+                )
+            else:
+                diagnostic = f"Performance Insights DescribeDimensionKeys failed with {code}: {message}"
+            logger.warning("Could not read Performance Insights for %s: %s", db_instance_id, diagnostic)
+            return [{
+                "status": "pi_unavailable",
+                "query": "Performance Insights unavailable",
+                "avg_time_ms": 0,
+                "diagnostic": diagnostic,
+                "recommendation": (
+                    "Confirm Performance Insights / Database Insights is enabled and initialized, "
+                    "then grant pi:DescribeDimensionKeys on the RDS DbiResourceId."
+                ),
+                "aws_error_code": code,
+                "dbi_resource_id": resource_id,
+                "region": region,
+            }]
         except Exception as e:
             logger.warning("Could not read Performance Insights for %s: %s", db_instance_id, e)
-            raise
+            return [{
+                "status": "pi_unavailable",
+                "query": "Performance Insights unavailable",
+                "avg_time_ms": 0,
+                "diagnostic": str(e),
+                "recommendation": "Check RDS Performance Insights configuration and retry after metrics are available.",
+                "dbi_resource_id": resource_id,
+                "region": region,
+            }]
 
         queries: list[dict[str, Any]] = []
         for item in resp.get("Keys", [])[:limit]:

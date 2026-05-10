@@ -122,6 +122,7 @@ class QueryOptimizerTool(BaseTool):
 
         all_optimizations: list[dict[str, Any]] = []
         errors: list[dict[str, str]] = []
+        pi_unavailable: list[dict[str, Any]] = []
 
         # Do not gate SQL evidence on CloudWatch latency. Database Insights can
         # contain useful slow SQL even when aggregate read/write latency is low.
@@ -134,6 +135,27 @@ class QueryOptimizerTool(BaseTool):
             except Exception as exc:
                 logger.warning("Could not read SQL evidence for %s: %s", db_id, exc)
                 errors.append({"db_instance_id": db_id, "error": str(exc)})
+                pi_unavailable.append({
+                    "db_instance_id": db_id,
+                    "engine": engine,
+                    "diagnostic": str(exc),
+                    "recommendation": "Check Performance Insights / Database Insights configuration and IAM access.",
+                })
+                continue
+
+            unavailable = [q for q in samples if q.get("status") == "pi_unavailable"]
+            if unavailable:
+                for item in unavailable:
+                    pi_unavailable.append({
+                        "db_instance_id": db_id,
+                        "engine": engine,
+                        "diagnostic": item.get("diagnostic", "Performance Insights unavailable."),
+                        "recommendation": item.get("recommendation", "Enable PI/Database Insights and grant PI access."),
+                        "aws_error_code": item.get("aws_error_code"),
+                        "dbi_resource_id": item.get("dbi_resource_id"),
+                        "region": item.get("region"),
+                    })
+                logger.warning("  Performance Insights unavailable for %s: %s", db_id, unavailable[0].get("diagnostic"))
                 continue
 
             selected = self._select_problematic_queries(samples, slow_query_threshold)
@@ -145,7 +167,7 @@ class QueryOptimizerTool(BaseTool):
             all_optimizations.append(analysis)
 
         total_opts = sum(len(item.get("optimizations", [])) for item in all_optimizations)
-        summary = self._summary(len(databases), len(slow_databases), total_opts, errors)
+        summary = self._summary(len(databases), len(slow_databases), total_opts, errors, pi_unavailable)
 
         logger.info(
             "[bold yellow]QUERY OPTIMIZER COMPLETE[/bold yellow] %d database(s), %d suggestion(s)",
@@ -155,12 +177,19 @@ class QueryOptimizerTool(BaseTool):
 
         return {
             "tool": self.tool_name,
-            "status": "optimizations_found" if total_opts else "no_slow_queries",
+            "status": (
+                "optimizations_found"
+                if all_optimizations
+                else "pi_unavailable"
+                if pi_unavailable
+                else "no_slow_queries"
+            ),
             "summary": summary,
             "databases_scanned": len(databases),
             "database_metrics": database_metrics,
             "slow_databases": slow_databases,
             "healthy_databases": healthy_databases,
+            "pi_unavailable": pi_unavailable,
             "optimizations": all_optimizations,
             "errors": errors,
         }
@@ -180,9 +209,20 @@ class QueryOptimizerTool(BaseTool):
         return selected
 
     @staticmethod
-    def _summary(scanned: int, high_latency: int, total_opts: int, errors: list[dict[str, str]]) -> str:
+    def _summary(
+        scanned: int,
+        high_latency: int,
+        total_opts: int,
+        errors: list[dict[str, str]],
+        pi_unavailable: list[dict[str, Any]],
+    ) -> str:
         if total_opts:
             return f"Found {total_opts} slow-query optimization suggestion(s) across {scanned} RDS database(s)"
+        if pi_unavailable:
+            return (
+                f"Scanned {scanned} RDS database(s), but Performance Insights / "
+                f"Database Insights was unavailable for {len(pi_unavailable)} database(s)"
+            )
         if errors:
             return f"Scanned {scanned} RDS database(s), but SQL evidence was unavailable for {len(errors)} database(s)"
         if high_latency:

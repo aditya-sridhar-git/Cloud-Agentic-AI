@@ -3263,6 +3263,34 @@ body {
     gap: 0.35rem;
 }
 
+.query-pi-warning {
+    border: 1px solid var(--amber-rim);
+    border-left: 3px solid var(--amber);
+    border-radius: 8px;
+    background: var(--amber-soft);
+    color: var(--text-1);
+    padding: 0.75rem 0.85rem;
+}
+
+.query-pi-warning strong,
+.query-pi-warning span,
+.query-pi-warning p {
+    display: block;
+}
+
+.query-pi-warning span {
+    margin-top: 0.18rem;
+    color: var(--text-2);
+    font-family: var(--f-mono);
+    font-size: 0.62rem;
+}
+
+.query-pi-warning p {
+    margin-top: 0.45rem;
+    color: var(--text-2);
+    line-height: 1.45;
+}
+
 
 /* =========================
    Volume Card
