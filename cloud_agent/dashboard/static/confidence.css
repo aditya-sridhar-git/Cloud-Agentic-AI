@@ -32,3 +32,94 @@
 
 .ai-confidence.conf-low { color: var(--red); border-color: var(--red-rim); }
 .ai-confidence.conf-low::before { background: var(--red); }
+
+/* CONFIDENCE TOOLTIP */
+.ai-confidence-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.ai-confidence-container:hover .confidence-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+.confidence-tooltip {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 280px;
+    background: #161b22;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.5);
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-5px);
+    transition: all 0.2s ease;
+    font-family: var(--f-sans);
+}
+.tooltip-header {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-1);
+    letter-spacing: 0.02em;
+}
+.tooltip-body {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+}
+.metric-label {
+    color: var(--text-2);
+}
+.metric-value {
+    font-family: var(--f-mono);
+    font-weight: 600;
+}
+.metric-value.good { color: var(--green); }
+.metric-value.warn { color: var(--amber); }
+.metric-value.crit { color: var(--red); }
+
+/* PER-ACTION CONFIDENCE */
+.action-confidence-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 0.7rem;
+    font-family: var(--f-mono);
+}
+.action-conf-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    font-weight: 600;
+}
+.action-conf-badge.conf-high { color: var(--green); border-color: var(--green-rim); background: rgba(0,214,138,0.1); }
+.action-conf-badge.conf-med { color: var(--amber); border-color: var(--amber-rim); background: rgba(245,166,35,0.1); }
+.action-conf-badge.conf-low { color: var(--red); border-color: var(--red-rim); background: rgba(255,61,90,0.1); }
+
+.action-conf-why {
+    color: var(--text-3);
+    font-family: var(--f-sans);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+.action-conf-why span {
+    background: rgba(255,255,255,0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
