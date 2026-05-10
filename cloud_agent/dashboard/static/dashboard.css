@@ -1633,6 +1633,8 @@ body {
 #ai-strategy-strip {
     padding: 1rem 1.4rem 0;
     animation: fadeUp 0.5s var(--ease-out-expo) 0.08s both;
+    position: relative;
+    z-index: 500;
 }
 
 .ai-bar {
@@ -1654,6 +1656,7 @@ body {
     border-radius: 8px;
 
     position: relative;
+    z-index: 100;
 }
 
 .ai-bar::before {
@@ -1817,7 +1820,7 @@ body {
 .confidence-tooltip {
     position: absolute;
 
-    bottom: calc(100% + 10px);
+    top: calc(100% + 10px);
     right: 0;
 
     width: 280px;
@@ -1834,7 +1837,7 @@ body {
     opacity: 0;
     visibility: hidden;
 
-    transform: translateY(-6px);
+    transform: translateY(6px);
 
     transition: all 0.2s ease;
 
