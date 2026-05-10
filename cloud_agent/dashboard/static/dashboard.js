@@ -386,12 +386,14 @@ function renderQueryOptimizer() {
 
     if (!groups.length || total === 0) {
         const errors = result.errors || [];
+        const piUnavailable = result.pi_unavailable || [];
         const metrics = result.database_metrics || [];
         feed.innerHTML = `
         <div class="query-summary-row">
             <span class="status-tag ${statusClass(result.status)}">${esc(result.status || 'scanned')}</span>
             <span>${esc(result.summary || 'No slow query samples returned yet')}</span>
         </div>
+        ${piUnavailable.length ? `<div class="query-errors">${piUnavailable.map(renderPiUnavailable).join('')}</div>` : ''}
         ${metrics.length ? `<div class="query-db-grid">${metrics.map(renderQueryMetricCard).join('')}</div>` : ''}
         ${errors.length ? `<div class="query-errors">${errors.map(e => `<div>${esc(e.db_instance_id)}: ${esc(e.error)}</div>`).join('')}</div>` : ''}`;
         return;
@@ -416,6 +418,15 @@ function renderQueryOptimizer() {
                 </div>
             </div>
         `).join('')}`;
+}
+
+function renderPiUnavailable(item) {
+    return `<div class="query-pi-warning">
+        <strong>${esc(item.db_instance_id || 'RDS database')}</strong>
+        <span>${esc(item.region || '')}${item.dbi_resource_id ? ` · ${esc(item.dbi_resource_id)}` : ''}${item.aws_error_code ? ` · ${esc(item.aws_error_code)}` : ''}</span>
+        <p>${esc(item.diagnostic || 'Performance Insights / Database Insights is unavailable.')}</p>
+        <p>${esc(item.recommendation || 'Enable PI/Database Insights and grant pi:DescribeDimensionKeys.')}</p>
+    </div>`;
 }
 
 function renderQueryMetricCard(db) {
