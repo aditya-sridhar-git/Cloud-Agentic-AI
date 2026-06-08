@@ -1,19 +1,45 @@
 {
-  "timestamp": "2026-05-12T03:01:59.041033+00:00",
-  "cycle_id": "b5b0a43d",
-  "epoch": 1778554919.041047,
-  "plan_summary": "4 approved action(s)",
+  "timestamp": "2026-06-08T15:06:15.891489+00:00",
+  "cycle_id": "9b07aa66",
+  "epoch": 1780931175.891489,
+  "plan_summary": "8 approved action(s)",
   "actions_count": 0,
   "results": [],
   "observation_summary": {
-    "instances": 6,
-    "disks": 4,
+    "instances": 12,
+    "disks": 5,
     "costs": {
-      "current_daily": 7.3e-09,
-      "baseline_daily": -3.6428571428571427e-09,
-      "delta_pct": 0.0,
+      "current_daily": 108.84,
+      "baseline_daily": 103.46,
+      "delta_pct": 5.2,
       "currency": "USD",
-      "services": []
+      "services": [
+        {
+          "service": "Amazon EC2",
+          "amount": 51.59,
+          "currency": "USD"
+        },
+        {
+          "service": "Amazon S3",
+          "amount": 9.93,
+          "currency": "USD"
+        },
+        {
+          "service": "Amazon RDS",
+          "amount": 25.37,
+          "currency": "USD"
+        },
+        {
+          "service": "AWS Lambda",
+          "amount": 1.51,
+          "currency": "USD"
+        },
+        {
+          "service": "Amazon CloudWatch",
+          "amount": 3.34,
+          "currency": "USD"
+        }
+      ]
     }
   }
 }

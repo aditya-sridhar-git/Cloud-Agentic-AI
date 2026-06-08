@@ -325,28 +325,44 @@ function renderCostBreakdown() {
     const spikeClass = deltaPct > 20 ? 'cost-spike' : deltaPct > 0 ? 'cost-elevated' : 'cost-normal';
     const totalFromServices = services.reduce((s, x) => s + x.amount, 0);
 
-    let html = `<div class="cost-summary ${spikeClass}">
-        <span class="cost-total">$${daily.toFixed(2)} <small>today</small></span>
-        <span class="cost-baseline">Baseline $${baseline.toFixed(2)}</span>
-        <span class="cost-delta ${deltaPct > 0 ? 'delta-up' : 'delta-down'}">${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(1)}%</span>
-    </div>
-    <table class="cost-table">
-        <thead><tr><th>Service</th><th>Today</th><th>Share</th><th>Bar</th></tr></thead>
-        <tbody>`;
+    const sortedServices = services.slice().sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0));
+    const topService = sortedServices[0];
+    let html = `<div class="cost-dashboard ${spikeClass}">
+        <div class="cost-hero">
+            <div>
+                <span class="cost-eyebrow">Daily spend</span>
+                <strong>${formatCurrency(daily)}</strong>
+                <span class="cost-note">Projected ${formatCurrency(daily * 30)} monthly</span>
+            </div>
+            <div class="cost-delta-card ${deltaPct > 0 ? 'delta-up' : 'delta-down'}">
+                <span>${deltaPct >= 0 ? '+' : ''}${Number(deltaPct).toFixed(1)}%</span>
+                <small>vs baseline ${formatCurrency(baseline)}</small>
+            </div>
+            <div class="cost-top-service">
+                <span>Top service</span>
+                <strong>${esc(topService?.service || 'No service data')}</strong>
+                <small>${topService ? `${formatCurrency(topService.amount)} today` : 'Awaiting Cost Explorer'}</small>
+            </div>
+        </div>
+        <div class="cost-service-list">`;
 
-    services.slice(0, 10).forEach(svc => {
+    sortedServices.slice(0, 10).forEach(svc => {
         const share = totalFromServices > 0 ? ((svc.amount / totalFromServices) * 100).toFixed(1) : '0.0';
         const barW = Math.min((svc.amount / (totalFromServices || 1)) * 100, 100);
-        const rowCls = svc.amount === Math.max(...services.map(s => s.amount)) ? 'cost-row-top' : '';
-        html += `<tr class="${rowCls}">
-            <td class="cost-svc">${esc(svc.service)}</td>
-            <td class="cost-amt">$${svc.amount.toFixed(2)}</td>
-            <td class="cost-share">${share}%</td>
-            <td class="cost-bar-cell"><div class="cost-bar-track"><div class="cost-bar-fill" style="width:${barW.toFixed(1)}%"></div></div></td>
-        </tr>`;
+        html += `<div class="cost-service-row">
+            <div class="cost-service-main">
+                <span class="cost-svc">${esc(svc.service)}</span>
+                <strong>${formatCurrency(svc.amount)}</strong>
+            </div>
+            <div class="cost-service-meta">
+                <span>${share}% share</span>
+                <span>${esc(svc.currency || costs.currency || 'USD')}</span>
+            </div>
+            <div class="cost-bar-track"><div class="cost-bar-fill" style="width:${barW.toFixed(1)}%"></div></div>
+        </div>`;
     });
 
-    html += `</tbody></table>`;
+    html += `</div></div>`;
 
     const costActions = (state.actions || []).filter(a => a.tool_name === 'cost_monitor' && a.status === 'pending_approval');
     if (costActions.length > 0) {
@@ -1118,22 +1134,80 @@ function buildInstanceComparison(insts) {
                         <th>Memory</th><th>CPU eps</th><th>Mem/s</th><th>IOPS</th><th>p95</th><th>Signal</th>
                     </tr>
                 </thead>
-                <tbody>${rows.map((r, idx) => `<tr>
-                    <td class="rank-cell">#${idx + 1}</td>
-                    <td><strong>${esc(r.inst.name || r.inst.instance_id)}</strong><span>${esc(r.inst.instance_id)}</span></td>
-                    <td>${esc(r.inst.instance_type || '-')}</td>
-                    <td>${esc(r.inst.state || '-')}</td>
-                    <td>${r.cpu === null ? '-' : `${r.cpu.toFixed(1)}%`}</td>
-                    <td>${pct(r.inst.memory_percent) || '-'}</td>
-                    <td>${fmtBench(r.inst.sysbench?.cpu_events_per_sec)}</td>
-                    <td>${fmtBench(r.inst.sysbench?.memory_mib_per_sec)}</td>
-                    <td>${fmtBench(r.inst.sysbench?.disk_iops)}</td>
-                    <td>${fmtBench(r.inst.sysbench?.p95_latency_ms, 'ms')}</td>
-                    <td>${esc(instanceSignal(r.inst, r.cpu, r.missingTags.length))}</td>
-                </tr>`).join('')}</tbody>
+                <tbody>${rows.map((r, idx) => `${renderInstanceRow(r, idx)}`).join('')}</tbody>
             </table>
         </div>
     </div>`;
+}
+
+function renderInstanceRow(r, idx) {
+    const inst = r.inst;
+    const detailsId = `inst-details-${safeDomId(inst.instance_id || idx)}`;
+    return `<tr class="instance-main-row" data-details="${attr(detailsId)}" onclick="toggleInstanceDetails('${attr(detailsId)}')">
+                    <td class="rank-cell">#${idx + 1}</td>
+                    <td><strong>${esc(inst.name || tagValue(inst, 'Name') || inst.instance_id)}</strong><span>${esc(inst.instance_id)}</span></td>
+                    <td>${esc(inst.instance_type || '-')}</td>
+                    <td><span class="state-pill state-${safeDomId(inst.state)}">${esc(inst.state || '-')}</span></td>
+                    <td>${r.cpu === null ? '-' : `${r.cpu.toFixed(1)}%`}</td>
+                    <td>${pct(inst.memory_percent) || '-'}</td>
+                    <td>${fmtBench(inst.sysbench?.cpu_events_per_sec)}</td>
+                    <td>${fmtBench(inst.sysbench?.memory_mib_per_sec)}</td>
+                    <td>${fmtBench(inst.sysbench?.disk_iops)}</td>
+                    <td>${fmtBench(inst.sysbench?.p95_latency_ms, 'ms')}</td>
+                    <td>${esc(instanceSignal(inst, r.cpu, r.missingTags.length))}</td>
+                </tr>
+                <tr class="instance-detail-row" id="${detailsId}">
+                    <td colspan="11">${renderInstanceDetails(r)}</td>
+                </tr>`;
+}
+
+function renderInstanceDetails(r) {
+    const inst = r.inst;
+    const tags = tagsToObject(inst.tags);
+    const tagList = Object.entries(tags);
+    const volumes = (state.volumes || []).filter(v => {
+        const attachments = v.attachments || v.Attachments || [];
+        return attachments.some(a => (a.InstanceId || a.instance_id) === inst.instance_id);
+    });
+    const meta = [
+        ['Region', inst.region],
+        ['AZ', inst.availability_zone || inst.placement?.AvailabilityZone],
+        ['Launch', formatShortDate(inst.launch_time)],
+        ['Age', r.ageDays === null ? null : `${r.ageDays} days`],
+        ['Private IP', inst.private_ip || inst.private_ip_address],
+        ['Public IP', inst.public_ip || inst.public_ip_address],
+        ['VPC', inst.vpc_id],
+        ['Subnet', inst.subnet_id],
+        ['AMI', inst.image_id],
+        ['Key', inst.key_name],
+        ['Root device', inst.root_device_name],
+        ['Monitoring', inst.monitoring || inst.monitoring_state],
+        ['Missing tags', r.missingTags.length ? r.missingTags.join(', ') : 'none']
+    ];
+    const bench = [
+        ['CPU events/sec', fmtBench(inst.sysbench?.cpu_events_per_sec)],
+        ['Memory MiB/sec', fmtBench(inst.sysbench?.memory_mib_per_sec)],
+        ['Disk IOPS', fmtBench(inst.sysbench?.disk_iops)],
+        ['p95 latency', fmtBench(inst.sysbench?.p95_latency_ms, 'ms')],
+        ['CPU metric', r.cpu === null ? 'unavailable' : `${r.cpu.toFixed(1)}%`],
+        ['Memory', pct(inst.memory_percent)]
+    ];
+    return `<div class="instance-detail-panel">
+        <div class="instance-detail-grid">
+            <div class="detail-section"><h4>AWS metadata</h4><div class="detail-kv">${compactMetrics(meta)}</div></div>
+            <div class="detail-section"><h4>Performance evidence</h4><div class="detail-kv">${compactMetrics(bench)}</div></div>
+            <div class="detail-section"><h4>Tags</h4><div class="tag-list">${tagList.length ? tagList.map(([k, v]) => `<span><b>${esc(k)}</b>${esc(v)}</span>`).join('') : '<span>No tags returned</span>'}</div></div>
+            <div class="detail-section"><h4>Storage attachments</h4><div class="detail-kv">${volumes.length ? compactMetrics(volumes.map(v => [v.volume_id || v.VolumeId, `${v.size_gb || v.Size || '?'} GB ${v.state || v.State || ''}`])) : '<span>No attached volumes in current snapshot</span>'}</div></div>
+        </div>
+    </div>`;
+}
+
+function toggleInstanceDetails(id) {
+    document.getElementById(id)?.classList.toggle('open');
+}
+
+function tagValue(inst, key) {
+    return tagsToObject(inst.tags)[key];
 }
 
 function fmtBench(value, suffix = '') {
