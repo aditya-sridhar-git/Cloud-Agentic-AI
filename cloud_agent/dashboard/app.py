@@ -189,6 +189,54 @@ async def get_query_optimizer():
     return _latest_state.get("query_optimizations", {})
 
 
+@app.get("/api/approvals")
+async def get_pending_approvals():
+    """Return pending approvals created by the governed workflow."""
+    if not _agent:
+        return {"pending": []}
+    return {"pending": _agent.workflow.memory.get_pending_approvals()}
+
+
+@app.post("/api/feedback")
+async def post_operator_feedback(request: Request):
+    """Record operator feedback for future workflow learning."""
+    if not _agent:
+        return {"status": "agent_not_initialized"}
+    payload = await request.json()
+    _agent.workflow.memory.record_feedback(
+        resource_id=payload.get("resource_id", "unknown"),
+        action_type=payload.get("action_type", "unknown"),
+        verdict=payload.get("verdict", "unknown"),
+        notes=payload.get("notes", ""),
+    )
+    return {"status": "recorded"}
+
+
+@app.post("/api/approvals/resolve")
+async def resolve_pending_approval(request: Request):
+    """Resolve a pending approval by recording operator feedback."""
+    if not _agent:
+        return {"status": "agent_not_initialized"}
+    payload = await request.json()
+    verdict = payload.get("verdict", "approved")
+    _agent.workflow.memory.record_feedback(
+        resource_id=payload.get("resource_id", "unknown"),
+        action_type=payload.get("action_type", "unknown"),
+        verdict=verdict,
+        notes=payload.get("notes", ""),
+    )
+    pending = _agent.workflow.memory.get_pending_approvals()
+    remaining = [
+        item for item in pending
+        if not (
+            item.get("resource_id") == payload.get("resource_id")
+            and item.get("action_type") == payload.get("action_type")
+        )
+    ]
+    _agent.workflow.memory.set_pending_approvals(remaining)
+    return {"status": "resolved", "remaining": remaining}
+
+
 @app.post("/api/query-optimizer/run")
 async def run_query_optimizer():
     """Run the RDS query optimizer immediately and update dashboard state."""

@@ -1262,19 +1262,29 @@ function confidenceBreakdown(action) {
 const NAV_MAP = {
     dashboard: { navId: 'sb-nav-dashboard', path: '/dashboard', title: 'Command Center' },
     instances: { navId: 'sb-nav-instances', path: '/dashboard/instances', title: 'Instances' },
+    storage: { navId: 'sb-nav-storage', path: '/dashboard/storage', title: 'Storage' },
+    costs: { navId: 'sb-nav-costs', path: '/dashboard/costs', title: 'Costs' },
     actions: { navId: 'sb-nav-actions', path: '/dashboard/actions', title: 'Actions' },
     security: { navId: 'sb-audit-link', path: '/dashboard/audit', title: 'Audit' },
     diag: { navId: 'sb-nav-diag', path: '/dashboard/diagnostics', title: 'Diagnostics' },
     queries: { navId: 'sb-nav-queries', path: '/dashboard/queries', title: 'Slow Queries' },
+    strategy: { navId: 'sb-nav-strategy', path: '/dashboard/strategy', title: 'Strategy Engine' },
+    assistant: { navId: 'sb-nav-assistant', path: '/dashboard/assistant', title: 'AI Assistant' },
+    history: { navId: 'sb-nav-history', path: '/dashboard/history', title: 'Action History' },
     settings: { navId: 'sb-settings-link', path: '/dashboard/settings', title: 'Settings' },
 };
 
 function viewFromPath(path = location.pathname) {
     if (path.endsWith('/instances')) return 'instances';
+    if (path.endsWith('/storage')) return 'storage';
+    if (path.endsWith('/costs')) return 'costs';
     if (path.endsWith('/actions')) return 'actions';
     if (path.endsWith('/audit')) return 'security';
     if (path.endsWith('/diagnostics')) return 'diag';
     if (path.endsWith('/queries')) return 'queries';
+    if (path.endsWith('/strategy')) return 'strategy';
+    if (path.endsWith('/assistant')) return 'assistant';
+    if (path.endsWith('/history')) return 'history';
     if (path.endsWith('/settings')) return 'settings';
     return 'dashboard';
 }
@@ -1299,7 +1309,7 @@ function applyRoute(view) {
     const ps = document.getElementById('panel-settings');
     if (ps) ps.classList.toggle('active', isSettings);
 
-    ['panel-grid', 'panel-thoughts', 'kpi-strip'].forEach(id => {
+    ['panel-grid', 'panel-thoughts', 'kpi-strip', 'ai-strategy-strip'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = isSettings ? 'none' : '';
     });
@@ -1316,13 +1326,41 @@ function applyRoute(view) {
 }
 
 function scrollToPanel(id) {
-    const map = { 'panel-instances': 'instances', 'panel-actions': 'actions', 'panel-security': 'security', 'panel-diag': 'diag', 'panel-query': 'queries' };
+    const map = {
+        'panel-instances': 'instances',
+        'panel-volumes': 'storage',
+        'panel-cost': 'costs',
+        'panel-actions': 'actions',
+        'panel-security': 'security',
+        'panel-diag': 'diag',
+        'panel-query': 'queries',
+        'panel-chat': 'assistant',
+        'panel-log': 'history',
+        'panel-thoughts': 'strategy',
+    };
     navigateTo(null, map[id] || 'dashboard');
 }
 function showSettings(e) { navigateTo(e, 'settings'); }
 function hideSettings() { navigateTo(null, 'dashboard'); }
 
 window.addEventListener('popstate', () => applyRoute(viewFromPath()));
+
+// ============================================================
+// THEME
+// ============================================================
+
+function applyTheme(theme) {
+    const resolved = theme === 'light' ? 'light' : 'dark';
+    document.body.dataset.theme = resolved;
+    localStorage.setItem('cloudagent-theme', resolved);
+    const toggle = document.getElementById('theme-toggle');
+    if (toggle) toggle.setAttribute('aria-label', `Switch to ${resolved === 'dark' ? 'light' : 'dark'} theme`);
+}
+
+function toggleTheme() {
+    const current = document.body.dataset.theme === 'light' ? 'light' : 'dark';
+    applyTheme(current === 'light' ? 'dark' : 'light');
+}
 
 // ============================================================
 // SETTINGS HELPERS
@@ -1730,6 +1768,7 @@ async function confirmProvision() {
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', () => {
+    applyTheme(localStorage.getItem('cloudagent-theme') || 'dark');
     tickClock();
     setInterval(tickClock, 1000);
     navigateTo(null, viewFromPath(), true);
