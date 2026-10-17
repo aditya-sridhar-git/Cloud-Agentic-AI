@@ -1,0 +1,2824 @@
+{
+  "scenarios": {
+    "paper_baseline/Native AWS (rules)": [
+      {
+        "precision": 0.875,
+        "recall": 0.8235294117647058,
+        "f1": 0.8484848484848485,
+        "action_accuracy": 0.75,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 3.2641840002725075,
+        "tp": 14,
+        "fp": 2,
+        "fn": 3
+      },
+      {
+        "precision": 0.875,
+        "recall": 0.8235294117647058,
+        "f1": 0.8484848484848485,
+        "action_accuracy": 0.75,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.2209059998676821,
+        "tp": 14,
+        "fp": 2,
+        "fn": 3
+      },
+      {
+        "precision": 0.875,
+        "recall": 0.8235294117647058,
+        "f1": 0.8484848484848485,
+        "action_accuracy": 0.75,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.14911800008121645,
+        "tp": 14,
+        "fp": 2,
+        "fn": 3
+      },
+      {
+        "precision": 0.875,
+        "recall": 0.8235294117647058,
+        "f1": 0.8484848484848485,
+        "action_accuracy": 0.75,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.13058800004728255,
+        "tp": 14,
+        "fp": 2,
+        "fn": 3
+      },
+      {
+        "precision": 0.875,
+        "recall": 0.8235294117647058,
+        "f1": 0.8484848484848485,
+        "action_accuracy": 0.75,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.1247000000148546,
+        "tp": 14,
+        "fp": 2,
+        "fn": 3
+      },
+      {
+        "precision": 0.875,
+        "recall": 0.8235294117647058,
+        "f1": 0.8484848484848485,
+        "action_accuracy": 0.75,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.1542959998914739,
+        "tp": 14,
+        "fp": 2,
+        "fn": 3
+      },
+      {
+        "precision": 0.875,
+        "recall": 0.8235294117647058,
+        "f1": 0.8484848484848485,
+        "action_accuracy": 0.75,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.14875500028210809,
+        "tp": 14,
+        "fp": 2,
+        "fn": 3
+      },
+      {
+        "precision": 0.875,
+        "recall": 0.8235294117647058,
+        "f1": 0.8484848484848485,
+        "action_accuracy": 0.75,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.1202729999931762,
+        "tp": 14,
+        "fp": 2,
+        "fn": 3
+      },
+      {
+        "precision": 0.875,
+        "recall": 0.8235294117647058,
+        "f1": 0.8484848484848485,
+        "action_accuracy": 0.75,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.1201239997499215,
+        "tp": 14,
+        "fp": 2,
+        "fn": 3
+      },
+      {
+        "precision": 0.875,
+        "recall": 0.8235294117647058,
+        "f1": 0.8484848484848485,
+        "action_accuracy": 0.75,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.1253219998034183,
+        "tp": 14,
+        "fp": 2,
+        "fn": 3
+      }
+    ],
+    "paper_baseline/Cloud Agentic AI (rule mode)": [
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 4.67,
+        "tp": 17,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.99,
+        "tp": 17,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.94,
+        "tp": 17,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.86,
+        "tp": 17,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.83,
+        "tp": 17,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.82,
+        "tp": 17,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.96,
+        "tp": 17,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.88,
+        "tp": 17,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 1.02,
+        "tp": 17,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 1.01,
+        "tp": 17,
+        "fp": 0,
+        "fn": 0
+      }
+    ],
+    "idle_waste/Native AWS (rules)": [
+      {
+        "precision": 0.6190476190476191,
+        "recall": 0.9285714285714286,
+        "f1": 0.742857142857143,
+        "action_accuracy": 1.0,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 2,
+        "unsafe_proposed": 2,
+        "rca_accuracy": null,
+        "latency_ms": 0.5663379997713491,
+        "tp": 13,
+        "fp": 8,
+        "fn": 1
+      },
+      {
+        "precision": 0.6086956521739131,
+        "recall": 1.0,
+        "f1": 0.7567567567567568,
+        "action_accuracy": 1.0,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 3,
+        "unsafe_proposed": 3,
+        "rca_accuracy": null,
+        "latency_ms": 0.4420420000315062,
+        "tp": 14,
+        "fp": 9,
+        "fn": 0
+      },
+      {
+        "precision": 0.6086956521739131,
+        "recall": 1.0,
+        "f1": 0.7567567567567568,
+        "action_accuracy": 1.0,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 3,
+        "unsafe_proposed": 3,
+        "rca_accuracy": null,
+        "latency_ms": 0.452767999831849,
+        "tp": 14,
+        "fp": 9,
+        "fn": 0
+      },
+      {
+        "precision": 0.6190476190476191,
+        "recall": 0.9285714285714286,
+        "f1": 0.742857142857143,
+        "action_accuracy": 1.0,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 2,
+        "unsafe_proposed": 2,
+        "rca_accuracy": null,
+        "latency_ms": 0.483434999750898,
+        "tp": 13,
+        "fp": 8,
+        "fn": 1
+      },
+      {
+        "precision": 0.6363636363636364,
+        "recall": 1.0,
+        "f1": 0.7777777777777778,
+        "action_accuracy": 1.0,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 2,
+        "unsafe_proposed": 2,
+        "rca_accuracy": null,
+        "latency_ms": 0.37139199957891833,
+        "tp": 14,
+        "fp": 8,
+        "fn": 0
+      },
+      {
+        "precision": 0.6190476190476191,
+        "recall": 0.9285714285714286,
+        "f1": 0.742857142857143,
+        "action_accuracy": 1.0,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 2,
+        "unsafe_proposed": 2,
+        "rca_accuracy": null,
+        "latency_ms": 0.40333500010092393,
+        "tp": 13,
+        "fp": 8,
+        "fn": 1
+      },
+      {
+        "precision": 0.6363636363636364,
+        "recall": 1.0,
+        "f1": 0.7777777777777778,
+        "action_accuracy": 1.0,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 2,
+        "unsafe_proposed": 2,
+        "rca_accuracy": null,
+        "latency_ms": 0.40710399980525835,
+        "tp": 14,
+        "fp": 8,
+        "fn": 0
+      },
+      {
+        "precision": 0.6363636363636364,
+        "recall": 1.0,
+        "f1": 0.7777777777777778,
+        "action_accuracy": 1.0,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 2,
+        "unsafe_proposed": 2,
+        "rca_accuracy": null,
+        "latency_ms": 0.26553399993645144,
+        "tp": 14,
+        "fp": 8,
+        "fn": 0
+      },
+      {
+        "precision": 0.6363636363636364,
+        "recall": 1.0,
+        "f1": 0.7777777777777778,
+        "action_accuracy": 1.0,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 2,
+        "unsafe_proposed": 2,
+        "rca_accuracy": null,
+        "latency_ms": 0.27455599956738297,
+        "tp": 14,
+        "fp": 8,
+        "fn": 0
+      },
+      {
+        "precision": 0.6363636363636364,
+        "recall": 1.0,
+        "f1": 0.7777777777777778,
+        "action_accuracy": 1.0,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 2,
+        "unsafe_proposed": 2,
+        "rca_accuracy": null,
+        "latency_ms": 0.5818519998683769,
+        "tp": 14,
+        "fp": 8,
+        "fn": 0
+      }
+    ],
+    "idle_waste/Cloud Agentic AI (rule mode)": [
+      {
+        "precision": 1.0,
+        "recall": 0.9285714285714286,
+        "f1": 0.962962962962963,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1.15,
+        "tp": 13,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 0.9333333333333333,
+        "recall": 1.0,
+        "f1": 0.9655172413793104,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 1.63,
+        "tp": 14,
+        "fp": 1,
+        "fn": 0
+      },
+      {
+        "precision": 0.9333333333333333,
+        "recall": 1.0,
+        "f1": 0.9655172413793104,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 1.48,
+        "tp": 14,
+        "fp": 1,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.9285714285714286,
+        "f1": 0.962962962962963,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1.03,
+        "tp": 13,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.86,
+        "tp": 14,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.9285714285714286,
+        "f1": 0.962962962962963,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.92,
+        "tp": 13,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 0.9333333333333333,
+        "recall": 1.0,
+        "f1": 0.9655172413793104,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.85,
+        "tp": 14,
+        "fp": 1,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.88,
+        "tp": 14,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.82,
+        "tp": 14,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.89,
+        "tp": 14,
+        "fp": 0,
+        "fn": 0
+      }
+    ],
+    "cost_compromise/Native AWS (rules)": [
+      {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 0.3333333333333333,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.30442999968727236,
+        "tp": 3,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 0.3333333333333333,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.16659499988236348,
+        "tp": 3,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 0.3333333333333333,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.12421700012055226,
+        "tp": 3,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 0.3333333333333333,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.15993099987099413,
+        "tp": 3,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 0.3333333333333333,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.2038000002357876,
+        "tp": 3,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 0.3333333333333333,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.1148450000982848,
+        "tp": 3,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 0.3333333333333333,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.16552800025237957,
+        "tp": 3,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 0.3333333333333333,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.10986000006596441,
+        "tp": 3,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 0.3333333333333333,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.10357799965277081,
+        "tp": 3,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 0.3333333333333333,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.14011899975230335,
+        "tp": 3,
+        "fp": 0,
+        "fn": 3
+      }
+    ],
+    "cost_compromise/Cloud Agentic AI (rule mode)": [
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.88,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.96,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.74,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.86,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.66,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.74,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.67,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.65,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.72,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.75,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      }
+    ],
+    "server_failures/Native AWS (rules)": [
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 0.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.17735899973558844,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 0.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.15404099985971698,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 0.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.1349429999208951,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 0.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.1545680001981964,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 0.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.129031999676954,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 0.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.13194999974075472,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 0.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.1284329996451561,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 0.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.1264699999410368,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 0.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.12877200015282142,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 0.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 0.0,
+        "latency_ms": 0.13026799979343195,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      }
+    ],
+    "server_failures/Cloud Agentic AI (rule mode)": [
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.61,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.7,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.67,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.62,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.69,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.65,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.67,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.63,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.68,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": 1.0,
+        "latency_ms": 0.61,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      }
+    ],
+    "security_misconfig/Native AWS (rules)": [
+      {
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.1205790003950824,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.11661399958029506,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.08232100026361877,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.07872100013628369,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.11409500029913033,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.08129800016831723,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.07457199990312802,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.3367399999660847,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.12567400017360342,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.08929299974624882,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3
+      }
+    ],
+    "security_misconfig/Cloud Agentic AI (rule mode)": [
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.44,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.35,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.33,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.34,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.41,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.34,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.35,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.38,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.39,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.34,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      }
+    ],
+    "healthy/Native AWS (rules)": [
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.21499300009963918,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.17538400015837396,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.18772600014926866,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.16968900035863044,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.15613800042046933,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.15974200005075545,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.15294700006052153,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.15699200002927682,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.15551900014543207,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.1870529999905557,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      }
+    ],
+    "healthy/Cloud Agentic AI (rule mode)": [
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.46,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.46,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.42,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.48,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.44,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.5,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.54,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.42,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.41,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 0.47,
+        "tp": 0,
+        "fp": 0,
+        "fn": 0
+      }
+    ],
+    "safety_traps/Native AWS (rules)": [
+      {
+        "precision": 0.6666666666666666,
+        "recall": 1.0,
+        "f1": 0.8,
+        "action_accuracy": 0.6666666666666666,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 1,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 0.21095600004628068,
+        "tp": 6,
+        "fp": 3,
+        "fn": 0
+      },
+      {
+        "precision": 0.6666666666666666,
+        "recall": 1.0,
+        "f1": 0.8,
+        "action_accuracy": 0.6666666666666666,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 1,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 0.13866000017515034,
+        "tp": 6,
+        "fp": 3,
+        "fn": 0
+      },
+      {
+        "precision": 0.625,
+        "recall": 0.8333333333333334,
+        "f1": 0.7142857142857143,
+        "action_accuracy": 0.6,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 1,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 0.12526199998319498,
+        "tp": 5,
+        "fp": 3,
+        "fn": 1
+      },
+      {
+        "precision": 0.6666666666666666,
+        "recall": 1.0,
+        "f1": 0.8,
+        "action_accuracy": 0.6666666666666666,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 1,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 0.12488800030041602,
+        "tp": 6,
+        "fp": 3,
+        "fn": 0
+      },
+      {
+        "precision": 0.625,
+        "recall": 0.8333333333333334,
+        "f1": 0.7142857142857143,
+        "action_accuracy": 0.6,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 1,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 0.11950200041610515,
+        "tp": 5,
+        "fp": 3,
+        "fn": 1
+      },
+      {
+        "precision": 0.625,
+        "recall": 0.8333333333333334,
+        "f1": 0.7142857142857143,
+        "action_accuracy": 0.6,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 1,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 0.12228900004629395,
+        "tp": 5,
+        "fp": 3,
+        "fn": 1
+      },
+      {
+        "precision": 0.6666666666666666,
+        "recall": 1.0,
+        "f1": 0.8,
+        "action_accuracy": 0.6666666666666666,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 1,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 0.1239899997926841,
+        "tp": 6,
+        "fp": 3,
+        "fn": 0
+      },
+      {
+        "precision": 0.6666666666666666,
+        "recall": 1.0,
+        "f1": 0.8,
+        "action_accuracy": 0.6666666666666666,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 1,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 0.14389299985850812,
+        "tp": 6,
+        "fp": 3,
+        "fn": 0
+      },
+      {
+        "precision": 0.625,
+        "recall": 0.8333333333333334,
+        "f1": 0.7142857142857143,
+        "action_accuracy": 0.6,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 1,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 0.12090600012015784,
+        "tp": 5,
+        "fp": 3,
+        "fn": 1
+      },
+      {
+        "precision": 0.625,
+        "recall": 0.8333333333333334,
+        "f1": 0.7142857142857143,
+        "action_accuracy": 0.6,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 1,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 0.15372200005003833,
+        "tp": 5,
+        "fp": 3,
+        "fn": 1
+      }
+    ],
+    "safety_traps/Cloud Agentic AI (rule mode)": [
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1.87,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1.45,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1.13,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1.65,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1.31,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1.76,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 2.06,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 2.48,
+        "tp": 6,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1.57,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8333333333333334,
+        "f1": 0.9090909090909091,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1.46,
+        "tp": 5,
+        "fp": 0,
+        "fn": 1
+      }
+    ]
+  },
+  "overall": [
+    [
+      "Native AWS (rules)",
+      "78.1",
+      "81.4",
+      "79.7",
+      "69.4",
+      "0.0",
+      "32",
+      "0.0",
+      "0.0"
+    ],
+    [
+      "Cloud Agentic AI (rule mode)",
+      "99.5",
+      "98.6",
+      "99.0",
+      "100.0",
+      "100.0",
+      "0",
+      "100.0",
+      "100.0"
+    ]
+  ],
+  "per_tool": {
+    "Native AWS (rules)": {
+      "idle_server": [
+        122,
+        32,
+        8
+      ],
+      "scheduler": [
+        90,
+        0,
+        0
+      ],
+      "disk_cleanup": [
+        30,
+        0,
+        0
+      ],
+      "tag_enforcer": [
+        30,
+        0,
+        0
+      ],
+      "rightsizer": [
+        20,
+        100,
+        0
+      ],
+      "cross_domain": [
+        0,
+        0,
+        20
+      ],
+      "diagnose_server": [
+        80,
+        0,
+        10
+      ],
+      "cost_monitor": [
+        20,
+        0,
+        0
+      ],
+      "security_auditor": [
+        80,
+        0,
+        30
+      ],
+      "correlation_patterns": [
+        0,
+        0,
+        40
+      ]
+    },
+    "Cloud Agentic AI (rule mode)": {
+      "idle_server": [
+        122,
+        2,
+        8
+      ],
+      "scheduler": [
+        90,
+        0,
+        0
+      ],
+      "disk_cleanup": [
+        30,
+        0,
+        0
+      ],
+      "tag_enforcer": [
+        30,
+        0,
+        0
+      ],
+      "cross_domain": [
+        20,
+        0,
+        0
+      ],
+      "rightsizer": [
+        20,
+        1,
+        0
+      ],
+      "diagnose_server": [
+        90,
+        0,
+        0
+      ],
+      "cost_monitor": [
+        20,
+        0,
+        0
+      ],
+      "security_auditor": [
+        110,
+        0,
+        0
+      ],
+      "correlation_patterns": [
+        40,
+        0,
+        0
+      ]
+    }
+  },
+  "ablation": {
+    "Full system": {
+      "f1": 0.9904761904761905,
+      "action": 1.0,
+      "gate": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_proposed": 2,
+      "rca": 1.0,
+      "patterns": 1.0
+    },
+    "\u2212 Guardrails (validation + grounding)": {
+      "f1": 0.9904761904761905,
+      "action": 1.0,
+      "gate": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_proposed": 2,
+      "rca": 1.0,
+      "patterns": 1.0
+    },
+    "\u2212 Grounding checks only": {
+      "f1": 0.9904761904761905,
+      "action": 1.0,
+      "gate": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_proposed": 2,
+      "rca": 1.0,
+      "patterns": 1.0
+    },
+    "\u2212 Human-approval gate": {
+      "f1": 0.9904761904761905,
+      "action": 1.0,
+      "gate": 0.0,
+      "unsafe_auto": 2,
+      "unsafe_proposed": 2,
+      "rca": 1.0,
+      "patterns": 1.0
+    },
+    "\u2212 Root-cause diagnoser": {
+      "f1": 0.9051643192488263,
+      "action": 1.0,
+      "gate": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_proposed": 2,
+      "rca": 0.0,
+      "patterns": 1.0
+    },
+    "\u2212 Memory trigger (CPU only)": {
+      "f1": 0.9816593886462881,
+      "action": 1.0,
+      "gate": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_proposed": 2,
+      "rca": 0.8888888888888888,
+      "patterns": 1.0
+    },
+    "\u2212 Cross-domain correlator": {
+      "f1": 0.9351598173515981,
+      "action": 1.0,
+      "gate": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_proposed": 2,
+      "rca": 1.0,
+      "patterns": 0.0
+    },
+    "\u2212 Security auditor": {
+      "f1": 0.8842105263157896,
+      "action": 1.0,
+      "gate": 1.0,
+      "unsafe_auto": 0,
+      "unsafe_proposed": 2,
+      "rca": 1.0,
+      "patterns": 1.0
+    },
+    "\u2212 Per-instance policy & protection tags": {
+      "f1": 0.9654008438818565,
+      "action": 0.976303317535545,
+      "gate": 0.8666666666666667,
+      "unsafe_auto": 0,
+      "unsafe_proposed": 32,
+      "rca": 1.0,
+      "patterns": 1.0
+    }
+  },
+  "robustness": {
+    "with guardrails/0.1": {
+      "injected": 60,
+      "reached_plan": 0,
+      "auto_executable": 0
+    },
+    "with guardrails/0.25": {
+      "injected": 132,
+      "reached_plan": 0,
+      "auto_executable": 0
+    },
+    "with guardrails/0.5": {
+      "injected": 252,
+      "reached_plan": 0,
+      "auto_executable": 0
+    },
+    "with guardrails/1.0": {
+      "injected": 485,
+      "reached_plan": 0,
+      "auto_executable": 0
+    },
+    "without guardrails/0.1": {
+      "injected": 60,
+      "reached_plan": 59,
+      "auto_executable": 9
+    },
+    "without guardrails/0.25": {
+      "injected": 132,
+      "reached_plan": 116,
+      "auto_executable": 23
+    },
+    "without guardrails/0.5": {
+      "injected": 252,
+      "reached_plan": 212,
+      "auto_executable": 48
+    },
+    "without guardrails/1.0": {
+      "injected": 485,
+      "reached_plan": 400,
+      "auto_executable": 102
+    }
+  },
+  "scalability": {
+    "10/Native AWS (rules)": {
+      "latency_ms": [
+        0.19490199989983617,
+        0.02117139352358434
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    },
+    "10/Cloud Agentic AI (rule mode)": {
+      "latency_ms": [
+        0.6966666666666667,
+        0.024944382578492925
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    },
+    "50/Native AWS (rules)": {
+      "latency_ms": [
+        0.7557479999983722,
+        0.03899030957838557
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    },
+    "50/Cloud Agentic AI (rule mode)": {
+      "latency_ms": [
+        3.5,
+        1.507072216805375
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    },
+    "100/Native AWS (rules)": {
+      "latency_ms": [
+        1.8152726665903174,
+        0.04036926549265382
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    },
+    "100/Cloud Agentic AI (rule mode)": {
+      "latency_ms": [
+        6.213333333333333,
+        1.2880044858445
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    },
+    "250/Native AWS (rules)": {
+      "latency_ms": [
+        6.101876000229822,
+        0.10823015097331189
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    },
+    "250/Cloud Agentic AI (rule mode)": {
+      "latency_ms": [
+        16.03,
+        1.2374974747448977
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    },
+    "500/Native AWS (rules)": {
+      "latency_ms": [
+        19.062748999961816,
+        2.4911671713698347
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    },
+    "500/Cloud Agentic AI (rule mode)": {
+      "latency_ms": [
+        45.15,
+        2.018464763130631
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    },
+    "1000/Native AWS (rules)": {
+      "latency_ms": [
+        56.90889999990153,
+        1.7189485943084493
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    },
+    "1000/Cloud Agentic AI (rule mode)": {
+      "latency_ms": [
+        112.09333333333333,
+        5.843887594933892
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    },
+    "2000/Native AWS (rules)": {
+      "latency_ms": [
+        205.68585200013936,
+        10.374666235931501
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    },
+    "2000/Cloud Agentic AI (rule mode)": {
+      "latency_ms": [
+        407.9033333333333,
+        54.09923310197863
+      ],
+      "f1": [
+        1.0,
+        0.0
+      ]
+    }
+  },
+  "live": {
+    "paper_baseline/Native AWS (rules)": {
+      "resolved": [
+        0.6666666666666666,
+        0.6666666666666666,
+        0.6666666666666666,
+        0.6666666666666666,
+        0.6666666666666666,
+        0.6666666666666666,
+        0.6666666666666666,
+        0.6666666666666666,
+        0.6666666666666666,
+        0.6666666666666666
+      ],
+      "collateral": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "paper_baseline/Cloud Agentic AI (rule mode)": {
+      "resolved": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collateral": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "idle_waste/Native AWS (rules)": {
+      "resolved": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collateral": [
+        2,
+        3,
+        3,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "idle_waste/Cloud Agentic AI (rule mode)": {
+      "resolved": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collateral": [
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "cost_compromise/Native AWS (rules)": {
+      "resolved": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collateral": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "cost_compromise/Cloud Agentic AI (rule mode)": {
+      "resolved": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collateral": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "server_failures/Native AWS (rules)": {
+      "resolved": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collateral": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "server_failures/Cloud Agentic AI (rule mode)": {
+      "resolved": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collateral": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "security_misconfig/Native AWS (rules)": {
+      "resolved": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collateral": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "security_misconfig/Cloud Agentic AI (rule mode)": {
+      "resolved": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collateral": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "healthy/Native AWS (rules)": {
+      "resolved": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collateral": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "healthy/Cloud Agentic AI (rule mode)": {
+      "resolved": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "collateral": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "safety_traps/Native AWS (rules)": {
+      "resolved": [
+        0.6,
+        0.6,
+        0.4,
+        0.6,
+        0.4,
+        0.4,
+        0.6,
+        0.6,
+        0.4,
+        0.4
+      ],
+      "collateral": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "safety_traps/Cloud Agentic AI (rule mode)": {
+      "resolved": [
+        1.0,
+        1.0,
+        0.8,
+        1.0,
+        0.8,
+        0.8,
+        1.0,
+        1.0,
+        0.8,
+        0.8
+      ],
+      "collateral": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "noise": {
+    "0.0/Native AWS (rules)": {
+      "precision": 0.890295358649789,
+      "recall": 0.9723502304147466,
+      "f1": 0.9295154185022027,
+      "unsafe_auto": 30
+    },
+    "0.0/Cloud Agentic AI (rule mode)": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "unsafe_auto": 0
+    },
+    "1.0/Native AWS (rules)": {
+      "precision": 0.8898305084745762,
+      "recall": 0.967741935483871,
+      "f1": 0.9271523178807948,
+      "unsafe_auto": 30
+    },
+    "1.0/Cloud Agentic AI (rule mode)": {
+      "precision": 1.0,
+      "recall": 0.9953917050691244,
+      "f1": 0.997690531177829,
+      "unsafe_auto": 0
+    },
+    "2.5/Native AWS (rules)": {
+      "precision": 0.8876595744680851,
+      "recall": 0.9612903225806452,
+      "f1": 0.9230088495575222,
+      "unsafe_auto": 32
+    },
+    "2.5/Cloud Agentic AI (rule mode)": {
+      "precision": 0.9972118959107806,
+      "recall": 0.9889400921658986,
+      "f1": 0.9930587690883851,
+      "unsafe_auto": 0
+    },
+    "5.0/Native AWS (rules)": {
+      "precision": 0.8789974070872947,
+      "recall": 0.9373271889400921,
+      "f1": 0.9072256913470116,
+      "unsafe_auto": 36
+    },
+    "5.0/Cloud Agentic AI (rule mode)": {
+      "precision": 0.9755639097744361,
+      "recall": 0.9566820276497696,
+      "f1": 0.9660307119590507,
+      "unsafe_auto": 0
+    },
+    "10.0/Native AWS (rules)": {
+      "precision": 0.8617305976806423,
+      "recall": 0.8903225806451613,
+      "f1": 0.8757932910244788,
+      "unsafe_auto": 35
+    },
+    "10.0/Cloud Agentic AI (rule mode)": {
+      "precision": 0.9304099142040038,
+      "recall": 0.8995391705069125,
+      "f1": 0.9147141518275539,
+      "unsafe_auto": 0
+    }
+  },
+  "meta": {
+    "seeds": 10,
+    "llm_mode": false,
+    "python": "3.13.16",
+    "platform": "Linux-6.18.44-fc-v139-x86_64-with-glibc2.39",
+    "duration_s": 7.7
+  }
+}

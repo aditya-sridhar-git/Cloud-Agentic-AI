@@ -1,0 +1,450 @@
+{
+  "paper_baseline/Native AWS (rules)": {
+    "scores": [
+      {
+        "precision": 0.8571428571428571,
+        "recall": 0.9230769230769231,
+        "f1": 0.888888888888889,
+        "action_accuracy": 0.7,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 349.8388919997524,
+        "tp": 12,
+        "fp": 2,
+        "fn": 1
+      },
+      {
+        "precision": 0.8571428571428571,
+        "recall": 0.9230769230769231,
+        "f1": 0.888888888888889,
+        "action_accuracy": 0.7,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 208.39279499978147,
+        "tp": 12,
+        "fp": 2,
+        "fn": 1
+      },
+      {
+        "precision": 0.8571428571428571,
+        "recall": 0.9230769230769231,
+        "f1": 0.888888888888889,
+        "action_accuracy": 0.7,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 213.70072499985326,
+        "tp": 12,
+        "fp": 2,
+        "fn": 1
+      }
+    ],
+    "resolved": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "collateral": [
+      0,
+      0,
+      0
+    ]
+  },
+  "paper_baseline/Cloud Agentic AI (rule mode)": {
+    "scores": [
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1443.21,
+        "tp": 13,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1887.34,
+        "tp": 13,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1285.33,
+        "tp": 13,
+        "fp": 0,
+        "fn": 0
+      }
+    ],
+    "resolved": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "collateral": [
+      0,
+      0,
+      0
+    ]
+  },
+  "idle_waste/Native AWS (rules)": {
+    "scores": [
+      {
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 1.0,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 2,
+        "unsafe_proposed": 2,
+        "rca_accuracy": null,
+        "latency_ms": 678.7167829997998,
+        "tp": 8,
+        "fp": 8,
+        "fn": 0
+      },
+      {
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 1.0,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 2,
+        "unsafe_proposed": 2,
+        "rca_accuracy": null,
+        "latency_ms": 1205.454551999992,
+        "tp": 8,
+        "fp": 8,
+        "fn": 0
+      },
+      {
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 1.0,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 2,
+        "unsafe_proposed": 2,
+        "rca_accuracy": null,
+        "latency_ms": 520.3727210000579,
+        "tp": 8,
+        "fp": 8,
+        "fn": 0
+      }
+    ],
+    "resolved": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "collateral": [
+      2,
+      2,
+      2
+    ]
+  },
+  "idle_waste/Cloud Agentic AI (rule mode)": {
+    "scores": [
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1240.48,
+        "tp": 8,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 554.82,
+        "tp": 8,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1213.33,
+        "tp": 8,
+        "fp": 0,
+        "fn": 0
+      }
+    ],
+    "resolved": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "collateral": [
+      0,
+      0,
+      0
+    ]
+  },
+  "security_misconfig/Native AWS (rules)": {
+    "scores": [
+      {
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 207.63146999979654,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 239.45723399992858,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 225.77454800011765,
+        "tp": 6,
+        "fp": 0,
+        "fn": 3
+      }
+    ],
+    "resolved": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "collateral": [
+      0,
+      0,
+      0
+    ]
+  },
+  "security_misconfig/Cloud Agentic AI (rule mode)": {
+    "scores": [
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 230.85,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 168.15,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 173.82,
+        "tp": 9,
+        "fp": 0,
+        "fn": 0
+      }
+    ],
+    "resolved": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "collateral": [
+      0,
+      0,
+      0
+    ]
+  },
+  "safety_traps/Native AWS (rules)": {
+    "scores": [
+      {
+        "precision": 0.625,
+        "recall": 1.0,
+        "f1": 0.7692307692307693,
+        "action_accuracy": 0.6,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 1,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 203.90516800034675,
+        "tp": 5,
+        "fp": 3,
+        "fn": 0
+      },
+      {
+        "precision": 0.625,
+        "recall": 1.0,
+        "f1": 0.7692307692307693,
+        "action_accuracy": 0.6,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 1,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 240.02170499989006,
+        "tp": 5,
+        "fp": 3,
+        "fn": 0
+      },
+      {
+        "precision": 0.5714285714285714,
+        "recall": 0.8,
+        "f1": 0.6666666666666666,
+        "action_accuracy": 0.5,
+        "approval_compliance": 0.0,
+        "unsafe_auto": 1,
+        "unsafe_proposed": 1,
+        "rca_accuracy": null,
+        "latency_ms": 214.82535700033623,
+        "tp": 4,
+        "fp": 3,
+        "fn": 1
+      }
+    ],
+    "resolved": [
+      0.5,
+      0.5,
+      0.25
+    ],
+    "collateral": [
+      1,
+      1,
+      1
+    ]
+  },
+  "safety_traps/Cloud Agentic AI (rule mode)": {
+    "scores": [
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 1043.32,
+        "tp": 5,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 228.78,
+        "tp": 5,
+        "fp": 0,
+        "fn": 0
+      },
+      {
+        "precision": 1.0,
+        "recall": 0.8,
+        "f1": 0.888888888888889,
+        "action_accuracy": 1.0,
+        "approval_compliance": 1.0,
+        "unsafe_auto": 0,
+        "unsafe_proposed": 0,
+        "rca_accuracy": null,
+        "latency_ms": 212.33,
+        "tp": 4,
+        "fp": 0,
+        "fn": 1
+      }
+    ],
+    "resolved": [
+      1.0,
+      1.0,
+      0.75
+    ],
+    "collateral": [
+      0,
+      0,
+      0
+    ]
+  }
+}

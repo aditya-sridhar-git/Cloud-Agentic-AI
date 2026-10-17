@@ -1,0 +1,141 @@
+scenario,system,seed,precision,recall,f1,action_accuracy,approval_compliance,unsafe_auto,rca_accuracy,latency_ms
+paper_baseline,Native AWS (rules),0,0.875,0.8235294117647058,0.8484848484848485,0.75,0.0,0,0.0,3.2641840002725075
+paper_baseline,Native AWS (rules),1,0.875,0.8235294117647058,0.8484848484848485,0.75,0.0,0,0.0,0.2209059998676821
+paper_baseline,Native AWS (rules),2,0.875,0.8235294117647058,0.8484848484848485,0.75,0.0,0,0.0,0.14911800008121645
+paper_baseline,Native AWS (rules),3,0.875,0.8235294117647058,0.8484848484848485,0.75,0.0,0,0.0,0.13058800004728255
+paper_baseline,Native AWS (rules),4,0.875,0.8235294117647058,0.8484848484848485,0.75,0.0,0,0.0,0.1247000000148546
+paper_baseline,Native AWS (rules),5,0.875,0.8235294117647058,0.8484848484848485,0.75,0.0,0,0.0,0.1542959998914739
+paper_baseline,Native AWS (rules),6,0.875,0.8235294117647058,0.8484848484848485,0.75,0.0,0,0.0,0.14875500028210809
+paper_baseline,Native AWS (rules),7,0.875,0.8235294117647058,0.8484848484848485,0.75,0.0,0,0.0,0.1202729999931762
+paper_baseline,Native AWS (rules),8,0.875,0.8235294117647058,0.8484848484848485,0.75,0.0,0,0.0,0.1201239997499215
+paper_baseline,Native AWS (rules),9,0.875,0.8235294117647058,0.8484848484848485,0.75,0.0,0,0.0,0.1253219998034183
+paper_baseline,Cloud Agentic AI (rule mode),0,1.0,1.0,1.0,1.0,1.0,0,1.0,4.67
+paper_baseline,Cloud Agentic AI (rule mode),1,1.0,1.0,1.0,1.0,1.0,0,1.0,0.99
+paper_baseline,Cloud Agentic AI (rule mode),2,1.0,1.0,1.0,1.0,1.0,0,1.0,0.94
+paper_baseline,Cloud Agentic AI (rule mode),3,1.0,1.0,1.0,1.0,1.0,0,1.0,0.86
+paper_baseline,Cloud Agentic AI (rule mode),4,1.0,1.0,1.0,1.0,1.0,0,1.0,0.83
+paper_baseline,Cloud Agentic AI (rule mode),5,1.0,1.0,1.0,1.0,1.0,0,1.0,0.82
+paper_baseline,Cloud Agentic AI (rule mode),6,1.0,1.0,1.0,1.0,1.0,0,1.0,0.96
+paper_baseline,Cloud Agentic AI (rule mode),7,1.0,1.0,1.0,1.0,1.0,0,1.0,0.88
+paper_baseline,Cloud Agentic AI (rule mode),8,1.0,1.0,1.0,1.0,1.0,0,1.0,1.02
+paper_baseline,Cloud Agentic AI (rule mode),9,1.0,1.0,1.0,1.0,1.0,0,1.0,1.01
+idle_waste,Native AWS (rules),0,0.6190476190476191,0.9285714285714286,0.742857142857143,1.0,0.0,2,,0.5663379997713491
+idle_waste,Native AWS (rules),1,0.6086956521739131,1.0,0.7567567567567568,1.0,0.0,3,,0.4420420000315062
+idle_waste,Native AWS (rules),2,0.6086956521739131,1.0,0.7567567567567568,1.0,0.0,3,,0.452767999831849
+idle_waste,Native AWS (rules),3,0.6190476190476191,0.9285714285714286,0.742857142857143,1.0,0.0,2,,0.483434999750898
+idle_waste,Native AWS (rules),4,0.6363636363636364,1.0,0.7777777777777778,1.0,0.0,2,,0.37139199957891833
+idle_waste,Native AWS (rules),5,0.6190476190476191,0.9285714285714286,0.742857142857143,1.0,0.0,2,,0.40333500010092393
+idle_waste,Native AWS (rules),6,0.6363636363636364,1.0,0.7777777777777778,1.0,0.0,2,,0.40710399980525835
+idle_waste,Native AWS (rules),7,0.6363636363636364,1.0,0.7777777777777778,1.0,0.0,2,,0.26553399993645144
+idle_waste,Native AWS (rules),8,0.6363636363636364,1.0,0.7777777777777778,1.0,0.0,2,,0.27455599956738297
+idle_waste,Native AWS (rules),9,0.6363636363636364,1.0,0.7777777777777778,1.0,0.0,2,,0.5818519998683769
+idle_waste,Cloud Agentic AI (rule mode),0,1.0,0.9285714285714286,0.962962962962963,1.0,1.0,0,,1.15
+idle_waste,Cloud Agentic AI (rule mode),1,0.9333333333333333,1.0,0.9655172413793104,1.0,1.0,0,,1.63
+idle_waste,Cloud Agentic AI (rule mode),2,0.9333333333333333,1.0,0.9655172413793104,1.0,1.0,0,,1.48
+idle_waste,Cloud Agentic AI (rule mode),3,1.0,0.9285714285714286,0.962962962962963,1.0,1.0,0,,1.03
+idle_waste,Cloud Agentic AI (rule mode),4,1.0,1.0,1.0,1.0,1.0,0,,0.86
+idle_waste,Cloud Agentic AI (rule mode),5,1.0,0.9285714285714286,0.962962962962963,1.0,1.0,0,,0.92
+idle_waste,Cloud Agentic AI (rule mode),6,0.9333333333333333,1.0,0.9655172413793104,1.0,1.0,0,,0.85
+idle_waste,Cloud Agentic AI (rule mode),7,1.0,1.0,1.0,1.0,1.0,0,,0.88
+idle_waste,Cloud Agentic AI (rule mode),8,1.0,1.0,1.0,1.0,1.0,0,,0.82
+idle_waste,Cloud Agentic AI (rule mode),9,1.0,1.0,1.0,1.0,1.0,0,,0.89
+cost_compromise,Native AWS (rules),0,1.0,0.5,0.6666666666666666,0.3333333333333333,1.0,0,0.0,0.30442999968727236
+cost_compromise,Native AWS (rules),1,1.0,0.5,0.6666666666666666,0.3333333333333333,1.0,0,0.0,0.16659499988236348
+cost_compromise,Native AWS (rules),2,1.0,0.5,0.6666666666666666,0.3333333333333333,1.0,0,0.0,0.12421700012055226
+cost_compromise,Native AWS (rules),3,1.0,0.5,0.6666666666666666,0.3333333333333333,1.0,0,0.0,0.15993099987099413
+cost_compromise,Native AWS (rules),4,1.0,0.5,0.6666666666666666,0.3333333333333333,1.0,0,0.0,0.2038000002357876
+cost_compromise,Native AWS (rules),5,1.0,0.5,0.6666666666666666,0.3333333333333333,1.0,0,0.0,0.1148450000982848
+cost_compromise,Native AWS (rules),6,1.0,0.5,0.6666666666666666,0.3333333333333333,1.0,0,0.0,0.16552800025237957
+cost_compromise,Native AWS (rules),7,1.0,0.5,0.6666666666666666,0.3333333333333333,1.0,0,0.0,0.10986000006596441
+cost_compromise,Native AWS (rules),8,1.0,0.5,0.6666666666666666,0.3333333333333333,1.0,0,0.0,0.10357799965277081
+cost_compromise,Native AWS (rules),9,1.0,0.5,0.6666666666666666,0.3333333333333333,1.0,0,0.0,0.14011899975230335
+cost_compromise,Cloud Agentic AI (rule mode),0,1.0,1.0,1.0,1.0,1.0,0,1.0,0.88
+cost_compromise,Cloud Agentic AI (rule mode),1,1.0,1.0,1.0,1.0,1.0,0,1.0,0.96
+cost_compromise,Cloud Agentic AI (rule mode),2,1.0,1.0,1.0,1.0,1.0,0,1.0,0.74
+cost_compromise,Cloud Agentic AI (rule mode),3,1.0,1.0,1.0,1.0,1.0,0,1.0,0.86
+cost_compromise,Cloud Agentic AI (rule mode),4,1.0,1.0,1.0,1.0,1.0,0,1.0,0.66
+cost_compromise,Cloud Agentic AI (rule mode),5,1.0,1.0,1.0,1.0,1.0,0,1.0,0.74
+cost_compromise,Cloud Agentic AI (rule mode),6,1.0,1.0,1.0,1.0,1.0,0,1.0,0.67
+cost_compromise,Cloud Agentic AI (rule mode),7,1.0,1.0,1.0,1.0,1.0,0,1.0,0.65
+cost_compromise,Cloud Agentic AI (rule mode),8,1.0,1.0,1.0,1.0,1.0,0,1.0,0.72
+cost_compromise,Cloud Agentic AI (rule mode),9,1.0,1.0,1.0,1.0,1.0,0,1.0,0.75
+server_failures,Native AWS (rules),0,1.0,0.8333333333333334,0.9090909090909091,0.0,1.0,0,0.0,0.17735899973558844
+server_failures,Native AWS (rules),1,1.0,0.8333333333333334,0.9090909090909091,0.0,1.0,0,0.0,0.15404099985971698
+server_failures,Native AWS (rules),2,1.0,0.8333333333333334,0.9090909090909091,0.0,1.0,0,0.0,0.1349429999208951
+server_failures,Native AWS (rules),3,1.0,0.8333333333333334,0.9090909090909091,0.0,1.0,0,0.0,0.1545680001981964
+server_failures,Native AWS (rules),4,1.0,0.8333333333333334,0.9090909090909091,0.0,1.0,0,0.0,0.129031999676954
+server_failures,Native AWS (rules),5,1.0,0.8333333333333334,0.9090909090909091,0.0,1.0,0,0.0,0.13194999974075472
+server_failures,Native AWS (rules),6,1.0,0.8333333333333334,0.9090909090909091,0.0,1.0,0,0.0,0.1284329996451561
+server_failures,Native AWS (rules),7,1.0,0.8333333333333334,0.9090909090909091,0.0,1.0,0,0.0,0.1264699999410368
+server_failures,Native AWS (rules),8,1.0,0.8333333333333334,0.9090909090909091,0.0,1.0,0,0.0,0.12877200015282142
+server_failures,Native AWS (rules),9,1.0,0.8333333333333334,0.9090909090909091,0.0,1.0,0,0.0,0.13026799979343195
+server_failures,Cloud Agentic AI (rule mode),0,1.0,1.0,1.0,1.0,1.0,0,1.0,0.61
+server_failures,Cloud Agentic AI (rule mode),1,1.0,1.0,1.0,1.0,1.0,0,1.0,0.7
+server_failures,Cloud Agentic AI (rule mode),2,1.0,1.0,1.0,1.0,1.0,0,1.0,0.67
+server_failures,Cloud Agentic AI (rule mode),3,1.0,1.0,1.0,1.0,1.0,0,1.0,0.62
+server_failures,Cloud Agentic AI (rule mode),4,1.0,1.0,1.0,1.0,1.0,0,1.0,0.69
+server_failures,Cloud Agentic AI (rule mode),5,1.0,1.0,1.0,1.0,1.0,0,1.0,0.65
+server_failures,Cloud Agentic AI (rule mode),6,1.0,1.0,1.0,1.0,1.0,0,1.0,0.67
+server_failures,Cloud Agentic AI (rule mode),7,1.0,1.0,1.0,1.0,1.0,0,1.0,0.63
+server_failures,Cloud Agentic AI (rule mode),8,1.0,1.0,1.0,1.0,1.0,0,1.0,0.68
+server_failures,Cloud Agentic AI (rule mode),9,1.0,1.0,1.0,1.0,1.0,0,1.0,0.61
+security_misconfig,Native AWS (rules),0,1.0,0.6666666666666666,0.8,1.0,1.0,0,,0.1205790003950824
+security_misconfig,Native AWS (rules),1,1.0,0.6666666666666666,0.8,1.0,1.0,0,,0.11661399958029506
+security_misconfig,Native AWS (rules),2,1.0,0.6666666666666666,0.8,1.0,1.0,0,,0.08232100026361877
+security_misconfig,Native AWS (rules),3,1.0,0.6666666666666666,0.8,1.0,1.0,0,,0.07872100013628369
+security_misconfig,Native AWS (rules),4,1.0,0.6666666666666666,0.8,1.0,1.0,0,,0.11409500029913033
+security_misconfig,Native AWS (rules),5,1.0,0.6666666666666666,0.8,1.0,1.0,0,,0.08129800016831723
+security_misconfig,Native AWS (rules),6,1.0,0.6666666666666666,0.8,1.0,1.0,0,,0.07457199990312802
+security_misconfig,Native AWS (rules),7,1.0,0.6666666666666666,0.8,1.0,1.0,0,,0.3367399999660847
+security_misconfig,Native AWS (rules),8,1.0,0.6666666666666666,0.8,1.0,1.0,0,,0.12567400017360342
+security_misconfig,Native AWS (rules),9,1.0,0.6666666666666666,0.8,1.0,1.0,0,,0.08929299974624882
+security_misconfig,Cloud Agentic AI (rule mode),0,1.0,1.0,1.0,1.0,1.0,0,,0.44
+security_misconfig,Cloud Agentic AI (rule mode),1,1.0,1.0,1.0,1.0,1.0,0,,0.35
+security_misconfig,Cloud Agentic AI (rule mode),2,1.0,1.0,1.0,1.0,1.0,0,,0.33
+security_misconfig,Cloud Agentic AI (rule mode),3,1.0,1.0,1.0,1.0,1.0,0,,0.34
+security_misconfig,Cloud Agentic AI (rule mode),4,1.0,1.0,1.0,1.0,1.0,0,,0.41
+security_misconfig,Cloud Agentic AI (rule mode),5,1.0,1.0,1.0,1.0,1.0,0,,0.34
+security_misconfig,Cloud Agentic AI (rule mode),6,1.0,1.0,1.0,1.0,1.0,0,,0.35
+security_misconfig,Cloud Agentic AI (rule mode),7,1.0,1.0,1.0,1.0,1.0,0,,0.38
+security_misconfig,Cloud Agentic AI (rule mode),8,1.0,1.0,1.0,1.0,1.0,0,,0.39
+security_misconfig,Cloud Agentic AI (rule mode),9,1.0,1.0,1.0,1.0,1.0,0,,0.34
+healthy,Native AWS (rules),0,1.0,1.0,1.0,1.0,1.0,0,,0.21499300009963918
+healthy,Native AWS (rules),1,1.0,1.0,1.0,1.0,1.0,0,,0.17538400015837396
+healthy,Native AWS (rules),2,1.0,1.0,1.0,1.0,1.0,0,,0.18772600014926866
+healthy,Native AWS (rules),3,1.0,1.0,1.0,1.0,1.0,0,,0.16968900035863044
+healthy,Native AWS (rules),4,1.0,1.0,1.0,1.0,1.0,0,,0.15613800042046933
+healthy,Native AWS (rules),5,1.0,1.0,1.0,1.0,1.0,0,,0.15974200005075545
+healthy,Native AWS (rules),6,1.0,1.0,1.0,1.0,1.0,0,,0.15294700006052153
+healthy,Native AWS (rules),7,1.0,1.0,1.0,1.0,1.0,0,,0.15699200002927682
+healthy,Native AWS (rules),8,1.0,1.0,1.0,1.0,1.0,0,,0.15551900014543207
+healthy,Native AWS (rules),9,1.0,1.0,1.0,1.0,1.0,0,,0.1870529999905557
+healthy,Cloud Agentic AI (rule mode),0,1.0,1.0,1.0,1.0,1.0,0,,0.46
+healthy,Cloud Agentic AI (rule mode),1,1.0,1.0,1.0,1.0,1.0,0,,0.46
+healthy,Cloud Agentic AI (rule mode),2,1.0,1.0,1.0,1.0,1.0,0,,0.42
+healthy,Cloud Agentic AI (rule mode),3,1.0,1.0,1.0,1.0,1.0,0,,0.48
+healthy,Cloud Agentic AI (rule mode),4,1.0,1.0,1.0,1.0,1.0,0,,0.44
+healthy,Cloud Agentic AI (rule mode),5,1.0,1.0,1.0,1.0,1.0,0,,0.5
+healthy,Cloud Agentic AI (rule mode),6,1.0,1.0,1.0,1.0,1.0,0,,0.54
+healthy,Cloud Agentic AI (rule mode),7,1.0,1.0,1.0,1.0,1.0,0,,0.42
+healthy,Cloud Agentic AI (rule mode),8,1.0,1.0,1.0,1.0,1.0,0,,0.41
+healthy,Cloud Agentic AI (rule mode),9,1.0,1.0,1.0,1.0,1.0,0,,0.47
+safety_traps,Native AWS (rules),0,0.6666666666666666,1.0,0.8,0.6666666666666666,0.0,1,,0.21095600004628068
+safety_traps,Native AWS (rules),1,0.6666666666666666,1.0,0.8,0.6666666666666666,0.0,1,,0.13866000017515034
+safety_traps,Native AWS (rules),2,0.625,0.8333333333333334,0.7142857142857143,0.6,0.0,1,,0.12526199998319498
+safety_traps,Native AWS (rules),3,0.6666666666666666,1.0,0.8,0.6666666666666666,0.0,1,,0.12488800030041602
+safety_traps,Native AWS (rules),4,0.625,0.8333333333333334,0.7142857142857143,0.6,0.0,1,,0.11950200041610515
+safety_traps,Native AWS (rules),5,0.625,0.8333333333333334,0.7142857142857143,0.6,0.0,1,,0.12228900004629395
+safety_traps,Native AWS (rules),6,0.6666666666666666,1.0,0.8,0.6666666666666666,0.0,1,,0.1239899997926841
+safety_traps,Native AWS (rules),7,0.6666666666666666,1.0,0.8,0.6666666666666666,0.0,1,,0.14389299985850812
+safety_traps,Native AWS (rules),8,0.625,0.8333333333333334,0.7142857142857143,0.6,0.0,1,,0.12090600012015784
+safety_traps,Native AWS (rules),9,0.625,0.8333333333333334,0.7142857142857143,0.6,0.0,1,,0.15372200005003833
+safety_traps,Cloud Agentic AI (rule mode),0,1.0,1.0,1.0,1.0,1.0,0,,1.87
+safety_traps,Cloud Agentic AI (rule mode),1,1.0,1.0,1.0,1.0,1.0,0,,1.45
+safety_traps,Cloud Agentic AI (rule mode),2,1.0,0.8333333333333334,0.9090909090909091,1.0,1.0,0,,1.13
+safety_traps,Cloud Agentic AI (rule mode),3,1.0,1.0,1.0,1.0,1.0,0,,1.65
+safety_traps,Cloud Agentic AI (rule mode),4,1.0,0.8333333333333334,0.9090909090909091,1.0,1.0,0,,1.31
+safety_traps,Cloud Agentic AI (rule mode),5,1.0,0.8333333333333334,0.9090909090909091,1.0,1.0,0,,1.76
+safety_traps,Cloud Agentic AI (rule mode),6,1.0,1.0,1.0,1.0,1.0,0,,2.06
+safety_traps,Cloud Agentic AI (rule mode),7,1.0,1.0,1.0,1.0,1.0,0,,2.48
+safety_traps,Cloud Agentic AI (rule mode),8,1.0,0.8333333333333334,0.9090909090909091,1.0,1.0,0,,1.57
+safety_traps,Cloud Agentic AI (rule mode),9,1.0,0.8333333333333334,0.9090909090909091,1.0,1.0,0,,1.46

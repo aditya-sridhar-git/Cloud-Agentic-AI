@@ -18,7 +18,23 @@ This system continuously monitors your cloud infrastructure, detects inefficienc
 | Cost anomaly detection | Daily spend > 120% baseline | Alert + freeze non-critical |
 | **🔍 Root cause diagnosis** | High CPU / anomaly | SSM into server → LLM explains why |
 | **🛡️ Security audit** | Periodic scan | Open SGs, public S3, unencrypted EBS |
-| **🔗 Cross-domain correlation** | Cost spike / anomaly | CloudTrail + costs + security → LLM finds connections |
+| **🔗 Cross-domain correlation** | Cost spike / anomaly | CloudTrail + costs + Security Hub/GuardDuty → LLM finds connections |
+
+Supplementary tools: certificate expiry monitor, EBS backup manager and RDS query optimizer.
+
+## Safety Model
+
+* **Dry-run by default.** Nothing changes unless you pass `--live`. In dry-run, read-only tools
+  (diagnosis, security scan, correlation) still run so you can see their findings.
+* **Guardrails.** Every proposed action — from the LLM or the rules — is checked for a valid
+  tool/action, an existing resource in a sensible state, protection tags (`PreserveInstance=true`)
+  and supporting telemetry before it can be planned.
+* **Human approval.** Termination, resizing, volume deletion, cost freezes and stopping
+  production instances wait in an approval queue. Approve them in the dashboard or with the
+  Slack buttons (set `SLACK_SIGNING_SECRET` and point the Slack app's interactivity URL at
+  `/api/slack/actions`). Approved interventions become few-shot examples for the LLM.
+* **Auto-remediation is opt-in** (`tools.diagnose_server.auto_remediate`).
+* **Dashboard** binds to `127.0.0.1`; set `DASHBOARD_TOKEN` before exposing it with `--host`.
 
 ## Architecture
 
@@ -50,8 +66,11 @@ pip install -r requirements.txt
 # 2. Demo mode (no AWS credentials needed!)
 python -m cloud_agent.main --mock --once
 
-# 3. Launch the web dashboard
+# 3. Launch the web dashboard (add --live to let approvals execute against the mock)
 python -m cloud_agent.main --mock --dashboard
+
+# 3b. Load an evaluation scenario into the demo
+python -m cloud_agent.main --mock --scenario paper_baseline --once
 
 # 4. Real AWS (dry-run)
 cp .env.example .env        # Add your API keys
@@ -71,7 +90,10 @@ Cloud-Agentic-AI/
 │   ├── agent/                     # Core agent (reasoning + planning)
 │   │   ├── baseagent.py           # Observe → Think → Act loop
 │   │   ├── reasoningagent.py      # LLM reasoning + rule-based fallback
-│   │   └── planningagent.py       # Action planner with human approval
+│   │   ├── guardrails.py          # Action validation (schema, inventory, protection, grounding)
+│   │   ├── planningagent.py       # Planner: flags high-impact actions for approval
+│   │   ├── approval.py            # Approval queue + operator feedback memory
+│   │   └── consensus.py           # Optional multi-agent LLM debate
 │   ├── cloud/                     # Cloud provider abstraction
 │   │   ├── provider.py            # Abstract interface
 │   │   ├── aws_provider.py        # AWS (boto3) implementation
@@ -97,6 +119,9 @@ Cloud-Agentic-AI/
 │       ├── config.py              # YAML + .env config loader
 │       ├── action_log.py          # 📋 JSON audit trail (NEW)
 │       └── notifier.py            # 🔔 Slack + SNS notifications (NEW)
+│   └── evaluation/                # Scenarios, baselines, metrics, experiment runner, moto test bed
+├── scripts/live_aws_testbed.py    # Real-AWS sandbox test bed (provision / evaluate / teardown)
+├── results/                       # Generated evaluation tables
 ├── tests/                         # Unit + integration tests
 └── logs/                          # Action audit trail (auto-created)
 ```
@@ -114,22 +139,33 @@ Edit `config/settings.yaml` to tune thresholds, schedules, and tool policies. Se
 | `--dashboard` | Launch the web dashboard on port 8080 |
 | `--live` | Execute actions for real (default is dry-run) |
 | `--port N` | Set dashboard port (default: 8080) |
+| `--host ADDR` | Dashboard bind address (default: 127.0.0.1; requires `DASHBOARD_TOKEN` otherwise) |
+| `--scenario NAME` | With `--mock`, load an evaluation scenario (`python -m cloud_agent.evaluation --list`) |
 
 ## Requirements
 
 - Python 3.10+
 - AWS credentials (if using AWS provider — not needed for `--mock`)
-- OpenAI API key (optional — falls back to rule-based analysis)
+- OpenAI API key (optional — falls back to rule-based analysis; model set in `llm.model`)
 
 ## Testing
 
 ```bash
-# Run all tests
+pip install -r requirements-dev.txt
 python -m pytest tests/ -v
-
-# Run with mock provider (no AWS needed)
-python -m cloud_agent.main --mock --once
 ```
+
+## Evaluation
+
+Scenario-based evaluation with ground truth, a native-AWS baseline, an ablation study,
+robustness to reasoning errors, scalability, a telemetry-noise sweep and an emulated-AWS test bed:
+
+```bash
+python -m cloud_agent.evaluation                         # writes results/results.md
+python -m cloud_agent.evaluation --testbed moto --seeds 3   # writes results/results_moto.md
+```
+
+See [EVALUATION.md](EVALUATION.md) for the methodology and [results/](results/) for the latest numbers.
 
 ## License
 

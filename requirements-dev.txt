@@ -1,0 +1,4 @@
+-r requirements.txt
+# Emulated-AWS test bed (python -m cloud_agent.evaluation --testbed moto) and its tests
+moto[ec2,s3,cloudwatch,cloudtrail,ce,ssm,sts,securityhub,guardduty]>=5.0
+requests>=2.31

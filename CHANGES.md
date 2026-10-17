@@ -230,6 +230,32 @@ FastAPI server that powers the entire dashboard:
 
 ---
 
+### Phase 7 — Safety Hardening, Paper Alignment & Evaluation
+
+#### Safety fixes
+- Dry-run is enforced centrally in `CloudOpsAgent.act`: mutating actions never run in dry-run; read-only tools (diagnosis, scans, correlation) still do. Dashboard approvals and provisioning respect it.
+- New `agent/guardrails.py`: every proposed action is checked for a valid tool/action, an existing resource in a valid state, protection tags and supporting telemetry (blocks hallucinated LLM actions).
+- New `agent/approval.py`: high-impact actions (terminate, resize, volume deletion, freeze, stopping prod) wait in a persistent approval queue; approvals via dashboard or signed Slack buttons; verdicts are stored as operator feedback.
+- Diagnose tool honours `auto_remediate` (off by default) and never remediates in dry-run or from the dashboard's planning view.
+- Consensus engine escalates to a human instead of auto-approving when the LLM is unavailable or fails.
+- Chat interface is read-only.
+- Dashboard binds to 127.0.0.1, requires `DASHBOARD_TOKEN` for state-changing calls when set (mandatory for public binding), no wildcard CORS; the audit log is archived rather than deleted.
+- sysbench benchmarking is opt-in (it installed packages and loaded every running instance each cycle).
+
+#### Bug fixes
+- Right-sizing was never proposed by the rule engine; high-CPU instances got duplicate diagnose actions; `cert_monitor`/`backup_manager` were never loaded by the agent; chat intent detection mis-routed most queries; idle check read a non-existent config key.
+- AWS provider: missing CloudWatch data was reported as 0 % CPU (instances looked idle); 7-day CPU call rejected the `region` argument; CloudTrail `source_ip` contained the raw event JSON; actions on instances outside the home region used the wrong client; no pagination.
+- Logger no longer writes a stray character to stdout on import and honours `AGENT_LOG_LEVEL`.
+
+#### Paper alignment
+- 30-day cost baseline and `priority=low` freeze, Oracle port 1521, Security Hub / GuardDuty in the correlator, memory-triggered diagnosis, UTC per-environment scheduling, per-instance `IdlePolicy`, GPT-4o with few-shot examples, `BaseAgent.run(continuous)`.
+
+#### Evaluation
+- `cloud_agent/evaluation/`: 8 scenarios with ground truth, native-AWS baseline, ablation, robustness, scalability, live-effect and noise experiments; moto emulated-AWS test bed; `scripts/live_aws_testbed.py` for a real sandbox account. See `EVALUATION.md` and `results/`.
+- 125 tests (was 63, 8 failing); GitHub Actions CI.
+
+---
+
 ## 📁 Final File Structure
 
 ```
