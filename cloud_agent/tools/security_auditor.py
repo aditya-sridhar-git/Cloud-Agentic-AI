@@ -17,8 +17,10 @@ from cloud_agent.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Ports that should NEVER be open to the world
-_DANGEROUS_PORTS = {22, 3389, 5432, 3306, 1433, 6379, 27017, 9200}
+# Default ports that should never be open to the world (SSH, RDP, PostgreSQL,
+# Oracle, MySQL, SQL Server, Redis, MongoDB, Elasticsearch). Overridable via
+# tools.security_auditor.dangerous_ports.
+_DANGEROUS_PORTS = {22, 3389, 5432, 1521, 3306, 1433, 6379, 27017, 9200}
 
 
 @register_tool("security_auditor")
@@ -34,17 +36,21 @@ class SecurityAuditorTool(BaseTool):
         )
 
         findings: list[dict[str, Any]] = []
+        cfg = self.config.get("tools", {}).get("security_auditor", {})
 
-        if check_type in ("full_scan", "check_security_groups"):
+        if check_type in ("full_scan", "check_security_groups") and cfg.get("check_security_groups", True):
             findings.extend(self._check_security_groups())
 
-        if check_type in ("full_scan", "check_s3_public"):
+        if check_type in ("full_scan", "check_s3_public") and cfg.get("check_s3_public", True):
             findings.extend(self._check_s3_public())
 
-        if check_type in ("full_scan", "check_ebs_encryption"):
+        if check_type in ("full_scan", "check_ebs_encryption") and cfg.get("check_ebs_encryption", True):
             findings.extend(self._check_ebs_encryption())
 
-        severity = "critical" if any(f["severity"] == "critical" for f in findings) else "warning"
+        if not findings:
+            severity = "info"
+        else:
+            severity = "critical" if any(f["severity"] == "critical" for f in findings) else "warning"
 
         logger.info(
             "[bold]🛡️  AUDIT COMPLETE[/bold] — %d finding(s) [%s]",
@@ -71,6 +77,9 @@ class SecurityAuditorTool(BaseTool):
             logger.warning("Could not fetch security groups: %s", exc)
             return []
 
+        ports = set(
+            self.config.get("tools", {}).get("security_auditor", {}).get("dangerous_ports") or _DANGEROUS_PORTS
+        )
         for sg in sgs:
             for rule in sg.get("ingress_rules", []):
                 cidrs = rule.get("cidr_blocks", [])
@@ -79,7 +88,7 @@ class SecurityAuditorTool(BaseTool):
                 from_port = rule.get("from_port", 0)
                 to_port = rule.get("to_port", 65535)
                 # Check if any dangerous port falls in the range
-                for port in _DANGEROUS_PORTS:
+                for port in sorted(ports):
                     if from_port <= port <= to_port:
                         findings.append({
                             "type": "OPEN_SECURITY_GROUP",
@@ -108,7 +117,7 @@ class SecurityAuditorTool(BaseTool):
                     "type": "PUBLIC_S3_BUCKET",
                     "severity": "critical",
                     "resource": b["bucket_name"],
-                    "detail": f"Bucket '{b['bucket_name']}' has public access enabled",
+                    "detail": f"Bucket '{b['bucket_name']}' allows public / anonymous access",
                     "recommendation": "Enable S3 Block Public Access on this bucket",
                 })
         return findings
@@ -127,7 +136,7 @@ class SecurityAuditorTool(BaseTool):
                 "type": "UNENCRYPTED_EBS",
                 "severity": "warning",
                 "resource": v["volume_id"],
-                "detail": f"Volume {v['volume_id']} ({v['size_gb']}GB) is not encrypted",
-                "recommendation": "Create an encrypted copy and replace",
+                "detail": f"Volume {v['volume_id']} ({v['size_gb']}GB) is not encrypted at rest (EBS AES-256)",
+                "recommendation": "Create an AES-256 encrypted copy (KMS) and replace",
             })
         return findings

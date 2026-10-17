@@ -51,6 +51,53 @@ class Notifier:
         if self._sns_topic:
             self._send_sns(title, message, severity, data)
 
+    def request_approval(self, actions: list[Any], dashboard_url: str | None = None) -> None:
+        """Ask operators to approve high-impact actions.
+
+        On Slack this posts an interactive message with Approve / Reject
+        buttons. When the Slack app's interactivity URL points at the
+        dashboard's ``/api/slack/actions`` endpoint, clicking a button
+        resolves the approval directly from Slack. SNS receives a plain-text
+        summary instead.
+        """
+        if not self._enabled or not actions:
+            return
+        lines = [
+            f"• `{a.tool_name}` *{a.action_type}* on `{a.resource_id}` — {a.reason}"
+            for a in actions
+        ]
+        message = "*Human approval required*\n" + "\n".join(lines)
+        if dashboard_url:
+            message += f"\n<{dashboard_url.rstrip('/')}/dashboard|Review in dashboard>"
+
+        if self._slack_webhook:
+            blocks: list[dict[str, Any]] = [
+                {"type": "header", "text": {"type": "plain_text", "text": "🛡️ Approval required"}},
+                {"type": "section", "text": {"type": "mrkdwn", "text": message}},
+            ]
+            for a in actions[:20]:
+                value = json.dumps({"tool_name": a.tool_name, "resource_id": a.resource_id,
+                                    "action_type": a.action_type})
+                blocks.append({
+                    "type": "actions",
+                    "elements": [
+                        {"type": "button", "style": "primary", "action_id": "approve",
+                         "text": {"type": "plain_text", "text": f"Approve {a.action_type} {a.resource_id}"[:75]},
+                         "value": value},
+                        {"type": "button", "style": "danger", "action_id": "reject",
+                         "text": {"type": "plain_text", "text": "Reject"}, "value": value},
+                    ],
+                })
+            try:
+                import httpx
+                httpx.post(self._slack_webhook, json={"blocks": blocks}, timeout=10)
+                logger.info("[green]Slack approval request sent[/green] for %d action(s)", len(actions))
+            except Exception:
+                logger.exception("Failed to send Slack approval request")
+
+        if self._sns_topic:
+            self._send_sns("Approval required", message, "warning", None)
+
     def _send_slack(self, title: str, message: str, severity: str, data: dict[str, Any] | None) -> None:
         """Post a message to a Slack webhook."""
         emoji_map = {"critical": "🔴", "warning": "🟡", "info": "🔵", "success": "🟢"}

@@ -1,3 +1,21 @@
+// Attach the dashboard token to API calls when the server sets DASHBOARD_TOKEN.
+// Open the dashboard once with ?token=<value>; it is remembered for this browser.
+(() => {
+    let token = null;
+    try {
+        const fromUrl = new URLSearchParams(window.location.search).get('token');
+        if (fromUrl) localStorage.setItem('dashboardToken', fromUrl);
+        token = localStorage.getItem('dashboardToken');
+    } catch (e) { /* storage unavailable */ }
+    if (!token) return;
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = (input, init = {}) => {
+        const headers = new Headers(init.headers || {});
+        headers.set('X-Dashboard-Token', token);
+        return nativeFetch(input, { ...init, headers });
+    };
+})();
+
 /**
  * CloudAgent — Command Center
  * dashboard.js
@@ -268,6 +286,9 @@ async function approveAction(toolName, resourceId, actionType, btn) {
             alert('Approval error: ' + d.error);
             if (btn) { btn.disabled = false; btn.innerHTML = 'Approve'; }
         } else {
+            if (d.status === 'dry_run') {
+                alert('Dry-run mode: approval recorded, nothing was changed. Start the agent with --live to execute approvals.');
+            }
             const sr = await fetch('/api/status');
             if (sr.ok) { state = await sr.json(); render(); }
         }

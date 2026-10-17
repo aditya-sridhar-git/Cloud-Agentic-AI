@@ -4,7 +4,7 @@ Cost Monitor Tool — detect daily spending anomalies, alert, or freeze.
 Action types:
   - "check"  : Fetch live cost data and return breakdown with anomalies (used by chat)
   - "alert"  : Log a cost spike alert (called by the reasoning engine)
-  - "freeze" : Stop non-critical (dev/staging) instances to contain the spike
+  - "freeze" : Stop non-critical instances (tagged priority=low by default) to contain the spike
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ class CostMonitorTool(BaseTool):
         """Pull current + baseline cost, detect per-service anomalies."""
         cfg = self.config.get("tools", {}).get("cost_monitor", {})
         spike_pct = cfg.get("spike_threshold_percent", 120.0)
-        baseline_days = cfg.get("baseline_window_days", 7)
+        baseline_days = cfg.get("baseline_window_days", 30)
 
         try:
             current = self.provider.get_daily_cost(days=1)
@@ -141,13 +141,23 @@ class CostMonitorTool(BaseTool):
         return result
 
     # ------------------------------------------------------------------
-    # Freeze: stop dev/staging instances to contain spike
+    # Freeze: stop non-critical instances to contain spike
     # ------------------------------------------------------------------
 
     def _freeze_non_critical(self) -> list[str]:
-        """Stop all dev/staging instances to contain cost spike."""
+        """Stop running instances marked non-critical to contain a cost spike.
+
+        An instance is non-critical if it carries any of ``freeze_tags``
+        (default ``priority=low``) or its Environment is in ``freeze_environments``.
+        Production instances are never frozen.
+        """
+        cfg = self.config.get("tools", {}).get("cost_monitor", {})
+        freeze_tags = {
+            (t["Key"].lower(), str(t["Value"]).lower())
+            for t in cfg.get("freeze_tags", [{"Key": "priority", "Value": "low"}])
+        }
+        freeze_envs = {e.lower() for e in cfg.get("freeze_environments", [])}
         frozen: list[str] = []
-        freeze_envs = {"dev", "staging", "test", "qa"}
 
         try:
             instances = self.provider.list_instances()
@@ -158,17 +168,18 @@ class CostMonitorTool(BaseTool):
         for inst in instances:
             if inst.get("state") != "running":
                 continue
-            tags = {t["Key"].lower(): t["Value"].lower() for t in inst.get("tags", [])}
+            tags = {t["Key"].lower(): str(t["Value"]).lower() for t in inst.get("tags", [])}
             env = tags.get("environment", "")
-            if env in freeze_envs:
-                try:
-                    self.provider.stop_instance(inst["instance_id"])
-                    frozen.append(inst["instance_id"])
-                    logger.info(
-                        "  Froze %s (env=%s)", inst["instance_id"], env,
-                    )
-                except Exception:
-                    logger.warning("Could not freeze %s", inst["instance_id"])
+            if env in ("prod", "production"):
+                continue
+            if not (set(tags.items()) & freeze_tags or env in freeze_envs):
+                continue
+            try:
+                self.provider.stop_instance(inst["instance_id"])
+                frozen.append(inst["instance_id"])
+                logger.info("  Froze %s (env=%s)", inst["instance_id"], env)
+            except Exception:
+                logger.warning("Could not freeze %s", inst["instance_id"])
 
         logger.info("[bold red]FREEZE COMPLETE[/bold red] -- stopped %d instance(s)", len(frozen))
         return frozen

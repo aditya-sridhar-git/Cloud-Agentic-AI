@@ -9,16 +9,20 @@ thread and pushes updates to all connected WebSocket clients.
 from __future__ import annotations
 
 import asyncio
+import copy
+import hashlib
+import hmac
 import json
+import os
 import threading
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
+from urllib.parse import parse_qs
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
-from fastapi.responses import HTMLResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 
 from cloud_agent.agent.baseagent import Action, Plan
 if TYPE_CHECKING:
@@ -30,16 +34,36 @@ logger = get_logger(__name__)
 
 _STATIC_DIR = Path(__file__).parent / "static"
 
-app = FastAPI(title="Cloud Agentic AI — Dashboard")
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    """Remember the server loop so background threads can broadcast from the start."""
+    global _main_loop
+    _main_loop = asyncio.get_running_loop()
+    yield
 
-# Add CORS middleware to allow WebSocket connections
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+app = FastAPI(title="Cloud Agentic AI — Dashboard", lifespan=_lifespan)
+
+# The dashboard is served from the same origin as the API, so no CORS
+# middleware is installed: other websites cannot call these endpoints from a
+# visitor's browser. State-changing endpoints additionally require a token
+# when DASHBOARD_TOKEN is set (mandatory when binding to a non-local address).
+_DASHBOARD_TOKEN = os.getenv("DASHBOARD_TOKEN", "")
+_TOKEN_EXEMPT = {"/api/slack/actions"}  # authenticated by Slack request signature
+
+
+@app.middleware("http")
+async def _require_token(request: Request, call_next):
+    if (
+        _DASHBOARD_TOKEN
+        and request.method in ("POST", "PUT", "PATCH", "DELETE")
+        and request.url.path.startswith("/api/")
+        and request.url.path not in _TOKEN_EXEMPT
+    ):
+        supplied = request.headers.get("X-Dashboard-Token", "")
+        if not hmac.compare_digest(supplied, _DASHBOARD_TOKEN):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+    return await call_next(request)
 
 # Global state
 _agent: CloudOpsAgent | None = None
@@ -61,6 +85,14 @@ _latest_state: dict[str, Any] = {
     "thoughts": [],
 }
 _main_loop: asyncio.AbstractEventLoop | None = None
+_state_lock = threading.RLock()
+_pace_factor = 1.0  # scales the cosmetic "thinking" delays; set from dashboard.pace_factor
+
+
+def _pace(seconds: float) -> None:
+    """Cosmetic delay for the live 'thought' console (0 disables it)."""
+    if _pace_factor > 0:
+        time.sleep(seconds * _pace_factor)
 
 
 # ------------------------------------------------------------------
@@ -70,13 +102,14 @@ _main_loop: asyncio.AbstractEventLoop | None = None
 
 def _emit_thought(text: str) -> None:
     """Push a 'live thought' from the AI strategy engine to the dashboard."""
-    _latest_state["thoughts"].append({
-        "text": text,
-        "timestamp": time.time()
-    })
-    # Maintain reasonable history for the 'live' console
-    if len(_latest_state["thoughts"]) > 15:
-        _latest_state["thoughts"].pop(0)
+    with _state_lock:
+        _latest_state["thoughts"].append({
+            "text": text,
+            "timestamp": time.time()
+        })
+        # Maintain reasonable history for the 'live' console
+        if len(_latest_state["thoughts"]) > 15:
+            _latest_state["thoughts"].pop(0)
     _broadcast(_latest_state)
     logger.info("[magenta]Thought emitted: %s[/magenta]", text)
 
@@ -133,7 +166,12 @@ async def dashboard_script():
 @app.get("/api/status")
 async def get_status():
     """Return current agent state."""
-    return _latest_state
+    with _state_lock:
+        state = copy.deepcopy(_latest_state)
+    if _agent:
+        state["dry_run"] = _agent.dry_run
+        state["pending_approvals"] = len(_agent.workflow.memory.get_pending_approvals())
+    return state
 
 
 @app.get("/api/history")
@@ -171,11 +209,16 @@ async def get_history():
 
 @app.delete("/api/history")
 async def clear_history():
-    """Clear the persistent log file."""
+    """Clear the dashboard history view.
+
+    The audit trail is append-only: the current log is archived with a
+    timestamp suffix rather than deleted.
+    """
     if _agent and _agent.action_logger._log_file.exists():
-        _agent.action_logger._log_file.unlink()
-        _agent.action_logger._log_file.touch()
-    return {"status": "cleared"}
+        log_file = _agent.action_logger._log_file
+        log_file.rename(log_file.with_name(f"actions.{int(time.time())}.jsonl"))
+        log_file.touch()
+    return {"status": "archived"}
 
 @app.get("/api/instances")
 async def get_instances():
@@ -214,27 +257,74 @@ async def post_operator_feedback(request: Request):
 
 @app.post("/api/approvals/resolve")
 async def resolve_pending_approval(request: Request):
-    """Resolve a pending approval by recording operator feedback."""
+    """Approve or reject a queued high-impact action.
+
+    Approved actions are executed (subject to dry-run); every verdict is
+    stored as operator feedback for later few-shot prompting.
+    """
     if not _agent:
         return {"status": "agent_not_initialized"}
     payload = await request.json()
-    verdict = payload.get("verdict", "approved")
-    _agent.workflow.memory.record_feedback(
-        resource_id=payload.get("resource_id", "unknown"),
-        action_type=payload.get("action_type", "unknown"),
-        verdict=verdict,
-        notes=payload.get("notes", ""),
+    return _resolve(
+        payload.get("tool_name"), payload.get("resource_id", ""), payload.get("action_type", ""),
+        payload.get("verdict", "approved"), payload.get("notes", ""),
     )
-    pending = _agent.workflow.memory.get_pending_approvals()
-    remaining = [
-        item for item in pending
-        if not (
-            item.get("resource_id") == payload.get("resource_id")
-            and item.get("action_type") == payload.get("action_type")
+
+
+def _resolve(tool_name: str | None, resource_id: str, action_type: str, verdict: str, notes: str = "") -> dict:
+    if verdict == "approved":
+        result = _agent.execute_approved(tool_name, resource_id, action_type, notes)
+    else:
+        entry = _agent.workflow.memory.pop_pending(tool_name, resource_id, action_type)
+        _agent.workflow.memory.record_feedback(
+            resource_id, action_type, verdict, notes,
+            tool_name=(entry or {}).get("tool_name", tool_name or ""), reason=(entry or {}).get("reason", ""),
         )
-    ]
-    _agent.workflow.memory.set_pending_approvals(remaining)
-    return {"status": "resolved", "remaining": remaining}
+        result = {"status": "rejected" if entry else "not_found"}
+    _update_action_status(tool_name, resource_id, action_type, result.get("status", verdict))
+    return {"status": "resolved", "result": result,
+            "remaining": _agent.workflow.memory.get_pending_approvals()}
+
+
+@app.post("/api/slack/actions")
+async def slack_actions(request: Request):
+    """Slack interactivity endpoint: Approve / Reject buttons from approval requests.
+
+    Requests are authenticated with the Slack signing secret
+    (``SLACK_SIGNING_SECRET``); unsigned or stale requests are refused.
+    """
+    secret = os.getenv("SLACK_SIGNING_SECRET", "")
+    body = await request.body()
+    ts = request.headers.get("X-Slack-Request-Timestamp", "0")
+    sig = request.headers.get("X-Slack-Signature", "")
+    if not secret or not ts.isdigit() or abs(time.time() - int(ts)) > 300:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    expected = "v0=" + hmac.new(secret.encode(), f"v0:{ts}:".encode() + body, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, sig):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if not _agent:
+        return {"text": "Agent not initialised"}
+
+    payload = json.loads(parse_qs(body.decode()).get("payload", ["{}"])[0])
+    user = payload.get("user", {}).get("username", "slack-user")
+    replies = []
+    for act in payload.get("actions", []):
+        target = json.loads(act.get("value", "{}"))
+        verdict = "approved" if act.get("action_id") == "approve" else "rejected"
+        out = _resolve(target.get("tool_name"), target.get("resource_id", ""),
+                       target.get("action_type", ""), verdict, notes=f"via Slack by {user}")
+        replies.append(f"{verdict}: {target.get('action_type')} on {target.get('resource_id')} "
+                       f"→ {out['result'].get('status')}")
+    return {"replace_original": False, "text": "\n".join(replies) or "No action"}
+
+
+def _update_action_status(tool_name: str | None, resource_id: str, action_type: str, status: str) -> None:
+    with _state_lock:
+        for act in _latest_state.get("actions", []):
+            if (act.get("resource_id") == resource_id and act.get("action_type") == action_type
+                    and (tool_name is None or act.get("tool_name") == tool_name)):
+                act["status"] = status
+    _broadcast(_latest_state)
 
 
 @app.post("/api/query-optimizer/run")
@@ -279,10 +369,12 @@ async def get_confidence_metrics():
     The old "action completion" pillar (10 %) has been removed: it measured
     the agent's own output, not infrastructure state, making it circular.
     """
-    instances       = _latest_state.get("instances", [])
-    security        = _latest_state.get("security_findings", [])
-    costs           = _latest_state.get("costs", {})
-    actions         = _latest_state.get("actions", [])
+    with _state_lock:
+        snapshot = copy.deepcopy(_latest_state)
+    instances       = snapshot.get("instances", [])
+    security        = snapshot.get("security_findings", [])
+    costs           = snapshot.get("costs", {})
+    actions         = snapshot.get("actions", [])
 
     running = [i for i in instances if i.get("state") == "running"]
 
@@ -371,7 +463,8 @@ async def get_confidence_metrics():
     security_base  = max(0.0, security_base)
 
     # Tag compliance bonus (0 – 20 pts)
-    required_tags = {"Owner", "Environment", "Project"}
+    tag_cfg = (_agent.config if _agent else {}).get("tools", {}).get("tag_enforcer", {})
+    required_tags = {t["Key"] for t in tag_cfg.get("required_tags", [])} or {"Owner", "Environment", "Project"}
     compliant = sum(
         1 for inst in instances
         if required_tags.issubset({t.get("Key") for t in inst.get("tags", [])})
@@ -479,53 +572,42 @@ async def trigger_cycle():
 
 @app.post("/api/approve-action")
 async def approve_action(request: Request):
-    """Execute a single specific action from the current plan."""
+    """Operator approval of a single action from the current plan.
+
+    The action is executed through the agent, so dry-run is respected: in
+    dry-run mode the result is reported as ``dry_run`` and nothing changes.
+    Run with ``--live`` (e.g. ``--mock --live``) to execute approvals.
+    """
     data = await request.json()
     tool_name = data.get("tool_name")
     resource_id = data.get("resource_id")
     action_type = data.get("action_type")
-    
+
     if not _agent or not _current_plan:
         return {"error": "No active agent or plan"}
 
-    # Find the action in the current plan
-    match = None
-    for action in _current_plan.actions:
-        if (action.tool_name == tool_name and 
-            action.resource_id == resource_id and 
-            action.action_type == action_type):
-            match = action
-            break
-    
+    match = next(
+        (a for a in _current_plan.actions
+         if a.tool_name == tool_name and a.resource_id == resource_id and a.action_type == action_type),
+        None,
+    )
     if not match:
         return {"error": "Action not found in plan"}
 
-    # Execute it live (bypass dry_run for this explicit manual approval)
-    logger.info("[cyan]Dashboard: Manual approval for %s on %s[/cyan]", tool_name, resource_id)
+    logger.info("[cyan]Dashboard: operator approval for %s on %s[/cyan]", tool_name, resource_id)
     try:
-        # We manually register the result to results feed
-        results = _agent.act(Plan(actions=[match], summary="Manual approval"))
-        
-        # Log the action individually so it appears in history
+        results = _agent.act(Plan(actions=[match], summary="Manual approval"), approved_by_operator=True)
+        _agent.workflow.memory.pop_pending(tool_name, resource_id, action_type)
+        _agent.workflow.memory.record_feedback(
+            resource_id, action_type, "approved", "dashboard", tool_name=tool_name, reason=match.reason,
+        )
         if results:
-            _agent.action_logger.log_action(results[0])
-
-        # Determine the resulting status from the execution
-        new_status = "executed"
-        if results and "status" in results[0]:
-            new_status = results[0]["status"]
-
-        # Update the UI state so it doesn't show "pending_approval" anymore
-        for act in _latest_state.get("actions", []):
-            if (act.get("tool_name") == tool_name and 
-                act.get("resource_id") == resource_id and 
-                act.get("action_type") == action_type):
-                act["status"] = new_status
-                break
-
-        _broadcast(_latest_state)
-        return {"status": "executed", "results": results}
+            _agent.action_logger.log_action({**results[0], "approved_by": "operator"})
+        new_status = results[0].get("status", "executed") if results else "executed"
+        _update_action_status(tool_name, resource_id, action_type, new_status)
+        return {"status": new_status, "dry_run": _agent.dry_run, "results": results}
     except Exception as e:
+        logger.exception("Approved action failed")
         return {"error": str(e)}
 
 
@@ -542,7 +624,9 @@ async def allocate_instance(request: Request):
     
     if not _agent:
         return {"error": "Agent not initialized"}
-        
+    if _agent.dry_run:
+        return {"status": "dry_run", "error": "Provisioning is disabled in dry-run mode (start with --live)"}
+
     try:
         _emit_thought(f"Provisioning {instance_type} in {region or 'default region'}...")
         result = _agent.provider.create_instance(instance_type, region, tags)
@@ -597,7 +681,9 @@ async def allocate_volume(request: Request):
     
     if not _agent:
         return {"error": "Agent not initialized"}
-        
+    if _agent.dry_run:
+        return {"status": "dry_run", "error": "Provisioning is disabled in dry-run mode (start with --live)"}
+
     try:
         result = _agent.provider.create_volume(size_gb, region, tags)
         # Update state so it appears immediately
@@ -622,7 +708,9 @@ async def chat_endpoint(request: Request):
     
     try:
         # Create chat interface instance with the agent's provider
-        chat = ChatInterface(_agent.provider if _agent else None)
+        if not _agent:
+            return {"response": "Agent not initialised.", "data": []}
+        chat = ChatInterface(_agent.provider, _agent.config)
         
         # Process the query
         result = chat.process_query(query)
@@ -691,7 +779,7 @@ def _broadcast(data: dict[str, Any]) -> None:
 
     async def _send_to_all(payload):
         disconnected = []
-        for ws in _connected_clients:
+        for ws in list(_connected_clients):
             try:
                 await ws.send_json(payload)
             except Exception:
@@ -700,9 +788,12 @@ def _broadcast(data: dict[str, Any]) -> None:
             if ws in _connected_clients:
                 _connected_clients.remove(ws)
 
+    with _state_lock:
+        payload = json.loads(json.dumps(data, default=str))
+
     # Schedule the broadcast on the main event loop
     _main_loop.call_soon_threadsafe(
-        lambda: asyncio.create_task(_send_to_all(data))
+        lambda: asyncio.create_task(_send_to_all(payload))
     )
 
 
@@ -727,26 +818,26 @@ def _run_agent_cycle() -> None:
         _latest_state["query_optimizations"] = {}
         _broadcast(_latest_state)
         _emit_thought("Starting secure handshake with cloud environment...")
-        time.sleep(0.5)
+        _pace(0.5)
 
         # Collect observation
         _emit_thought("Observing infrastructure telemetry and instance states...")
-        time.sleep(0.5)
+        _pace(0.5)
         observation = _agent.observe()
         _latest_state["instances"] = observation.instances
         _latest_state["volumes"] = observation.disks
         _latest_state["costs"] = observation.costs
         _emit_thought(f"Analyzing {len(observation.instances)} instances and {len(observation.disks)} volumes.")
-        time.sleep(0.5)
+        _pace(0.5)
 
         # Planning
         _emit_thought("Reasoning through optimization and risk signals...")
-        time.sleep(0.8)
+        _pace(0.8)
         plan = _agent.think(observation)
         _current_plan = plan
         
         _emit_thought(f"Planning complete with {len(plan.actions)} optimization item(s).")
-        time.sleep(0.5)
+        _pace(0.5)
         
         # In dashboard mode, we post the planned actions for review
         _latest_state["cycle_count"] += 1
@@ -757,7 +848,7 @@ def _run_agent_cycle() -> None:
         planned_actions = []
         for a in plan.actions:
             _emit_thought(f"Correlating {a.action_type} strategy for {a.resource_id}...")
-            time.sleep(0.4)
+            _pace(0.4)
 
             # ----------------------------------------------------------
             # Per-action confidence: data-driven, replaces Math.random()
@@ -803,6 +894,8 @@ def _run_agent_cycle() -> None:
                 "action_type": a.action_type,
                 "reason": a.reason,
                 "status": "pending_approval",
+                "requires_approval": a.requires_approval,
+                "approval_reason": a.parameters.get("approval_reason", ""),
                 "confidence": action_confidence,
             }
             
@@ -814,7 +907,10 @@ def _run_agent_cycle() -> None:
             
             elif a.tool_name == "diagnose_server":
                 _emit_thought(f"Diagnosing root cause for {a.resource_id}...")
-                res = _agent.act(Plan(actions=[a], summary="Pre-diagnosis for dashboard"))
+                # Diagnosis only — remediation is never triggered from the planning view
+                probe = Action(tool_name=a.tool_name, resource_id=a.resource_id, action_type=a.action_type,
+                               parameters={**a.parameters, "remediate": False}, reason=a.reason)
+                res = _agent.act(Plan(actions=[probe], summary="Pre-diagnosis for dashboard"))
                 if res and "diagnosis" in res[0]:
                     entry["diagnosis"] = res[0]["diagnosis"]
 
@@ -828,7 +924,10 @@ def _run_agent_cycle() -> None:
 
             planned_actions.append(entry)
             
-        _latest_state["actions"] = planned_actions
+        with _state_lock:
+            _latest_state["actions"] = planned_actions
+            _latest_state["rejected_actions"] = _agent.last_cycle.get("rejected", [])
+            _latest_state["reasoning_mode"] = _agent.last_cycle.get("reasoning_mode", "rules")
         _emit_thought("Ready for review.")
         _latest_state["status"] = "idle"
 
@@ -868,10 +967,17 @@ def _agent_loop(interval: int) -> None:
 # Entry point
 # ------------------------------------------------------------------
 
-def run_dashboard(agent: "CloudOpsAgent", port: int = 8080) -> None:
+def run_dashboard(agent: "CloudOpsAgent", port: int = 8080, host: str = "127.0.0.1") -> None:
     """Start the dashboard server with the given agent."""
-    global _agent
+    global _agent, _pace_factor
     _agent = agent
+    _pace_factor = float(agent.config.get("dashboard", {}).get("pace_factor", 1.0))
+
+    if host not in ("127.0.0.1", "localhost", "::1") and not _DASHBOARD_TOKEN:
+        raise SystemExit(
+            f"Refusing to bind the dashboard to {host} without authentication. "
+            "Set DASHBOARD_TOKEN or use --host 127.0.0.1."
+        )
 
     # Start agent loop in background thread
     interval = agent.config.get("agent", {}).get("loop_interval_seconds", 60)
@@ -882,4 +988,4 @@ def run_dashboard(agent: "CloudOpsAgent", port: int = 8080) -> None:
     threading.Thread(target=_run_agent_cycle, daemon=True).start()
 
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    uvicorn.run(app, host=host, port=port, log_level="info")

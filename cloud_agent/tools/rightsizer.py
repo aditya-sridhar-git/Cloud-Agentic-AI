@@ -19,12 +19,20 @@ _DOWNGRADE_MAP: dict[str, str] = {
     "t3.large": "t3.medium",
     "t3.medium": "t3.small",
     "t3.small": "t3.micro",
+    "m5.4xlarge": "m5.2xlarge",
     "m5.2xlarge": "m5.xlarge",
     "m5.xlarge": "m5.large",
-    "m5.large": "m5.large",  # already smallest in family
+    "c5.4xlarge": "c5.2xlarge",
     "c5.2xlarge": "c5.xlarge",
     "c5.xlarge": "c5.large",
+    "r5.2xlarge": "r5.xlarge",
+    "r5.xlarge": "r5.large",
 }
+
+
+def downgrade_for(instance_type: str) -> str | None:
+    """Next-smaller type in the same family, or None if already the smallest/unknown."""
+    return _DOWNGRADE_MAP.get(instance_type)
 
 
 @register_tool("rightsizer")
@@ -32,13 +40,15 @@ class RightsizeTool(BaseTool):
     """Recommends or applies instance type downgrades for under-used VMs."""
 
     def execute(self, action: Action) -> dict[str, Any]:
+        if action.action_type == "check":
+            return self._check_recommendations()
+
         instance_id = action.resource_id
         current_type = action.parameters.get("current_type", "unknown")
-        suggested = _DOWNGRADE_MAP.get(current_type, current_type)
-        cfg = self.config.get("tools", {}).get("rightsizer", {})
-        mode = cfg.get("action", "recommend")
+        suggested = action.parameters.get("recommended_type") or downgrade_for(current_type) or current_type
 
-        if mode == "apply" and suggested != current_type:
+        # Only an explicit "resize" action changes the instance; "recommend" never does.
+        if action.action_type == "resize" and suggested != current_type:
             logger.info(
                 "[bold yellow]📐 RESIZE[/bold yellow] %s: %s → %s — %s",
                 instance_id, current_type, suggested, action.reason,
@@ -58,3 +68,18 @@ class RightsizeTool(BaseTool):
 
         result["tool"] = self.tool_name
         return result
+
+    def _check_recommendations(self) -> dict[str, Any]:
+        """Read-only scan used by the chat interface."""
+        from cloud_agent.monitor.collector import MetricsCollector
+        from cloud_agent.monitor.evaluator import ThresholdEvaluator
+
+        obs = MetricsCollector(self.provider, self.config).collect()
+        actions = ThresholdEvaluator(self.config)._check_rightsizing(obs)
+        return {
+            "tool": self.tool_name,
+            "status": "check_completed",
+            "recommendations": [
+                {"instance_id": a.resource_id, **a.parameters, "reason": a.reason} for a in actions
+            ],
+        }

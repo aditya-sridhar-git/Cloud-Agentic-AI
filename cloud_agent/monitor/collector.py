@@ -25,34 +25,51 @@ class MetricsCollector:
         logger.info("Collecting instances …")
         instances = self._provider.list_instances()
 
-        # Enrich with CPU metrics
-        idle_cfg = self._config.get("tools", {}).get("idle_server", {})
-        duration = idle_cfg.get("duration_minutes", 30)
+        # Enrich with CPU / memory metrics
+        tools_cfg = self._config.get("tools", {})
+        duration = tools_cfg.get("idle_server", {}).get("duration_minutes", 30)
+        want_7d = tools_cfg.get("rightsizer", {}).get("enabled", False)
+        eval_days = tools_cfg.get("rightsizer", {}).get("evaluation_days", 7)
+        # sysbench runs real load on the instance (and installs packages), so it is
+        # strictly opt-in and never part of the default observe phase.
+        bench_cfg = self._config.get("benchmarks", {}).get("sysbench", {})
+        run_bench = bench_cfg.get("enabled", False)
+
         for inst in instances:
-            if inst.get("state") == "running":
+            if inst.get("state") != "running":
+                continue
+            region = inst.get("region")
+            try:
+                inst["cpu_percent"] = self._provider.get_cpu_utilization(
+                    inst["instance_id"], region=region, minutes=duration,
+                )
+            except Exception:
+                logger.warning("Could not get CPU for %s", inst["instance_id"])
+                inst["cpu_percent"] = -1.0
+            if want_7d:
                 try:
-                    inst["cpu_percent"] = self._provider.get_cpu_utilization(
-                        inst["instance_id"], 
-                        region=inst.get("region"),
-                        minutes=duration
+                    inst["cpu_percent_7d"] = self._provider.get_cpu_utilization_days(
+                        inst["instance_id"], days=eval_days, region=region,
                     )
                 except Exception:
-                    logger.warning("Could not get CPU for %s", inst["instance_id"])
-                    inst["cpu_percent"] = -1.0
-                if self._config.get("benchmarks", {}).get("sysbench", {}).get("enabled", True):
-                    try:
-                        inst["sysbench"] = self._provider.run_sysbench_benchmark(
-                            inst["instance_id"],
-                            timeout=self._config.get("benchmarks", {}).get("sysbench", {}).get("timeout_seconds", 120),
-                        )
-                        inst["benchmark_profile"] = inst["sysbench"].get("status", "ok")
-                    except Exception as exc:
-                        logger.warning("Could not run sysbench for %s: %s", inst["instance_id"], exc)
-                        inst["sysbench"] = {"status": "error", "error": str(exc)}
-                        inst["benchmark_profile"] = "error"
-            else:
-                inst["sysbench"] = {"status": "skipped", "reason": f"instance is {inst.get('state')}"}
-                inst["benchmark_profile"] = "skipped"
+                    inst["cpu_percent_7d"] = -1.0
+            if inst.get("memory_percent") is None:
+                try:
+                    mem = self._provider.get_memory_utilization(inst["instance_id"], region=region)
+                except Exception:
+                    mem = None
+                if mem is not None:
+                    inst["memory_percent"] = mem
+            if run_bench:
+                try:
+                    inst["sysbench"] = self._provider.run_sysbench_benchmark(
+                        inst["instance_id"], timeout=bench_cfg.get("timeout_seconds", 120),
+                    )
+                    inst["benchmark_profile"] = inst["sysbench"].get("status", "ok")
+                except Exception as exc:
+                    logger.warning("Could not run sysbench for %s: %s", inst["instance_id"], exc)
+                    inst["sysbench"] = {"status": "error", "error": str(exc)}
+                    inst["benchmark_profile"] = "error"
 
         logger.info("Collecting volumes …")
         disks = self._provider.list_volumes()
@@ -60,7 +77,7 @@ class MetricsCollector:
         logger.info("Collecting costs …")
         try:
             cost_cfg = self._config.get("tools", {}).get("cost_monitor", {})
-            baseline_days = cost_cfg.get("baseline_window_days", 7)
+            baseline_days = cost_cfg.get("baseline_window_days", 30)
             current_daily = self._provider.get_daily_cost(days=1)
             baseline_daily = self._provider.get_cost_baseline(days=baseline_days)
 
@@ -87,10 +104,19 @@ class MetricsCollector:
             costs = {}
 
 
-        return Observation(
+        clock = getattr(self._provider, "clock", None)
+        observation = Observation(
             instances=instances,
             disks=disks,
             costs=costs,
             metrics={},
             tags={},
         )
+        if callable(clock):
+            observation.timestamp = clock()
+        if self._config.get("tools", {}).get("cross_domain", {}).get("enabled", False):
+            try:
+                observation.metrics["security_findings"] = self._provider.get_security_findings()
+            except Exception:
+                observation.metrics["security_findings"] = []
+        return observation

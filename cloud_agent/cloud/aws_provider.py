@@ -31,7 +31,7 @@ _RETRY_CONFIG = BotoConfig(
 class AWSProvider(CloudProvider):
     """Concrete AWS implementation of :class:`CloudProvider`."""
 
-    def __init__(self, region: str | None = None) -> None:
+    def __init__(self, region: str | None = None, regions: list[str] | None = None) -> None:
         # Prefer explicit arg, then AWS_DEFAULT_REGION (standard boto3 env var), then AWS_REGION
         self._region = (
             region
@@ -48,8 +48,18 @@ class AWSProvider(CloudProvider):
         self._rds = boto3.client("rds", region_name=self._region, config=_RETRY_CONFIG)
         self._pi = boto3.client("pi", region_name=self._region, config=_RETRY_CONFIG)
         self._logs = boto3.client("logs", region_name=self._region, config=_RETRY_CONFIG)
-        self._active_regions = self._get_active_regions()
+        # Restrict scanning to explicit regions (arg or CLOUD_AGENT_REGIONS=us-east-1,eu-west-1)
+        env_regions = [r.strip() for r in os.getenv("CLOUD_AGENT_REGIONS", "").split(",") if r.strip()]
+        self._active_regions = regions or env_regions or self._get_active_regions()
+        self._instance_regions: dict[str, str] = {}
         logger.info("[green]AWS provider initialised[/green] (region=%s, multi-region: %d active)", self._region, len(self._active_regions))
+
+    def _ec2_for(self, instance_id: str):
+        """EC2 client for the region an instance lives in (multi-region safe)."""
+        region = self._instance_regions.get(instance_id, self._region)
+        if region == self._region:
+            return self._ec2
+        return boto3.client("ec2", region_name=region, config=_RETRY_CONFIG)
 
     def _get_active_regions(self) -> list[str]:
         """Fetch list of enabled regions for the account."""
@@ -69,38 +79,40 @@ class AWSProvider(CloudProvider):
         for region in self._active_regions:
             try:
                 ec2 = boto3.client("ec2", region_name=region, config=_RETRY_CONFIG)
-                resp = ec2.describe_instances()
-                for reservation in resp.get("Reservations", []):
-                    for inst in reservation.get("Instances", []):
-                        all_instances.append({
-                            "instance_id": inst["InstanceId"],
-                            "instance_type": inst["InstanceType"],
-                            "state": inst["State"]["Name"],
-                            "launch_time": str(inst["LaunchTime"]),
-                            "region": region,
-                            "tags": inst.get("Tags", []),
-                        })
+                for page in ec2.get_paginator("describe_instances").paginate():
+                    for reservation in page.get("Reservations", []):
+                        for inst in reservation.get("Instances", []):
+                            self._instance_regions[inst["InstanceId"]] = region
+                            all_instances.append({
+                                "instance_id": inst["InstanceId"],
+                                "instance_type": inst["InstanceType"],
+                                "state": inst["State"]["Name"],
+                                "launch_time": str(inst["LaunchTime"]),
+                                "region": region,
+                                "tags": inst.get("Tags", []),
+                            })
             except Exception as e:
                 logger.warning("Could not list instances in %s: %s", region, e)
         return all_instances
 
     def stop_instance(self, instance_id: str) -> dict[str, Any]:
         logger.info("Stopping instance %s", instance_id)
-        resp = self._ec2.stop_instances(InstanceIds=[instance_id])
-        return {"instance_id": instance_id, "status": "stopping", "raw": resp}
+        self._ec2_for(instance_id).stop_instances(InstanceIds=[instance_id])
+        return {"instance_id": instance_id, "status": "stopping"}
 
     def terminate_instance(self, instance_id: str) -> dict[str, Any]:
         logger.info("Terminating instance %s", instance_id)
-        resp = self._ec2.terminate_instances(InstanceIds=[instance_id])
-        return {"instance_id": instance_id, "status": "terminating", "raw": resp}
+        self._ec2_for(instance_id).terminate_instances(InstanceIds=[instance_id])
+        return {"instance_id": instance_id, "status": "terminating"}
 
     def resize_instance(self, instance_id: str, new_type: str) -> dict[str, Any]:
         logger.info("Resizing %s → %s (stop → modify → start)", instance_id, new_type)
-        self._ec2.stop_instances(InstanceIds=[instance_id])
-        waiter = self._ec2.get_waiter("instance_stopped")
+        ec2 = self._ec2_for(instance_id)
+        ec2.stop_instances(InstanceIds=[instance_id])
+        waiter = ec2.get_waiter("instance_stopped")
         waiter.wait(InstanceIds=[instance_id])
-        self._ec2.modify_instance_attribute(InstanceId=instance_id, InstanceType={"Value": new_type})
-        self._ec2.start_instances(InstanceIds=[instance_id])
+        ec2.modify_instance_attribute(InstanceId=instance_id, InstanceType={"Value": new_type})
+        ec2.start_instances(InstanceIds=[instance_id])
         return {"instance_id": instance_id, "new_type": new_type, "status": "resized"}
 
     def _resolve_ami(self, region: str) -> str:
@@ -191,21 +203,39 @@ class AWSProvider(CloudProvider):
         )
         datapoints = resp.get("Datapoints", [])
         if not datapoints:
-            return 0.0
+            # No data is "unknown", not "idle": -1 is ignored by every rule.
+            return -1.0
         return sum(dp["Average"] for dp in datapoints) / len(datapoints)
 
     def get_cpu_utilization(self, instance_id: str, region: str | None = None, minutes: int = 30) -> float:
-        region = region or self._region
+        region = region or self._instance_regions.get(instance_id, self._region)
         end = datetime.now(timezone.utc)
         start = end - timedelta(minutes=minutes)
         # Use 60s period for short windows, 300s for standard
         period = 60 if minutes <= 5 else 300
         return self._get_avg_cpu(instance_id, region, period, start, end)
 
-    def get_cpu_utilization_days(self, instance_id: str, days: int = 7) -> float:
+    def get_cpu_utilization_days(self, instance_id: str, days: int = 7, region: str | None = None) -> float:
+        region = region or self._instance_regions.get(instance_id, self._region)
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=days)
-        return self._get_avg_cpu(instance_id, self._region, 86400, start, end)
+        return self._get_avg_cpu(instance_id, region, 86400, start, end)
+
+    def get_memory_utilization(self, instance_id: str, region: str | None = None) -> float | None:
+        """Memory % from the CloudWatch agent (CWAgent/mem_used_percent); None if not installed."""
+        region = region or self._instance_regions.get(instance_id, self._region)
+        cw = boto3.client("cloudwatch", region_name=region, config=_RETRY_CONFIG)
+        end = datetime.now(timezone.utc)
+        try:
+            resp = cw.get_metric_statistics(
+                Namespace="CWAgent", MetricName="mem_used_percent",
+                Dimensions=[{"Name": "InstanceId", "Value": instance_id}],
+                StartTime=end - timedelta(minutes=30), EndTime=end, Period=300, Statistics=["Average"],
+            )
+        except Exception:
+            return None
+        points = resp.get("Datapoints", [])
+        return sum(p["Average"] for p in points) / len(points) if points else None
 
     # ------------------------------------------------------------------
     # Volumes
@@ -217,10 +247,11 @@ class AWSProvider(CloudProvider):
             for key, val in filters.items():
                 aws_filters.append({"Name": key, "Values": val if isinstance(val, list) else [val]})
 
-        resp = self._ec2.describe_volumes(Filters=aws_filters or [])
         volumes: list[dict[str, Any]] = []
-        for vol in resp.get("Volumes", []):
-            # Calculate days unattached
+        pages = self._ec2.get_paginator("describe_volumes").paginate(Filters=aws_filters or [])
+        for vol in (v for page in pages for v in page.get("Volumes", [])):
+            # EBS does not record a detach time; volume age is used as an upper bound
+            # on how long an unattached volume has been unattached.
             unattached_days = 0
             if vol["State"] == "available":
                 create_time = vol["CreateTime"]
@@ -233,8 +264,10 @@ class AWSProvider(CloudProvider):
                     "volume_id": vol["VolumeId"],
                     "state": vol["State"],
                     "size_gb": vol["Size"],
+                    "encrypted": vol.get("Encrypted", False),
                     "create_time": str(vol["CreateTime"]),
                     "unattached_days": unattached_days,
+                    "tags": vol.get("Tags", []),
                 }
             )
         return volumes
@@ -383,7 +416,8 @@ class AWSProvider(CloudProvider):
         )
         datapoints = resp.get("Datapoints", [])
         if not datapoints:
-            return 0.0
+            # No data is "unknown", not "idle": -1 is ignored by every rule.
+            return -1.0
         return sum(dp["Average"] for dp in datapoints) / len(datapoints)
 
     def get_slow_queries(self, db_instance_id: str, engine: str, limit: int = 10) -> list[dict[str, Any]]:
@@ -607,21 +641,24 @@ class AWSProvider(CloudProvider):
     def run_ssm_command(self, instance_id: str, commands: list[str], timeout: int = 30) -> str:
         """Execute shell commands on an instance via SSM and return stdout."""
         logger.info("Running SSM command on %s", instance_id)
-        resp = self._ssm.send_command(
+        region = self._instance_regions.get(instance_id, self._region)
+        ssm = self._ssm if region == self._region else boto3.client("ssm", region_name=region, config=_RETRY_CONFIG)
+        resp = ssm.send_command(
             InstanceIds=[instance_id],
             DocumentName="AWS-RunShellScript",
             Parameters={"commands": commands},
-            TimeoutSeconds=timeout,
+            TimeoutSeconds=max(timeout, 30),
         )
         command_id = resp["Command"]["CommandId"]
 
-        # Poll for completion
-        for _ in range(timeout):
+        # Poll for completion (the invocation may not exist for the first second)
+        result: dict[str, Any] = {}
+        for _ in range(max(timeout, 1)):
             _time.sleep(1)
-            result = self._ssm.get_command_invocation(
-                CommandId=command_id,
-                InstanceId=instance_id,
-            )
+            try:
+                result = ssm.get_command_invocation(CommandId=command_id, InstanceId=instance_id)
+            except ClientError:
+                continue
             if result["Status"] in ("Success", "Failed", "TimedOut", "Cancelled"):
                 break
 
@@ -687,8 +724,8 @@ printf '%s\n' "$FILE_OUT" | awk -F: '/95th percentile/ {gsub(/^[ \t]+/,"",$2); p
     def start_instance(self, instance_id: str) -> dict[str, Any]:
         """Start a stopped instance."""
         logger.info("Starting instance %s", instance_id)
-        resp = self._ec2.start_instances(InstanceIds=[instance_id])
-        return {"instance_id": instance_id, "status": "starting", "raw": resp}
+        self._ec2_for(instance_id).start_instances(InstanceIds=[instance_id])
+        return {"instance_id": instance_id, "status": "starting"}
 
     # ------------------------------------------------------------------
     # Security — SGs, S3, IAM
@@ -798,9 +835,9 @@ printf '%s\n' "$FILE_OUT" | awk -F: '/95th percentile/ {gsub(/^[ \t]+/,"",$2); p
 
     def check_ebs_encryption(self) -> list[dict[str, Any]]:
         """Return unencrypted EBS volumes."""
-        resp = self._ec2.describe_volumes()
         unencrypted = []
-        for vol in resp.get("Volumes", []):
+        pages = self._ec2.get_paginator("describe_volumes").paginate()
+        for vol in (v for page in pages for v in page.get("Volumes", [])):
             if not vol.get("Encrypted", False):
                 unencrypted.append({
                     "volume_id": vol["VolumeId"],
@@ -830,17 +867,77 @@ printf '%s\n' "$FILE_OUT" | awk -F: '/95th percentile/ {gsub(/^[ \t]+/,"",$2); p
         resp = self._cloudtrail.lookup_events(**kwargs)
         events = []
         for e in resp.get("Events", []):
+            try:
+                detail = json.loads(e.get("CloudTrailEvent") or "{}")
+            except json.JSONDecodeError:
+                detail = {}
             events.append({
                 "event_name": e.get("EventName", ""),
                 "event_time": str(e.get("EventTime", "")),
                 "username": e.get("Username", ""),
-                "source_ip": e.get("CloudTrailEvent", "{}"),
+                "source_ip": detail.get("sourceIPAddress", ""),
                 "resources": [
                     {"type": r.get("ResourceType", ""), "name": r.get("ResourceName", "")}
                     for r in e.get("Resources", [])
                 ],
             })
         return events
+
+    # ------------------------------------------------------------------
+    # Security Hub / GuardDuty — for cross-domain correlation
+    # ------------------------------------------------------------------
+
+    def get_security_findings(self, hours: int = 24) -> list[dict[str, Any]]:
+        """Recent HIGH/CRITICAL findings from Security Hub and GuardDuty (if enabled)."""
+        findings: list[dict[str, Any]] = []
+        since = datetime.now(timezone.utc) - timedelta(hours=hours)
+        try:
+            sh = boto3.client("securityhub", region_name=self._region, config=_RETRY_CONFIG)
+            resp = sh.get_findings(
+                Filters={
+                    "SeverityLabel": [{"Value": "HIGH", "Comparison": "EQUALS"},
+                                      {"Value": "CRITICAL", "Comparison": "EQUALS"}],
+                    "UpdatedAt": [{"Start": since.isoformat(), "End": datetime.now(timezone.utc).isoformat()}],
+                    "RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}],
+                },
+                MaxResults=50,
+            )
+            for f in resp.get("Findings", []):
+                findings.append({
+                    "source": "securityhub",
+                    "type": (f.get("Types") or ["unknown"])[0],
+                    "severity": f.get("Severity", {}).get("Label", "").lower(),
+                    "title": f.get("Title", ""),
+                    "resource": (f.get("Resources") or [{}])[0].get("Id", ""),
+                    "time": f.get("UpdatedAt", ""),
+                })
+        except Exception as exc:
+            logger.debug("Security Hub unavailable: %s", exc)
+        try:
+            gd = boto3.client("guardduty", region_name=self._region, config=_RETRY_CONFIG)
+            for detector in gd.list_detectors().get("DetectorIds", []):
+                ids = gd.list_findings(
+                    DetectorId=detector,
+                    FindingCriteria={"Criterion": {
+                        "severity": {"Gte": 7},
+                        "updatedAt": {"Gte": int(since.timestamp() * 1000)},
+                    }},
+                    MaxResults=50,
+                ).get("FindingIds", [])
+                if not ids:
+                    continue
+                for f in gd.get_findings(DetectorId=detector, FindingIds=ids).get("Findings", []):
+                    findings.append({
+                        "source": "guardduty",
+                        "type": f.get("Type", "unknown"),
+                        "severity": "critical" if f.get("Severity", 0) >= 8 else "high",
+                        "title": f.get("Title", ""),
+                        "resource": f.get("Resource", {}).get("InstanceDetails", {}).get("InstanceId", ""),
+                        "time": f.get("UpdatedAt", ""),
+                    })
+        except Exception as exc:
+            logger.debug("GuardDuty unavailable: %s", exc)
+        return findings
 
     # ------------------------------------------------------------------
     # Snapshots / Backups

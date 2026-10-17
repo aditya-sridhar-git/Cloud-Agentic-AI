@@ -26,13 +26,14 @@ class IdleServerTool(BaseTool):
             instances = self.provider.list_instances()
             idle_instances = []
             
-            # Use threshold from config or default to 5%
-            threshold = self.config.get("idle_threshold_percent", 5.0)
-            
+            cfg = self.config.get("tools", {}).get("idle_server", {})
+            threshold = cfg.get("cpu_threshold_percent", 5.0)
+            minutes = cfg.get("duration_minutes", 30)
+
             for inst in instances:
                 if inst.get("state") == "running":
-                    cpu = self.provider.get_cpu_utilization(inst["instance_id"])
-                    if cpu < threshold:
+                    cpu = self.provider.get_cpu_utilization(inst["instance_id"], minutes=minutes)
+                    if 0 <= cpu < threshold:
                         inst["avg_cpu"] = cpu
                         idle_instances.append(inst)
             

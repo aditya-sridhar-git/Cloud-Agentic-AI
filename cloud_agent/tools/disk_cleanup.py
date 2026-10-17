@@ -21,6 +21,31 @@ class DiskCleanupTool(BaseTool):
         volume_id = action.resource_id
         cfg = self.config.get("tools", {}).get("disk_cleanup", {})
         do_snapshot = cfg.get("snapshot_before_delete", True)
+        min_days = cfg.get("unattached_days", 7)
+
+        if action.action_type == "check":
+            orphaned = [
+                v for v in self.provider.list_volumes()
+                if v.get("state") == "available" and v.get("unattached_days", 0) >= min_days
+            ]
+            return {
+                "tool": self.tool_name,
+                "status": "check_completed",
+                "orphaned_volumes": orphaned,
+                "count": len(orphaned),
+                "reclaimable_gb": sum(v.get("size_gb", 0) for v in orphaned),
+            }
+
+        # Re-verify against live state: never delete an attached or unknown volume.
+        vol = next((v for v in self.provider.list_volumes() if v["volume_id"] == volume_id), None)
+        if vol is None or vol.get("state") != "available":
+            logger.warning("Refusing to delete %s — not an unattached volume", volume_id)
+            return {
+                "tool": self.tool_name,
+                "volume_id": volume_id,
+                "status": "refused",
+                "reason": "volume missing or attached",
+            }
 
         snapshot_id = None
         if do_snapshot:

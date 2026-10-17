@@ -54,6 +54,10 @@ class CloudProvider(abc.ABC):
     def get_cpu_utilization_days(self, instance_id: str, days: int = 7) -> float:
         """Return average CPU utilisation over the last *days*."""
 
+    def get_memory_utilization(self, instance_id: str, region: str | None = None) -> float | None:
+        """Return recent memory utilisation %, or None if not collected (needs the CloudWatch agent)."""
+        return None
+
     # ------------------------------------------------------------------
     # Disks / Volumes
     # ------------------------------------------------------------------
@@ -146,6 +150,14 @@ class CloudProvider(abc.ABC):
     @abc.abstractmethod
     def get_cloudtrail_events(self, hours: int = 24, event_name: str | None = None) -> list[dict[str, Any]]:
         """Query recent CloudTrail events."""
+
+    def get_security_findings(self, hours: int = 24) -> list[dict[str, Any]]:
+        """Return recent Security Hub / GuardDuty findings, normalised.
+
+        Each item: {"source", "type", "severity", "title", "resource", "time"}.
+        Providers without a findings service return an empty list.
+        """
+        return []
 
     # ------------------------------------------------------------------
     # Snapshots / Backups

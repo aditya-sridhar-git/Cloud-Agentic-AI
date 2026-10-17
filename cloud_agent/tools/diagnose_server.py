@@ -9,6 +9,7 @@ commands, and uses the LLM to explain *why* the server is struggling.
 from __future__ import annotations
 
 import json
+import re
 import os
 from typing import Any
 
@@ -49,6 +50,7 @@ Trigger: {trigger_reason}
 
 Respond in JSON:
 {{
+  "category": "memory_leak|gc_pause|disk_full|cpu_runaway|idle|healthy|unknown",
   "root_cause": "...",
   "severity": "critical|warning|info",
   "recommended_action": "...",
@@ -102,11 +104,16 @@ class DiagnoseServerTool(BaseTool):
             "status": "diagnosed",
             "diagnostic_output": diagnostic_output[:2000],
             "diagnosis": diagnosis,
-            "remediation": self._remediate(instance_id, diagnosis)
+            "remediation": self._remediate(instance_id, diagnosis, action),
         }
 
-    def _remediate(self, instance_id: str, diagnosis: dict[str, Any]) -> dict[str, Any]:
-        """Attempt to fix the discovered issue if it's safe to do so."""
+    def _remediate(self, instance_id: str, diagnosis: dict[str, Any], action: Action) -> dict[str, Any]:
+        """Attempt to fix the discovered issue if policy allows and it's safe to do so."""
+        cfg = self.config.get("tools", {}).get("diagnose_server", {})
+        if not cfg.get("auto_remediate", False):
+            return {"status": "skipped", "reason": "auto_remediate disabled in config"}
+        if self.dry_run or not action.parameters.get("remediate", True):
+            return {"status": "skipped", "reason": "dry-run / diagnosis-only request"}
         if not diagnosis.get("safe_to_auto_remediate"):
             return {"status": "skipped", "reason": "Not safe for auto-remediation"}
 
@@ -118,9 +125,8 @@ class DiagnoseServerTool(BaseTool):
                 res = self.provider.cleanup_logs(instance_id)
                 return {"status": "fixed", "action": "cleanup_logs", "output": res}
             
-            if "java" in root_cause or "service" in root_cause:
-                # Guessing service name for demo/common cases
-                svc = "java-app" if "java" in root_cause else "app" 
+            svc = cfg.get("service_name")
+            if svc and ("java" in root_cause or "service" in root_cause):
                 logger.info("[bold green]🔧 RESTARTING[/bold green] %s on %s", svc, instance_id)
                 res = self.provider.restart_service(instance_id, svc)
                 return {"status": "fixed", "action": f"restart_{svc}", "output": res}
@@ -151,59 +157,112 @@ class DiagnoseServerTool(BaseTool):
             )
 
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=self.config.get("llm", {}).get("model", "gpt-4o"),
                 response_format={"type": "json_object"},
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
             )
             raw = response.choices[0].message.content
-            return json.loads(raw)
+            result = json.loads(raw)
+            result.setdefault("category", "unknown")
+            return result
         except Exception as exc:
             logger.warning("LLM diagnosis failed: %s — using rule-based fallback", exc)
             return self._rule_based_diagnosis(diagnostic_output)
 
     @staticmethod
     def _rule_based_diagnosis(output: str) -> dict[str, Any]:
-        """Basic pattern matching when LLM is unavailable."""
+        """Deterministic pattern matching when the LLM is unavailable."""
         output_lower = output.lower()
 
-        if "out of memory" in output_lower or "oom" in output_lower:
+        if re.search(r"\bout of memory\b|\boom(-killer| killer|_kill)?\b|memory leak", output_lower):
             return {
+                "category": "memory_leak",
                 "root_cause": "Out of memory — OOM killer may have triggered",
                 "severity": "critical",
                 "recommended_action": "Increase instance memory or identify leaking process",
                 "safe_to_auto_remediate": False,
                 "explanation": "The system is running out of memory. An OOM condition was detected in logs.",
             }
-        elif "gc pause" in output_lower or "garbage collection" in output_lower:
+        if "gc pause" in output_lower or "garbage collection" in output_lower:
             return {
+                "category": "gc_pause",
                 "root_cause": "Java GC pause causing high CPU — likely memory pressure on JVM",
                 "severity": "critical",
                 "recommended_action": "Restart the Java application or tune JVM heap settings",
                 "safe_to_auto_remediate": False,
                 "explanation": "A Java process is stuck in garbage collection, consuming nearly all CPU.",
             }
-        elif any(kw in output_lower for kw in ("disk", "/dev/", "filesystem")) and any(pct in output for pct in ("100%", "99%", "98%", "97%", "96%", "95%", "94%", "93%", "92%", "91%", "90%", "89%")):
+        if _max_disk_use(output) >= 90:
             return {
+                "category": "disk_full",
                 "root_cause": "Disk space critically low",
                 "severity": "warning",
                 "recommended_action": "Clean up log files or expand the EBS volume",
                 "safe_to_auto_remediate": True,
                 "explanation": "The root filesystem is running out of space. Log rotation or volume expansion needed.",
             }
-        elif "no application processes" in output_lower:
+        if "no application processes" in output_lower:
             return {
+                "category": "idle",
                 "root_cause": "No application processes running — instance is genuinely idle",
                 "severity": "info",
                 "recommended_action": "Safe to stop this instance to save costs",
                 "safe_to_auto_remediate": True,
                 "explanation": "The instance has no active workloads. It's safe to shut down.",
             }
-        else:
+        hog = _top_cpu_process(output)
+        if hog and hog[1] >= 80:
             return {
-                "root_cause": "Unable to determine specific root cause from output",
-                "severity": "info",
-                "recommended_action": "Manual investigation recommended",
+                "category": "cpu_runaway",
+                "root_cause": f"Process '{hog[0]}' is consuming {hog[1]:.0f}% CPU",
+                "severity": "warning",
+                "recommended_action": f"Investigate or restart '{hog[0]}'; consider scaling out",
                 "safe_to_auto_remediate": False,
-                "explanation": "Diagnostic output didn't match known failure patterns. Human review needed.",
+                "explanation": "A single process dominates CPU. It may be a runaway job or an infinite loop.",
             }
+        if "system appears healthy" in output_lower:
+            return {
+                "category": "healthy",
+                "root_cause": "No anomaly found in diagnostics",
+                "severity": "info",
+                "recommended_action": "No action needed",
+                "safe_to_auto_remediate": False,
+                "explanation": "Diagnostics show normal resource usage.",
+            }
+        return {
+            "category": "unknown",
+            "root_cause": "Unable to determine specific root cause from output",
+            "severity": "info",
+            "recommended_action": "Manual investigation recommended",
+            "safe_to_auto_remediate": False,
+            "explanation": "Diagnostic output didn't match known failure patterns. Human review needed.",
+        }
+
+
+def _max_disk_use(output: str) -> int:
+    """Highest Use% reported by ``df -h`` lines in *output*."""
+    best = 0
+    for line in output.splitlines():
+        if line.startswith("/dev/") or line.startswith("overlay"):
+            m = re.search(r"\s(\d{1,3})%\s", line + " ")
+            if m:
+                best = max(best, int(m.group(1)))
+    return best
+
+
+def _top_cpu_process(output: str) -> tuple[str, float] | None:
+    """(command, %CPU) of the busiest process in ``top`` output, if parseable."""
+    best: tuple[str, float] | None = None
+    for line in output.splitlines():
+        parts = line.split()
+        # top rows: PID USER PR NI VIRT RES SHR S %CPU %MEM COMMAND...
+        if len(parts) >= 11 and parts[0].isdigit():
+            try:
+                cpu = float(parts[8])
+            except ValueError:
+                continue
+            cmd = " ".join(parts[10:])
+            if best is None or cpu > best[1]:
+                best = (cmd, cpu)
+    return best

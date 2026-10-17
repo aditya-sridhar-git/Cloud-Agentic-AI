@@ -6,6 +6,7 @@ It parses user queries, maps them to existing tools, executes the tools, and
 returns summarized responses.
 """
 
+import os
 import re
 from typing import Dict, List, Any, Optional, Tuple
 from cloud_agent.agent.baseagent import Action
@@ -26,9 +27,49 @@ from cloud_agent.utils.config import load_config
 
 logger = get_logger(__name__)
 
+# Read-only action used for each intent. The chat interface never changes
+# infrastructure: remediation goes through the agent's plan / approval flow.
+_READ_ONLY_ACTION = {
+    "cert_monitor": "check",
+    "idle_server": "check",
+    "cost_monitor": "check",
+    "security_audit": "full_scan",
+    "disk_cleanup": "check",
+    "backup_manager": "check",
+    "rightsizer": "check",
+    "scheduler": "check",
+    "tag_enforcer": "check",
+    "cross_domain": "correlate",
+    "query_optimizer": "analyze",
+}
+
+# Ties are broken by this order (more specific intents first).
+_INTENT_PRIORITY = [
+    "cert_monitor", "backup_manager", "query_optimizer", "rightsizer", "scheduler",
+    "tag_enforcer", "cross_domain", "idle_server", "cost_monitor", "disk_cleanup",
+    "security_audit",
+]
+
+_DESTRUCTIVE_VERBS = re.compile(
+    r"\b(stop|shut\s*down|halt|turn\s+off|terminate|delete|destroy|remove|kill|"
+    r"start|boot|turn\s+on|resume|resize|downgrade|freeze)\b"
+)
+_GREETINGS = {"help", "hello", "hi", "hey", "status", "menu", "commands"}
+
+
+def _keyword_pattern(keyword: str) -> re.Pattern:
+    """Whole-word match that tolerates simple plurals / tenses (cert → certs, expire → expired)."""
+    body = r"\s+".join(re.escape(w) for w in keyword.split())
+    return re.compile(rf"\b{body}(?:s|es|d|ed|ing)?\b")
+
+
 class ChatInterface:
     """
     Handles natural language queries and maps them to specific cloud agent tools.
+
+    Pipeline (paper §VI, Fig. 4): keyword/regex intent classification →
+    read-only tool dispatch → formatted response (optionally rephrased by
+    the LLM when an API key is configured).
     """
 
     def __init__(self, provider: CloudProvider, config: Optional[Dict[str, Any]] = None):
@@ -48,97 +89,108 @@ class ChatInterface:
             "query_optimizer": QueryOptimizerTool(provider, self.config),
         }
         self.intent_map = self._build_intent_map()
+        self._patterns = {
+            intent: [(_keyword_pattern(k), len(k.split())) for k in kws]
+            for intent, kws in self.intent_map.items()
+        }
 
     def _build_intent_map(self) -> Dict[str, List[str]]:
         """
-        Maps keywords/phrases to tool names.
+        Maps keywords/phrases to intents. Multi-word phrases score higher.
+        ``general_status`` is a fallback used only when no specific intent matches.
         """
         return {
             "cert_monitor": [
-                "certificate", "ssl", "tls", "expire", "expiry", "cert", 
-                "https", "domain", "secure", "renewal", "renew"
+                "certificate", "cert", "ssl", "tls", "expire", "expiry", "expiration",
+                "https", "domain", "renewal", "renew", "acm",
             ],
             "idle_server": [
-                "idle", "unused", "inactive", "waste", "low cpu", "low usage",
-                "zombie", "empty", "underutilized", "underused", "not used",
-                "wasting", "doing nothing"
+                "idle", "unused", "inactive", "sleeping", "zombie", "underutilized",
+                "underused", "not used", "doing nothing", "low cpu", "low usage", "wasting",
             ],
             "cost_monitor": [
-                "cost", "spend", "bill", "price", "expense", "budget", 
-                "money", "charging", "how much", "spending", "expensive",
-                "cheap", "saving", "savings", "forecast", "daily cost"
+                "cost", "spend", "bill", "billing", "price", "expense", "budget", "money",
+                "how much", "expensive", "saving", "savings", "forecast", "anomaly",
+                "anomalies", "anomalous", "daily cost",
             ],
             "security_audit": [
-                "security", "vulnerability", "risk", "open port", "public",
-                "firewall", "audit", "compliance", "breach", "threat",
-                "attack", "exposed", "unsafe", "protect", "permission",
-                "iam", "access", "encryption", "encrypted"
+                "security", "secure", "vulnerability", "vulnerable", "risk", "open port",
+                "port", "public", "firewall", "audit", "compliance", "breach", "threat",
+                "attack", "exposed", "unsafe", "permission", "encryption", "encrypted",
+                "security group",
             ],
             "disk_cleanup": [
-                "disk", "storage", "space", "cleanup", "clean", "full", 
-                "delete", "remove", "free up", "volume", "ebs", "orphan",
-                "orphaned", "unattached", "disk usage"
+                "disk", "storage", "space", "cleanup", "clean up", "orphan", "orphaned",
+                "unattached", "volume", "ebs", "disk usage", "free up",
             ],
             "backup_manager": [
-                "backup", "snapshot", "restore", "recovery", "save", 
-                "copy", "archive", "replicate", "disaster"
+                "backup", "back up", "snapshot", "restore", "recovery", "disaster", "retention",
             ],
-            "general_status": [
-                "instance", "instances", "server", "servers", "running",
-                "stopped", "status", "overview", "show", "list", "tell",
-                "current", "what", "how many", "count", "health",
-                "infrastructure", "fleet", "ec2", "compute", "machine",
-                "machines", "node", "nodes", "cpu", "utilization"
+            "rightsizer": [
+                "rightsize", "right-size", "right size", "oversized", "over-provisioned",
+                "overprovisioned", "downsize", "smaller instance", "instance type",
+            ],
+            "scheduler": [
+                "schedule", "scheduler", "business hours", "after hours", "overnight",
+                "weekend", "office hours",
+            ],
+            "tag_enforcer": [
+                "tag", "tagging", "untagged", "label", "owner tag", "cost allocation",
+            ],
+            "cross_domain": [
+                "correlate", "correlation", "cloudtrail", "root cause", "why did", "investigate",
+                "guardduty", "security hub",
             ],
             "query_optimizer": [
-                "query", "sql", "database", "rds", "slow query", "slow queries",
-                "postgres", "postgresql", "mysql", "index", "explain", "latency",
-                "db performance", "optimize query", "query optimizer"
+                "query", "sql", "database", "rds", "slow query", "postgres", "postgresql",
+                "mysql", "index", "explain", "db performance",
+            ],
+            "general_status": [
+                "instance", "server", "running", "stopped", "overview", "fleet", "ec2",
+                "compute", "machine", "node", "infrastructure", "health", "utilization",
+                "how many",
             ],
         }
 
-    def _detect_intent(self, query: str) -> Tuple[Optional[str], str, Optional[str]]:
-        """
-        Detects the user's intent, action type, and resource ID.
-        Returns (tool_name, action_type, resource_id).
-        """
-        query_lower = query.lower()
-        
-        # 1. Extract Resource ID (e.g., i-0a1b2c3d4e5f6g7h8)
+    def _parse_query(self, query: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """Return (intent, requested_verb, resource_id) for *query*."""
+        q = query.lower().strip()
         resource_id = None
-        id_match = re.search(r'i-[a-z0-9]{8,17}', query_lower)
+        id_match = re.search(r"\b(i-[0-9a-f]{8,17}|vol-[0-9a-f]{8,17}|sg-[0-9a-f]{8,17})\b", q)
         if id_match:
-            resource_id = id_match.group(0)
-            
-        # 2. Detect Action Type
-        action_type = "check"
-        if any(word in query_lower for word in ["stop", "shutdown", "halt", "turn off"]):
-            action_type = "stop"
-        elif any(word in query_lower for word in ["start", "boot", "turn on", "resume"]):
-            action_type = "start"
-        elif any(word in query_lower for word in ["terminate", "delete", "destroy", "remove"]):
-            action_type = "terminate"
-            
-        # 3. Detect Tool Intent
-        scores: Dict[str, int] = {tool: 0 for tool in self.intent_map}
-        for tool, keywords in self.intent_map.items():
-            for keyword in keywords:
-                if keyword in query_lower:
-                    scores[tool] += 1
-        
-        best_tool = max(scores, key=scores.get)
-        if scores[best_tool] > 0:
-            return best_tool, action_type, resource_id
-        
-        # Fallback for generic help or status
-        if any(word in query_lower for word in ["help", "hello", "hi", "hey", "what can you do"]):
-            return "help", "check", None
-            
-        return None, "check", None
+            resource_id = id_match.group(1)
+
+        verb_match = _DESTRUCTIVE_VERBS.search(q)
+        verb = verb_match.group(1) if verb_match else None
+
+        words = re.findall(r"[a-z0-9'-]+", q)
+        if (len(words) <= 2 and set(words) & _GREETINGS) or "what can you do" in q:
+            return "help", verb, resource_id
+
+        scores: Dict[str, int] = {}
+        for intent, patterns in self._patterns.items():
+            if intent == "general_status":
+                continue
+            score = sum(weight for pat, weight in patterns if pat.search(q))
+            if score:
+                scores[intent] = score
+        if scores:
+            best = max(scores.values())
+            for intent in _INTENT_PRIORITY:
+                if scores.get(intent) == best:
+                    return intent, verb, resource_id
+
+        if any(pat.search(q) for pat, _ in self._patterns["general_status"]):
+            return "general_status", verb, resource_id
+        return None, verb, resource_id
+
+    def _detect_intent(self, query: str) -> Optional[str]:
+        """Classify *query* into an intent name (or None if unrecognised)."""
+        return self._parse_query(query)[0]
 
     def _execute_tool(self, tool_name: str, action_type: str = "check", resource_id: Optional[str] = None) -> Dict[str, Any]:
         """
-        Executes the specified tool and returns the result.
+        Executes the read-only variant of the specified tool and returns the result.
         """
         # Handle general_status directly (not a registered tool)
         if tool_name == "general_status":
@@ -169,24 +221,58 @@ class ChatInterface:
 
         if tool_name not in self.tools:
             return {"success": False, "error": f"Unknown tool: {tool_name}"}
-        
+
         tool = self.tools[tool_name]
-        logger.info(f"Executing tool: {tool_name} (Action: {action_type}, Resource: {resource_id})")
-        
+        safe_action = _READ_ONLY_ACTION[tool_name]
+        logger.info(f"Executing tool: {tool_name} (Action: {safe_action}, Resource: {resource_id})")
+
         try:
             action = Action(
                 tool_name=tool_name,
-                action_type=action_type, 
-                resource_id=resource_id or "", 
+                action_type=safe_action,
+                resource_id=resource_id or "",
                 reason="Chat interface request",
-                parameters={}
+                parameters={"remediate": False},
             )
-            
+
             result = tool.execute(action)
             return {"success": True, "data": result}
         except Exception as e:
             logger.error(f"Error executing tool {tool_name}: {str(e)}")
             return {"success": False, "error": str(e)}
+
+    def _read_only_notice(self, verb: Optional[str], resource_id: Optional[str]) -> str:
+        if not verb:
+            return ""
+        target = f" `{resource_id}`" if resource_id else ""
+        return (
+            f"\n\nℹ️ The chat assistant is read-only, so I did not {verb}{target}. "
+            "Changes are proposed by the agent each cycle and executed after approval in the dashboard."
+        )
+
+    def _polish(self, query: str, text: str) -> str:
+        """Optionally rephrase the response with the LLM (paper §VI); facts are kept verbatim."""
+        if not self.config.get("chat", {}).get("llm_responses", False) or not os.getenv("OPENAI_API_KEY"):
+            return text
+        try:
+            from openai import OpenAI
+
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            resp = client.chat.completions.create(
+                model=self.config.get("llm", {}).get("model", "gpt-4o"),
+                messages=[
+                    {"role": "system", "content": (
+                        "Rewrite the cloud-operations report as a concise answer to the user's question. "
+                        "Keep every number, resource ID and finding exactly; do not add facts.")},
+                    {"role": "user", "content": f"Question: {query}\n\nReport:\n{text}"},
+                ],
+                temperature=0.2,
+                max_tokens=400,
+            )
+            return resp.choices[0].message.content.strip() or text
+        except Exception as exc:
+            logger.warning("LLM response generation failed: %s", exc)
+            return text
 
     def _format_response(self, intent: str, result: Dict[str, Any]) -> str:
         """
@@ -211,6 +297,14 @@ class ChatInterface:
             return self._format_query_optimizer_response(data)
         elif intent == "backup_manager":
             return self._format_backup_response(data)
+        elif intent == "rightsizer":
+            return self._format_rightsizer_response(data)
+        elif intent == "scheduler":
+            return self._format_scheduler_response(data)
+        elif intent == "tag_enforcer":
+            return self._format_tag_enforcer_response(data)
+        elif intent == "cross_domain":
+            return self._format_cross_domain_response(data)
         elif intent == "general_status":
             return self._format_general_status(data)
         elif intent == "help":
@@ -300,12 +394,13 @@ class ChatInterface:
     def _format_idle_response(self, data: Dict) -> str:
         instances = data.get("idle_instances", [])
         if not instances:
-            return "🟢 **Utilization Check:** No idle servers detected. Your infrastructure is well optimized!"
+            return "🟢 **Utilization Check:** Good news — no idle servers detected. Your infrastructure is well optimized!"
         
         msg = [f"### Idle Resource Analysis"]
         msg.append(f"Detected **{len(instances)}** underutilized instance(s):")
         for inst in instances:
-            msg.append(f"- **{inst.get('id')}** ({inst.get('name', 'N/A')}): CPU {inst.get('avg_cpu', 0):.1f}%, Network {inst.get('avg_network', 0):.1f}%")
+            name = next((t["Value"] for t in inst.get("tags", []) if t.get("Key") == "Name"), inst.get("name", "N/A"))
+            msg.append(f"- **{inst.get('instance_id')}** ({name}): CPU {inst.get('avg_cpu', 0):.1f}%")
         return "\n".join(msg)
 
     def _format_cost_response(self, data: Dict) -> str:
@@ -354,13 +449,14 @@ class ChatInterface:
         return "\n".join(msg)
 
     def _format_disk_response(self, data: Dict) -> str:
-        # Disk cleanup usually returns stats on what was cleaned or could be cleaned
-        freed = data.get("space_freed_gb", 0)
-        files_removed = data.get("files_removed", 0)
-        
-        if freed > 0 or files_removed > 0:
-            return f"🧹 **Cleanup Complete:** Freed {freed:.2f} GB by removing {files_removed} files."
-        return "🧹 No unnecessary files found to clean up."
+        orphaned = data.get("orphaned_volumes", [])
+        if not orphaned:
+            return "🧹 **Storage Check:** No orphaned volumes found."
+        msg = [f"### Orphaned Volumes",
+               f"Found **{len(orphaned)}** unattached volume(s), **{data.get('reclaimable_gb', 0)} GB** reclaimable:"]
+        for v in orphaned:
+            msg.append(f"- **{v.get('volume_id')}**: {v.get('size_gb')} GB, unattached {v.get('unattached_days')} days")
+        return "\n".join(msg)
 
     def _format_query_optimizer_response(self, data: Dict) -> str:
         status = data.get("status", "unknown")
@@ -401,6 +497,14 @@ class ChatInterface:
         return msg
 
     def _format_rightsizer_response(self, data: Dict) -> str:
+        if "recommendations" in data:
+            recs = data["recommendations"]
+            if not recs:
+                return "📐 **Rightsizing:** No over-provisioned instances found."
+            lines = [f"### Rightsizing Recommendations ({len(recs)})"]
+            for r in recs:
+                lines.append(f"- **{r.get('instance_id')}**: `{r.get('current_type')}` → `{r.get('recommended_type')}` ({r.get('reason')})")
+            return "\n".join(lines)
         instance_id = data.get("instance_id", "unknown")
         current = data.get("current_type", "unknown")
         recommended = data.get("recommended_type", data.get("new_type", current))
@@ -498,70 +602,56 @@ Type 'exit' to quit.
         """
         Main entry point for processing a user query.
         """
-        if not query.strip():
-            return "Please enter a valid question."
-        
-        intent, action, resource_id = self._detect_intent(query)
-        
-        if not intent:
-            return "🤔 I'm not sure what you mean. Try asking about certificates, costs, idle servers, security, disk space, or backups. Type 'help' for more info."
-        
-        # Handle special "help" intent which doesn't need tool execution
-        if intent == "help":
-            return self._get_help_message()
-        
-        result = self._execute_tool(intent, action, resource_id)
-        return self._format_response(intent, result)
+        return self.process_query(query)["summary"]
 
     def process_query(self, query: str) -> Dict[str, Any]:
         """
         Process a query and return structured data suitable for API response.
-        Returns a dict with 'summary' (text response) and 'data' (structured data).
+        Returns a dict with 'summary' (text response), 'data' (structured data) and 'intent'.
         """
         if not query.strip():
-            return {"summary": "Please enter a valid question.", "data": []}
-        
-        intent, action, resource_id = self._detect_intent(query)
-        
+            return {"summary": "Please enter a valid question.", "data": [], "intent": None}
+
+        intent, verb, resource_id = self._parse_query(query)
+
         if not intent:
             return {
-                "summary": "🤔 I'm not sure what you mean. Try asking about certificates, costs, idle servers, security, disk space, or backups.",
-                "data": []
+                "summary": "🤔 I'm not sure what you mean. Try asking about certificates, costs, idle servers, "
+                           "security, disk space, or backups. Type 'help' for more info.",
+                "data": [],
+                "intent": None,
             }
-        
+
         # Handle special "help" intent
         if intent == "help":
-            return {"summary": self._get_help_message(), "data": []}
-        
-        # Execute the tool
-        result = self._execute_tool(intent, action, resource_id)
-        
+            return {"summary": self._get_help_message(), "data": [], "intent": "help"}
+
+        result = self._execute_tool(intent, resource_id=resource_id)
+
         # Extract structured data from result
-        data_list = []
+        data_list: list = []
         if result.get("success") and "data" in result:
             tool_data = result["data"]
-            
-            # Convert tool-specific data structures to list format
             if intent == "cert_monitor":
-                expired = tool_data.get("expired", [])
-                expiring = tool_data.get("expiring_soon", [])
-                data_list = expired + expiring
+                data_list = tool_data.get("expired", []) + tool_data.get("expiring_soon", [])
             elif intent == "idle_server":
                 data_list = tool_data.get("idle_instances", [])
             elif intent == "cost_monitor":
                 data_list = tool_data.get("anomalies", [])
             elif intent == "security_audit":
-                data_list = tool_data.get("risks", [])
+                data_list = tool_data.get("findings", [])
             elif intent == "disk_cleanup":
-                data_list = [tool_data]  # Single summary object
+                data_list = tool_data.get("orphaned_volumes", [])
             elif intent == "query_optimizer":
                 data_list = tool_data.get("optimizations", []) or tool_data.get("pi_unavailable", [])
             elif intent == "backup_manager":
                 data_list = tool_data.get("snapshots", [])
+            elif intent == "rightsizer":
+                data_list = tool_data.get("recommendations", [])
+            elif intent in ("scheduler", "tag_enforcer"):
+                data_list = tool_data.get("pending_actions", [])
             elif intent == "general_status":
                 data_list = tool_data.get("instances", [])
-        
-        # Format the text summary
-        summary = self._format_response(intent, result)
-        
-        return {"summary": summary, "data": data_list}
+
+        summary = self._format_response(intent, result) + self._read_only_notice(verb, resource_id)
+        return {"summary": self._polish(query, summary), "data": data_list, "intent": intent}

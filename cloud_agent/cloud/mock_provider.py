@@ -158,59 +158,120 @@ def _sysbench_for(instance: dict[str, Any], state: str) -> dict[str, Any]:
     return profile
 
 
-class MockProvider(CloudProvider):
-    """Fake cloud provider that returns realistic demo data."""
+def _default_fleet() -> dict[str, Any]:
+    """The original demo account (used when no scenario fleet is supplied)."""
+    instances = []
+    for m in _MOCK_INSTANCES:
+        inst = dict(m)
+        inst["cpu"] = _CPU_PROFILES.get(m["instance_id"], 50.0)
+        instances.append(inst)
+    return {
+        "instances": instances,
+        "volumes": [dict(v) for v in _MOCK_VOLUMES],
+        "security_groups": _MOCK_SECURITY_GROUPS,
+        "buckets": _MOCK_S3_BUCKETS,
+        "cloudtrail": None,      # None → built-in demo events
+        "findings": [],
+        "cpu_noise": 2.0,
+        "cpu_7d_noise": 5.0,
+    }
 
-    def __init__(self, region: str = "us-east-1", scenario: str = "default") -> None:
+
+class MockProvider(CloudProvider):
+    """Fake cloud provider that returns realistic demo data.
+
+    Args:
+        region: Reported region.
+        scenario: ``"default"`` or ``"cost_spike"`` for the built-in fleet.
+        seed: Seed for the provider's private RNG. With a seed, every run
+            returns identical telemetry (reproducible experiments).
+        fleet: Optional scenario description (instances, volumes, security
+            groups, buckets, costs, CloudTrail events, findings, SSM output).
+            See ``cloud_agent/evaluation/scenarios.py``.
+    """
+
+    def __init__(self, region: str = "us-east-1", scenario: str = "default",
+                 seed: int | None = None, fleet: dict[str, Any] | None = None) -> None:
         self._region = region
         self._scenario = scenario
+        self._rng = random.Random(seed)
+        self._fleet = fleet if fleet is not None else _default_fleet()
+        self._uses_default_fleet = fleet is None
+        self._now = self._fleet.get("now") or datetime.now(timezone.utc)
         self._stopped: set[str] = set()
+        self._started: set[str] = set()
         self._terminated: set[str] = set()
         self._deleted_volumes: set[str] = set()
         self._applied_tags: dict[str, list[dict[str, str]]] = {}
+        self._resized: dict[str, str] = {}
         self._extra_instances: list[dict[str, Any]] = []
         self._extra_volumes: list[dict[str, Any]] = []
         self._action_log: list[dict[str, Any]] = []
+        self.api_calls = 0
         logger.info("[green]Mock provider initialised[/green] (region=%s, scenario=%s)", region, scenario)
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def clock(self) -> float:
+        """Scenario wall-clock time (epoch seconds) used for business-hours checks."""
+        return self._now.timestamp() if self._fleet.get("now") else time.time()
+
+    @property
+    def action_log(self) -> list[dict[str, Any]]:
+        """Every mutating call made against this provider (for evaluation)."""
+        return list(self._action_log)
+
+    def _instance_specs(self) -> list[dict[str, Any]]:
+        return self._fleet["instances"] + self._extra_instances
+
+    def _spec(self, instance_id: str) -> dict[str, Any] | None:
+        return next((m for m in self._instance_specs() if m["instance_id"] == instance_id), None)
+
+    def _base_tags(self, m: dict[str, Any]) -> list[dict[str, str]]:
+        if "tags" in m:
+            return [dict(t) for t in m["tags"]]
+        tags = [{"Key": "Name", "Value": m["name"]}, {"Key": "Environment", "Value": m["env"]}]
+        # Intentionally leave dev instances without Owner/Project → tag_enforcer should catch
+        if m["env"] != "dev":
+            tags.append({"Key": "Owner", "Value": "platform-team"})
+            tags.append({"Key": "Project", "Value": "cloud-agent"})
+        return tags
 
     # ------------------------------------------------------------------
     # Instances
     # ------------------------------------------------------------------
 
     def list_instances(self, filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        self.api_calls += 1
         instances = []
-        for m in _MOCK_INSTANCES + self._extra_instances:
+        for m in self._instance_specs():
             iid = m["instance_id"]
             if iid in self._terminated:
                 continue
-            state = "stopped" if iid in self._stopped else m["state"]
-
-            tags = [
-                {"Key": "Name", "Value": m["name"]},
-            ]
-            # Intentionally leave some instances without required tags
-            if m["env"] != "dev":
-                tags.append({"Key": "Environment", "Value": m["env"]})
-                tags.append({"Key": "Owner", "Value": "platform-team"})
-                tags.append({"Key": "Project", "Value": "cloud-agent"})
+            if iid in self._stopped:
+                state = "stopped"
+            elif iid in self._started:
+                state = "running"
             else:
-                tags.append({"Key": "Environment", "Value": m["env"]})
-            # dev instances missing Owner, Project tags → tag_enforcer should catch
+                state = m["state"]
 
+            tags = self._base_tags(m)
             existing = self._applied_tags.get(iid, [])
             existing_keys = {t["Key"] for t in existing}
-            for t in tags:
-                if t["Key"] not in existing_keys:
-                    existing.append(t)
-            tags = existing
+            tags = list(existing) + [t for t in tags if t["Key"] not in existing_keys]
 
-            launch_time = datetime.now(timezone.utc) - timedelta(days=random.randint(5, 90))
+            launch_days = m.get("age_days", 30)
+            launch_time = self._now - timedelta(days=launch_days)
             sysbench = _sysbench_for(m, state)
+            memory = m.get("memory_percent", sysbench["memory_percent"]) if state == "running" else 0
             instances.append({
                 "instance_id": iid,
-                "instance_type": m["instance_type"],
+                "instance_type": self._resized.get(iid, m["instance_type"]),
                 "state": state,
                 "launch_time": str(launch_time),
+                "region": self._region,
                 "tags": tags,
                 "benchmark_profile": sysbench["profile"],
                 "sysbench": {
@@ -219,14 +280,15 @@ class MockProvider(CloudProvider):
                     "disk_iops": sysbench["disk_iops"],
                     "p95_latency_ms": sysbench["latency_ms"],
                 },
-                "memory_percent": sysbench["memory_percent"],
-                "disk_percent": sysbench["disk_percent"],
-                "network_in": sysbench["network_in"],
+                "memory_percent": memory,
+                "disk_percent": m.get("disk_percent", sysbench["disk_percent"]),
+                "network_in": m.get("network_in", sysbench["network_in"]),
             })
         return instances
 
     def stop_instance(self, instance_id: str) -> dict[str, Any]:
         self._stopped.add(instance_id)
+        self._started.discard(instance_id)
         self._action_log.append({"action": "stop", "instance_id": instance_id, "time": time.time()})
         logger.info("[mock] Stopped %s", instance_id)
         return {"instance_id": instance_id, "status": "stopping"}
@@ -238,29 +300,32 @@ class MockProvider(CloudProvider):
         return {"instance_id": instance_id, "status": "terminating"}
 
     def resize_instance(self, instance_id: str, new_type: str) -> dict[str, Any]:
+        self._resized[instance_id] = new_type
         self._action_log.append({"action": "resize", "instance_id": instance_id, "new_type": new_type, "time": time.time()})
         logger.info("[mock] Resized %s → %s", instance_id, new_type)
         return {"instance_id": instance_id, "new_type": new_type, "status": "resized"}
 
     def start_instance(self, instance_id: str) -> dict[str, Any]:
         self._stopped.discard(instance_id)
+        self._started.add(instance_id)
         self._action_log.append({"action": "start", "instance_id": instance_id, "time": time.time()})
         logger.info("[mock] Started %s", instance_id)
         return {"instance_id": instance_id, "status": "starting"}
 
     def create_instance(self, instance_type: str, region: str | None = None, tags: list[dict[str, str]] | None = None) -> dict[str, Any]:
-        instance_id = f"i-mock-{random.getrandbits(64):x}"
+        instance_id = f"i-mock-{self._rng.getrandbits(64):x}"
         new_inst = {
             "instance_id": instance_id,
             "instance_type": instance_type,
             "state": "running",
             "name": f"new-instance-{instance_id[-4:]}",
-            "env": "prod"
+            "env": "prod",
+            "cpu": 50.0,
         }
         self._extra_instances.append(new_inst)
         if tags:
             self._applied_tags[instance_id] = tags
-        
+
         self._action_log.append({"action": "create_instance", "instance_id": instance_id, "time": time.time()})
         logger.info("[mock] Created instance %s", instance_id)
         return {"instance_id": instance_id, "status": "creating"}
@@ -269,39 +334,51 @@ class MockProvider(CloudProvider):
     # Metrics
     # ------------------------------------------------------------------
 
+    def _noisy(self, base: float, amplitude: float) -> float:
+        return round(min(100.0, max(0.0, base + self._rng.uniform(-amplitude, amplitude))), 1)
+
     def get_cpu_utilization(self, instance_id: str, minutes: int = 30, region: str | None = None) -> float:
-        base = _CPU_PROFILES.get(instance_id, 50.0)
-        return round(base + random.uniform(-2, 2), 1)
+        self.api_calls += 1
+        m = self._spec(instance_id) or {}
+        if m.get("metrics_unavailable"):
+            raise RuntimeError("CloudWatch datapoints missing")
+        return self._noisy(m.get("cpu", 50.0), self._fleet.get("cpu_noise", 2.0))
 
     def get_cpu_utilization_days(self, instance_id: str, days: int = 7, region: str | None = None) -> float:
-        base = _CPU_PROFILES.get(instance_id, 50.0)
-        return round(base + random.uniform(-5, 5), 1)
+        self.api_calls += 1
+        m = self._spec(instance_id) or {}
+        if m.get("metrics_unavailable"):
+            raise RuntimeError("CloudWatch datapoints missing")
+        return self._noisy(m.get("cpu_7d", m.get("cpu", 50.0)), self._fleet.get("cpu_7d_noise", 5.0))
+
+    def get_memory_utilization(self, instance_id: str, region: str | None = None) -> float | None:
+        m = self._spec(instance_id) or {}
+        return m.get("memory_percent")
 
     # ------------------------------------------------------------------
     # Volumes
     # ------------------------------------------------------------------
 
     def list_volumes(self, filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        self.api_calls += 1
         volumes = []
-        for v in _MOCK_VOLUMES + self._extra_volumes:
+        for v in self._fleet["volumes"] + self._extra_volumes:
             if v["volume_id"] in self._deleted_volumes:
                 continue
-            create_time = datetime.now(timezone.utc) - timedelta(days=v["days_old"])
-            unattached_days = v["days_old"] if v["state"] == "available" else 0
-            volumes.append({
+            create_time = self._now - timedelta(days=v["days_old"])
+            unattached_days = v.get("unattached_days", v["days_old"] if v["state"] == "available" else 0)
+            vol = {
                 "volume_id": v["volume_id"],
                 "state": v["state"],
                 "size_gb": v["size_gb"],
+                "encrypted": v.get("encrypted", True),
                 "create_time": str(create_time),
                 "unattached_days": unattached_days,
-            })
+            }
+            if "tags" in v:
+                vol["tags"] = list(v["tags"]) + self._applied_tags.get(v["volume_id"], [])
+            volumes.append(vol)
         return volumes
-
-    def snapshot_volume(self, volume_id: str) -> dict[str, Any]:
-        snap_id = f"snap-mock-{volume_id[-4:]}"
-        self._action_log.append({"action": "snapshot", "volume_id": volume_id, "time": time.time()})
-        logger.info("[mock] Snapshot %s → %s", volume_id, snap_id)
-        return {"volume_id": volume_id, "snapshot_id": snap_id}
 
     def delete_volume(self, volume_id: str) -> dict[str, Any]:
         self._deleted_volumes.add(volume_id)
@@ -310,7 +387,7 @@ class MockProvider(CloudProvider):
         return {"volume_id": volume_id, "status": "deleted"}
 
     def create_volume(self, size_gb: int, region: str | None = None, tags: list[dict[str, str]] | None = None) -> dict[str, Any]:
-        volume_id = f"vol-mock-{random.getrandbits(64):x}"
+        volume_id = f"vol-mock-{self._rng.getrandbits(64):x}"
         new_vol = {
             "volume_id": volume_id,
             "state": "available",
@@ -348,31 +425,43 @@ class MockProvider(CloudProvider):
     # ------------------------------------------------------------------
 
     def get_daily_cost(self, days: int = 1) -> float:
-        # Simulate a cost spike scenario
+        self.api_calls += 1
+        costs = self._fleet.get("costs")
+        if costs:
+            return round(costs["current"] * (1 + self._rng.uniform(-1, 1) * costs.get("jitter", 0.0)), 2)
+        # Built-in demo fleet
         if self._scenario == "cost_spike":
-            return round(random.uniform(180.0, 220.0), 2)
-        return round(random.uniform(95.0, 115.0), 2)
+            return round(self._rng.uniform(180.0, 220.0), 2)
+        return round(self._rng.uniform(95.0, 115.0), 2)
 
     def get_cost_baseline(self, days: int = 7) -> float:
-        return round(random.uniform(90.0, 110.0), 2)
+        self.api_calls += 1
+        costs = self._fleet.get("costs")
+        if costs:
+            return round(costs["baseline"], 2)
+        return round(self._rng.uniform(90.0, 110.0), 2)
 
     def get_cost_by_service(self, days: int = 1) -> list[dict]:
         """Return mock per-service cost breakdown."""
+        costs = self._fleet.get("costs")
+        if costs and "services" in costs:
+            return [{"service": k, "amount": round(v, 2), "currency": "USD"} for k, v in costs["services"].items()]
+        u = self._rng.uniform
         if self._scenario == "cost_spike":
             # Simulate EC2 spike
             return [
-                {"service": "Amazon EC2",         "amount": round(random.uniform(120.0, 150.0), 2), "currency": "USD"},
-                {"service": "Amazon S3",           "amount": round(random.uniform(8.0, 12.0), 2),   "currency": "USD"},
-                {"service": "Amazon RDS",          "amount": round(random.uniform(25.0, 35.0), 2),  "currency": "USD"},
-                {"service": "AWS Lambda",          "amount": round(random.uniform(1.0, 3.0), 2),    "currency": "USD"},
-                {"service": "Amazon CloudWatch",   "amount": round(random.uniform(2.0, 5.0), 2),    "currency": "USD"},
+                {"service": "Amazon EC2",         "amount": round(u(120.0, 150.0), 2), "currency": "USD"},
+                {"service": "Amazon S3",           "amount": round(u(8.0, 12.0), 2),   "currency": "USD"},
+                {"service": "Amazon RDS",          "amount": round(u(25.0, 35.0), 2),  "currency": "USD"},
+                {"service": "AWS Lambda",          "amount": round(u(1.0, 3.0), 2),    "currency": "USD"},
+                {"service": "Amazon CloudWatch",   "amount": round(u(2.0, 5.0), 2),    "currency": "USD"},
             ]
         return [
-            {"service": "Amazon EC2",         "amount": round(random.uniform(50.0, 65.0), 2),  "currency": "USD"},
-            {"service": "Amazon S3",          "amount": round(random.uniform(8.0, 12.0), 2),   "currency": "USD"},
-            {"service": "Amazon RDS",         "amount": round(random.uniform(20.0, 30.0), 2),  "currency": "USD"},
-            {"service": "AWS Lambda",         "amount": round(random.uniform(1.0, 3.0), 2),    "currency": "USD"},
-            {"service": "Amazon CloudWatch",  "amount": round(random.uniform(2.0, 5.0), 2),    "currency": "USD"},
+            {"service": "Amazon EC2",         "amount": round(u(50.0, 65.0), 2),  "currency": "USD"},
+            {"service": "Amazon S3",          "amount": round(u(8.0, 12.0), 2),   "currency": "USD"},
+            {"service": "Amazon RDS",         "amount": round(u(20.0, 30.0), 2),  "currency": "USD"},
+            {"service": "AWS Lambda",         "amount": round(u(1.0, 3.0), 2),    "currency": "USD"},
+            {"service": "Amazon CloudWatch",  "amount": round(u(2.0, 5.0), 2),    "currency": "USD"},
         ]
 
     # ------------------------------------------------------------------
@@ -419,7 +508,13 @@ class MockProvider(CloudProvider):
 
     def run_ssm_command(self, instance_id: str, commands: list[str], timeout: int = 30) -> str:
         """Return realistic fake diagnostic output."""
-        cpu = _CPU_PROFILES.get(instance_id, 50.0)
+        self.api_calls += 1
+        m = self._spec(instance_id) or {}
+        if m.get("ssm_unavailable"):
+            raise RuntimeError("SSM agent not reachable")
+        if "ssm_output" in m:
+            return m["ssm_output"]
+        cpu = m.get("cpu", _CPU_PROFILES.get(instance_id, 50.0))
 
         if cpu > 80:
             return (
@@ -474,12 +569,15 @@ class MockProvider(CloudProvider):
     # ------------------------------------------------------------------
 
     def describe_security_groups(self) -> list[dict[str, Any]]:
-        return list(_MOCK_SECURITY_GROUPS)
+        self.api_calls += 1
+        return list(self._fleet["security_groups"])
 
     def list_s3_buckets_public_access(self) -> list[dict[str, Any]]:
-        return list(_MOCK_S3_BUCKETS)
+        self.api_calls += 1
+        return list(self._fleet["buckets"])
 
     def check_ebs_encryption(self) -> list[dict[str, Any]]:
+        self.api_calls += 1
         return [
             {
                 "volume_id": v["volume_id"],
@@ -487,8 +585,15 @@ class MockProvider(CloudProvider):
                 "state": v["state"],
                 "encrypted": False,
             }
-            for v in _MOCK_VOLUMES
-            if not v["encrypted"]
+            for v in self._fleet["volumes"]
+            if not v.get("encrypted", True) and v["volume_id"] not in self._deleted_volumes
+        ]
+
+    def get_security_findings(self, hours: int = 24) -> list[dict[str, Any]]:
+        self.api_calls += 1
+        return [
+            {**f, "time": str(self._now - timedelta(hours=f.get("hours_ago", 1)))}
+            for f in self._fleet.get("findings", [])
         ]
 
     # ------------------------------------------------------------------
@@ -496,7 +601,16 @@ class MockProvider(CloudProvider):
     # ------------------------------------------------------------------
 
     def get_cloudtrail_events(self, hours: int = 24, event_name: str | None = None) -> list[dict[str, Any]]:
-        now = datetime.now(timezone.utc)
+        self.api_calls += 1
+        now = self._now
+        if self._fleet.get("cloudtrail") is not None:
+            events = [
+                {**e, "event_time": str(now - timedelta(hours=e.get("hours_ago", 1)))}
+                for e in self._fleet["cloudtrail"] if e.get("hours_ago", 1) <= hours
+            ]
+            if event_name:
+                events = [e for e in events if e["event_name"] == event_name]
+            return events
         events = [
             {
                 "event_name": "RunInstances",

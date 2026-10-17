@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 @dataclass
 class ConsensusResult:
     action: Action
-    status: str  # "APPROVED", "REJECTED", or "MODIFIED"
+    status: str  # "APPROVED", "REJECTED", "MODIFIED", or "ESCALATED" (needs a human)
     judge_reasoning: str
     debate_transcript: dict[str, str]
 
@@ -31,6 +31,7 @@ class ConsensusEngine:
     def __init__(self, config: dict[str, Any]):
         self.config = config
         self.enabled = config.get("agent", {}).get("multi_agent_consensus", False)
+        self.model = config.get("llm", {}).get("model", "gpt-4o")
         
         # Tools that require consensus (read-only tools bypass this)
         self.risky_actions = {"stop", "terminate", "snapshot_delete", "resize", "freeze"}
@@ -45,8 +46,10 @@ class ConsensusEngine:
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            logger.warning("ConsensusEngine requires OPENAI_API_KEY. Approving by default.")
-            return ConsensusResult(action, "APPROVED", "Missing API key, auto-approved", {})
+            # Fail safe: without the debate we cannot vouch for a risky action,
+            # so it is escalated to a human instead of being auto-approved.
+            logger.warning("ConsensusEngine requires OPENAI_API_KEY — escalating to human approval.")
+            return ConsensusResult(action, "ESCALATED", "No LLM available for debate; human approval required", {})
 
         logger.info(
             "[bold purple]⚖️ CONSENSUS ENGINE[/bold purple] — Initiating debate for: %s on %s", 
@@ -57,9 +60,8 @@ class ConsensusEngine:
             return self._run_llm_debate(action, obs, api_key)
         except Exception as e:
             logger.error("Debate failed: %s", e)
-            # In case of failure, we fail open (approve) so the pipeline doesn't completely stall,
-            # though in a strict production environment we would fail closed.
-            return ConsensusResult(action, "APPROVED", f"Debate error: {e}", {})
+            # Fail safe: a failed debate escalates to a human rather than approving.
+            return ConsensusResult(action, "ESCALATED", f"Debate error: {e}; human approval required", {})
 
     def _run_llm_debate(self, action: Action, obs: Observation, api_key: str) -> ConsensusResult:
         from openai import OpenAI
@@ -101,7 +103,7 @@ class ConsensusEngine:
         opinions = {}
         for persona, prompt in [("FinOps", finops_prompt), ("DevOps", devops_prompt), ("SecOps", secops_prompt)]:
             resp = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=self.model,
                 messages=[
                     {"role": "system", "content": prompt},
                     {"role": "user", "content": context}
@@ -132,14 +134,16 @@ Output JSON only:
 }}
 """
         judge_resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=self.model,
             response_format={"type": "json_object"},
             messages=[{"role": "user", "content": judge_prompt}],
             temperature=0.0
         )
         
         judge_result = json.loads(judge_resp.choices[0].message.content)
-        status = judge_result.get("decision", "APPROVED").upper()
+        status = str(judge_result.get("decision", "")).upper()
+        if status not in ("APPROVED", "REJECTED"):
+            status = "ESCALATED"
         
         color = "green" if status == "APPROVED" else "red"
         logger.info(

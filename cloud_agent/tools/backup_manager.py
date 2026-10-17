@@ -37,6 +37,16 @@ class BackupManagerTool(BaseTool):
             "errors": [],
         }
 
+        if action_type == "check":
+            try:
+                snaps = self.provider.list_snapshots(creator="cloud-agent-backup-manager")
+            except Exception as exc:
+                snaps = []
+                results["errors"].append(str(exc))
+            results["snapshots"] = snaps
+            results["status"] = "check_completed"
+            return results
+
         if action_type in ("create", "full_cycle"):
             created = self._create_backshots(action)
             results["snapshots_created"] = created

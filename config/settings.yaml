@@ -3,18 +3,42 @@
 # =============================================================================
 
 agent:
-  loop_interval_seconds: 60      # How often the agent runs (5 min)
-  dry_run: false                    # true = plan only, false = execute actions
-  require_approval: false           # If true, pause before executing actions
-  multi_agent_consensus: true       # Use multi-agent debate for risky actions
+  loop_interval_seconds: 60         # How often the agent runs (60 s)
+  dry_run: true                     # Always overridden by the CLI: --live disables dry-run
+  read_only_in_dry_run: true        # In dry-run, still run read-only tools (diagnosis, scans)
+  require_approval: true            # High-impact actions wait for a human (paper Fig. 3)
+  approval_mode: queue              # queue = dashboard/Slack approval, cli = console prompt
+  high_impact_actions: [terminate, resize, snapshot_delete, freeze]
+  approve_prod_stops: true          # Stopping an Environment=prod instance also needs approval
+  multi_agent_consensus: false      # Optional FinOps/SecOps/DevOps LLM debate (escalates on failure)
+
+llm:
+  enabled: true                     # Used only when OPENAI_API_KEY is set
+  model: gpt-4o
+  temperature: 0.1
+
+safety:
+  guardrails: true                  # Schema / inventory / protection / grounding checks
+  grounding_checks: true            # Telemetry must support the action (anti-hallucination)
+  allow_terminate: true             # false = downgrade terminate to stop
+  protected_tags:
+    - Key: "PreserveInstance"
+      Value: "true"
+
+chat:
+  llm_responses: false              # Rephrase chat answers with the LLM (needs OPENAI_API_KEY)
+
+dashboard:
+  pace_factor: 1.0                  # Scales the cosmetic "live thought" delays (0 = none)
+  public_url: ""                    # Used in Slack approval links, e.g. https://ops.example.com
 
 provider:
-  name: aws                         # Cloud provider (aws | gcp | azure | mock)
+  name: aws                         # Cloud provider (aws | mock)
   region: ap-southeast-1
 
 benchmarks:
   sysbench:
-    enabled: true                    # Runs real sysbench through SSM on running EC2 instances
+    enabled: false                  # Opt-in only: installs sysbench and loads every running instance
     timeout_seconds: 120
 
 # ---------------------------------------------------------------------------
@@ -32,8 +56,9 @@ tools:
   idle_server:
     enabled: true
     cpu_threshold_percent: 5.0      # Below this = idle
-    duration_minutes: 3            # Speed shortcut for testing (standard is 30)
-    action: stop                    # stop | terminate
+    duration_minutes: 30            # Sustained idle window
+    action: stop                    # Default: stop | terminate
+    policy_tag: IdlePolicy          # Per-instance override: tag IdlePolicy=terminate|stop
     exclude_tags:
       - Key: "PreserveInstance"
         Value: "true"
@@ -61,10 +86,13 @@ tools:
 
   scheduler:
     enabled: true
-    business_hours:
+    business_hours:                 # Default window, evaluated in UTC
       start: "08:00"
       end: "18:00"
-      timezone: "US/Eastern"
+      timezone: "UTC"
+    environment_hours:              # Per-Environment-tag windows (override the default)
+      dev:  {start: "03:30", end: "13:30"}    # 09:00–19:00 IST
+      qa:   {start: "03:30", end: "13:30"}
     target_tags:
       - Key: "Environment"
         Value: "dev"
@@ -72,31 +100,38 @@ tools:
   cost_monitor:
     enabled: true
     spike_threshold_percent: 120.0  # Alert if daily > 120% of baseline
-    baseline_window_days: 7
+    baseline_window_days: 30        # Rolling 30-day baseline
     action: alert                   # alert | freeze
+    freeze_tags:                    # "freeze" stops running instances with these tags (never prod)
+      - Key: "priority"
+        Value: "low"
+    freeze_environments: []
 
   # --- NEW AGENTIC TOOLS ---
 
   diagnose_server:
     enabled: true
-    cpu_high_threshold: 85.0        # Standard production threshold
-    auto_remediate: false           # If true, agent can kill processes
+    cpu_high_threshold: 85.0        # Diagnose when CPU >= this
+    memory_high_threshold: 90.0     # ... or memory >= this (needs CloudWatch agent on AWS)
+    auto_remediate: false           # If true (and not dry-run), safe fixes are applied
+    service_name: ""                # Service restarted for service/JVM faults when auto_remediate
 
   security_auditor:
     enabled: true
     check_security_groups: true
     check_s3_public: true
     check_ebs_encryption: true
-    dangerous_ports:
-      - 22
-      - 3389
-      - 5432
-      - 3306
-      - 6379
+    dangerous_ports:                # Never open to 0.0.0.0/0
+      - 22      # SSH
+      - 3389    # RDP
+      - 5432    # PostgreSQL
+      - 1521    # Oracle
+      - 3306    # MySQL
+      - 6379    # Redis
 
   cross_domain:
     enabled: true
-    cloudtrail_hours: 24            # How far back to look in CloudTrail
+    cloudtrail_hours: 24            # How far back to look in CloudTrail / Security Hub / GuardDuty
     auto_trigger_on_cost_spike: true
 
   query_optimizer:

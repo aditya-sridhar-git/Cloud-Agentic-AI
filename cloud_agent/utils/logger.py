@@ -7,6 +7,7 @@ Handles Windows cp1252 encoding gracefully by forcing UTF-8 on stdout.
 
 import io
 import logging
+import os
 import sys
 
 from rich.console import Console
@@ -18,14 +19,10 @@ def _make_console() -> Console:
     # If stdout can't handle unicode (e.g. Windows legacy console),
     # wrap it in a UTF-8 TextIOWrapper so Rich doesn't crash.
     try:
-        # Test if the current stdout handles unicode
-        sys.stdout.write("\u25b6")
-        sys.stdout.flush()
-        # Rewind to not pollute output
-        if hasattr(sys.stdout, "seek"):
-            sys.stdout.seek(0)
+        # Check (without writing anything) whether stdout can encode unicode
+        "\u25b6".encode(getattr(sys.stdout, "encoding", None) or "ascii")
         return Console()
-    except (UnicodeEncodeError, io.UnsupportedOperation):
+    except (UnicodeEncodeError, LookupError):
         pass
 
     # Windows fallback: wrap stdout with UTF-8 encoding, errors='replace'
@@ -48,12 +45,13 @@ _LOG_FORMAT = "%(message)s"
 _DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
-def get_logger(name: str, level: str = "INFO") -> logging.Logger:
+def get_logger(name: str, level: str | None = None) -> logging.Logger:
     """Return a named logger with Rich formatting.
 
     Args:
         name: Logger name (typically ``__name__``).
         level: Logging level string (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+            Defaults to the ``AGENT_LOG_LEVEL`` environment variable, else INFO.
 
     Returns:
         Configured :class:`logging.Logger`.
@@ -71,5 +69,15 @@ def get_logger(name: str, level: str = "INFO") -> logging.Logger:
         handler.setFormatter(logging.Formatter(_LOG_FORMAT, datefmt=_DATE_FORMAT))
         logger.addHandler(handler)
 
+    level = level or os.getenv("AGENT_LOG_LEVEL", "INFO")
     logger.setLevel(getattr(logging, level.upper(), logging.INFO))
     return logger
+
+
+def set_global_level(level: str) -> None:
+    """Change the level of every cloud_agent logger (used by the evaluation harness)."""
+    os.environ["AGENT_LOG_LEVEL"] = level
+    numeric = getattr(logging, level.upper(), logging.INFO)
+    for name, obj in logging.root.manager.loggerDict.items():
+        if name.startswith("cloud_agent") and isinstance(obj, logging.Logger):
+            obj.setLevel(numeric)

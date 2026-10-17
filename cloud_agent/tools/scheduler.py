@@ -20,14 +20,17 @@ from cloud_agent.monitor.collector import MetricsCollector
 logger = get_logger(__name__)
 
 
-def _is_business_hours(cfg: dict[str, Any]) -> bool:
-    """Check whether the current time falls within configured business hours."""
+def _is_business_hours(cfg: dict[str, Any], now: datetime | None = None) -> bool:
+    """Check whether *now* (default: current time) falls within the business-hours window.
+
+    The window is evaluated in ``cfg["timezone"]`` (default UTC).
+    """
     try:
-        tz = pytz.timezone(cfg.get("timezone", "US/Eastern"))
+        tz = pytz.timezone(cfg.get("timezone", "UTC"))
     except Exception:
         tz = pytz.UTC
 
-    now = datetime.now(tz)
+    now = now.astimezone(tz) if now else datetime.now(tz)
 
     # Skip weekends
     if now.weekday() >= 5:  # Saturday=5, Sunday=6
@@ -42,19 +45,41 @@ def _is_business_hours(cfg: dict[str, Any]) -> bool:
     return start <= now <= end
 
 
+def hours_for_instance(cfg: dict[str, Any], instance: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the business-hours window that applies to *instance*, or None if unscheduled.
+
+    Windows are configured per ``Environment`` tag under ``environment_hours``;
+    instances matching ``target_tags`` use the default ``business_hours``.
+    """
+    default = dict(cfg.get("business_hours", {}))
+    tags = {t["Key"]: str(t["Value"]) for t in instance.get("tags", [])}
+    env = tags.get("Environment", "").lower()
+
+    per_env = {k.lower(): v for k, v in (cfg.get("environment_hours") or {}).items()}
+    if env in per_env:
+        return {**default, **(per_env[env] or {})}
+
+    target = {(t["Key"], str(t["Value"])) for t in cfg.get("target_tags", [])}
+    if target and target.issubset(set(tags.items())):
+        return default
+    return None
+
+
 @register_tool("scheduler")
 class SchedulerTool(BaseTool):
     """Manages dev/non-prod instances — stops outside hours, starts during hours."""
 
     def execute(self, action: Action) -> dict[str, Any]:
         instance_id = action.resource_id
-        bh_cfg = self.config.get("tools", {}).get("scheduler", {}).get("business_hours", {})
+        sched_cfg = self.config.get("tools", {}).get("scheduler", {})
         action_type = action.action_type  # "stop" or "start"
-
-        is_bh = _is_business_hours(bh_cfg)
 
         if action_type == "check":
             return self._check_scheduler_status()
+
+        inst = next((i for i in self.provider.list_instances() if i["instance_id"] == instance_id), {})
+        window = hours_for_instance(sched_cfg, inst) or sched_cfg.get("business_hours", {})
+        is_bh = _is_business_hours(window)
 
         # --- STOP path (called outside business hours) ---
         if action_type == "stop":

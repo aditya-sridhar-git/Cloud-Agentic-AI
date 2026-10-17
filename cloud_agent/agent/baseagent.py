@@ -39,6 +39,11 @@ class Action:
     parameters: dict[str, Any] = field(default_factory=dict)
     reason: str = ""
     approved: bool = False
+    requires_approval: bool = False  # set by the planner for high-impact actions
+
+    def key(self) -> tuple[str, str, str]:
+        """Identity used for de-duplication and approval matching."""
+        return (self.tool_name, self.resource_id, self.action_type)
 
 
 @dataclass
@@ -121,14 +126,19 @@ class BaseAgent(abc.ABC):
         logger.info("[bold cyan]═══ Agent Cycle Complete ═══[/bold cyan]")
         return results
 
-    def run_loop(self) -> None:
-        """Run the agent continuously."""
+    def run(self, continuous: bool = True) -> None:
+        """Run the observe → think → act loop (Listing 1 in the paper).
+
+        Args:
+            continuous: If False, run a single cycle then return (``--once``).
+        """
         logger.info(
             "[bold green]Starting agent loop[/bold green] (interval=%ds, dry_run=%s)",
             self.loop_interval,
             self.dry_run,
         )
         while True:
+            started = time.perf_counter()
             try:
                 self.run_once()
             except KeyboardInterrupt:
@@ -136,4 +146,15 @@ class BaseAgent(abc.ABC):
                 break
             except Exception:
                 logger.exception("Agent cycle failed")
-            time.sleep(self.loop_interval)
+            logger.info("Cycle finished in %.2fs", time.perf_counter() - started)
+            if not continuous:
+                break
+            try:
+                time.sleep(self.loop_interval)
+            except KeyboardInterrupt:
+                logger.info("[red]Agent stopped by user.[/red]")
+                break
+
+    def run_loop(self) -> None:
+        """Run the agent continuously."""
+        self.run(continuous=True)

@@ -31,6 +31,9 @@ ANOMALY TRIGGER: {trigger}
 --- SECURITY GROUPS ---
 {security_groups}
 
+--- SECURITY HUB / GUARDDUTY FINDINGS ---
+{security_findings}
+
 --- COST DATA ---
 {cost_data}
 
@@ -46,6 +49,7 @@ Analyse the cross-domain data and identify:
 Respond in JSON:
 {{
   "correlation_found": true/false,
+  "patterns": ["sg_exposure|unauthorised_provisioning|compromise_cost|cost_only"],
   "summary": "1-2 sentence finding",
   "root_cause": "...",
   "actors": ["user1", "user2"],
@@ -74,10 +78,11 @@ class CrossDomainCorrelationTool(BaseTool):
         security_groups = self._get_security_groups()
         cost_data = self._get_cost_context()
         instance_data = self._get_instance_context()
+        findings = self._get_security_findings()
 
         # Step 2: Correlate with LLM (or rule-based fallback)
         correlation = self._correlate(
-            trigger, cloudtrail_events, security_groups, cost_data, instance_data,
+            trigger, cloudtrail_events, security_groups, cost_data, instance_data, findings,
         )
 
         severity = correlation.get("severity", "info")
@@ -112,14 +117,26 @@ class CrossDomainCorrelationTool(BaseTool):
             logger.warning("SG query failed: %s", exc)
             return []
 
-    def _get_cost_context(self) -> dict[str, Any]:
+    def _get_security_findings(self) -> list[dict[str, Any]]:
         try:
-            return {
+            return self.provider.get_security_findings(hours=24)
+        except Exception as exc:
+            logger.warning("Security Hub / GuardDuty query failed: %s", exc)
+            return []
+    def _get_cost_context(self) -> dict[str, Any]:
+        days = self.config.get("tools", {}).get("cost_monitor", {}).get("baseline_window_days", 30)
+        try:
+            ctx = {
                 "current_daily": self.provider.get_daily_cost(days=1),
-                "baseline": self.provider.get_cost_baseline(days=7),
+                "baseline": self.provider.get_cost_baseline(days=days),
             }
         except Exception:
             return {}
+        try:
+            ctx["services"] = self.provider.get_cost_by_service(days=1)
+        except Exception:
+            pass
+        return ctx
 
     def _get_instance_context(self) -> list[dict[str, Any]]:
         try:
@@ -128,20 +145,21 @@ class CrossDomainCorrelationTool(BaseTool):
             return []
 
     def _correlate(self, trigger: str, cloudtrail: list, sgs: list,
-                   costs: dict, instances: list) -> dict[str, Any]:
+                   costs: dict, instances: list, findings: list | None = None) -> dict[str, Any]:
         """Use LLM or rule-based fallback to find cross-domain patterns."""
+        findings = findings or []
         api_key = os.getenv("OPENAI_API_KEY")
 
-        if api_key:
+        if api_key and self.config.get("llm", {}).get("enabled", True):
             try:
-                return self._llm_correlate(trigger, cloudtrail, sgs, costs, instances)
+                return self._llm_correlate(trigger, cloudtrail, sgs, costs, instances, findings)
             except Exception as exc:
                 logger.warning("LLM correlation failed: %s", exc)
 
-        return self._rule_based_correlate(trigger, cloudtrail, sgs, costs, instances)
+        return self._rule_based_correlate(trigger, cloudtrail, sgs, costs, instances, findings)
 
     def _llm_correlate(self, trigger: str, cloudtrail: list, sgs: list,
-                       costs: dict, instances: list) -> dict[str, Any]:
+                       costs: dict, instances: list, findings: list) -> dict[str, Any]:
         from openai import OpenAI  # noqa: E402
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -149,25 +167,39 @@ class CrossDomainCorrelationTool(BaseTool):
             trigger=trigger,
             cloudtrail_data=json.dumps(cloudtrail[:20], default=str, indent=2),
             security_groups=json.dumps(sgs[:10], default=str, indent=2),
+            security_findings=json.dumps(findings[:20], default=str, indent=2),
             cost_data=json.dumps(costs, default=str, indent=2),
             instance_data=json.dumps(instances[:10], default=str, indent=2),
         )
 
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=self.config.get("llm", {}).get("model", "gpt-4o"),
             response_format={"type": "json_object"},
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
         )
-        return json.loads(response.choices[0].message.content)
+        result = json.loads(response.choices[0].message.content)
+        result.setdefault("patterns", [])
+        return result
 
     @staticmethod
     def _rule_based_correlate(trigger: str, cloudtrail: list, sgs: list,
-                              costs: dict, instances: list) -> dict[str, Any]:
-        """Simple rule-based cross-domain correlation."""
-        findings = {
+                              costs: dict, instances: list,
+                              findings: list | None = None) -> dict[str, Any]:
+        """Deterministic cross-domain correlation used when no LLM is available.
+
+        Detects three cross-service patterns and reports all that apply:
+
+        * ``sg_exposure``             — CloudTrail SG change + SG now open to the internet
+        * ``unauthorised_provisioning`` — cost spike + resource-creating API calls from
+          an external IP address
+        * ``compromise_cost``         — cost spike + Security Hub / GuardDuty findings
+        """
+        findings = findings or []
+        result: dict[str, Any] = {
             "correlation_found": False,
-            "summary": "Rule-based analysis complete",
+            "patterns": [],
+            "summary": "No cross-domain correlation found",
             "root_cause": "",
             "actors": [],
             "affected_resources": [],
@@ -176,58 +208,104 @@ class CrossDomainCorrelationTool(BaseTool):
             "explanation": "",
         }
 
-        # Check for security group changes in CloudTrail
-        sg_changes = [e for e in cloudtrail if "SecurityGroup" in e.get("event_name", "")]
-        # Check for open SGs
-        open_sgs = [
-            sg for sg in sgs
-            for rule in sg.get("ingress_rules", [])
-            if "0.0.0.0/0" in rule.get("cidr_blocks", [])
-            and rule.get("from_port", 0) in (22, 3389)
-        ]
-
-        # Check for cost spike
         baseline = costs.get("baseline", 0)
         current = costs.get("current_daily", 0)
         cost_spike = baseline > 0 and current > baseline * 1.2
+        explanations: list[str] = []
+        severities: list[str] = []
 
-        if sg_changes and open_sgs:
-            actors = list({e.get("username", "unknown") for e in sg_changes})
-            findings.update({
-                "correlation_found": True,
-                "summary": f"Security group changes by {', '.join(actors)} opened dangerous ports",
-                "root_cause": "Recent CloudTrail events show security group modifications that opened sensitive ports to the internet",
-                "actors": actors,
-                "affected_resources": [sg["group_id"] for sg in open_sgs],
-                "severity": "critical",
-                "recommendations": [
-                    "Revert the security group changes",
-                    "Review IAM permissions for the actors involved",
-                    "Enable AWS Config rules to prevent open SGs",
-                ],
-                "explanation": (
-                    f"CloudTrail shows {len(sg_changes)} security group modification(s) in the last 24 hours. "
-                    f"{len(open_sgs)} security group(s) now have SSH/RDP open to 0.0.0.0/0. "
-                    f"This was done by: {', '.join(actors)}. "
-                    "This is a critical security risk that should be addressed immediately."
-                ),
-            })
-        elif cost_spike:
-            findings.update({
-                "correlation_found": True,
-                "summary": f"Cost spike detected: ${current:.2f}/day vs ${baseline:.2f}/day baseline",
-                "root_cause": "Daily spending exceeds baseline by more than 20%",
-                "severity": "warning",
-                "recommendations": [
-                    "Review recent CloudTrail events for unexpected resource creation",
-                    "Check for new instances or services that were launched",
-                    "Consider scaling down non-critical resources",
-                ],
-                "explanation": (
-                    f"Current daily cost (${current:.2f}) exceeds the 7-day baseline (${baseline:.2f}) "
-                    f"by {((current/baseline - 1) * 100):.0f}%. "
-                    f"CloudTrail shows {len(cloudtrail)} events in the last 24 hours."
-                ),
-            })
+        # Pattern 1: security-group change that opened sensitive ports
+        sg_changes = [e for e in cloudtrail if "SecurityGroup" in e.get("event_name", "")]
+        changed_ids = {r.get("name") for e in sg_changes for r in e.get("resources", [])}
+        open_sgs = [
+            sg for sg in sgs
+            if any("0.0.0.0/0" in r.get("cidr_blocks", []) and r.get("from_port", 0) in (22, 3389, 5432, 1521)
+                   for r in sg.get("ingress_rules", []))
+        ]
+        exposed = [sg for sg in open_sgs if sg["group_id"] in changed_ids] or (open_sgs if sg_changes else [])
+        if sg_changes and exposed:
+            actors = sorted({e.get("username", "unknown") for e in sg_changes})
+            result["patterns"].append("sg_exposure")
+            result["actors"] += actors
+            result["affected_resources"] += [sg["group_id"] for sg in exposed]
+            result["recommendations"] += [
+                "Revert the security group changes",
+                "Review IAM permissions for the actors involved",
+            ]
+            explanations.append(
+                f"CloudTrail shows {len(sg_changes)} security-group change(s) by {', '.join(actors)}; "
+                f"{len(exposed)} group(s) now expose sensitive ports to 0.0.0.0/0."
+            )
+            severities.append("critical")
 
-        return findings
+        # Pattern 2: cost spike driven by resource creation from an external IP
+        creators = [
+            e for e in cloudtrail
+            if e.get("event_name", "").startswith(("RunInstances", "Create", "StartInstances"))
+            and _is_external_ip(e.get("source_ip", ""))
+        ]
+        if cost_spike and creators:
+            actors = sorted({e.get("username", "unknown") for e in creators})
+            result["patterns"].append("unauthorised_provisioning")
+            result["actors"] += actors
+            result["affected_resources"] += [
+                r.get("name") for e in creators for r in e.get("resources", []) if r.get("name")
+            ]
+            result["recommendations"] += [
+                "Terminate or quarantine resources launched from the unfamiliar IP",
+                "Rotate the credentials used by the actor",
+            ]
+            explanations.append(
+                f"Spend rose to ${current:.2f}/day vs ${baseline:.2f} baseline while "
+                f"{len(creators)} resource-creating call(s) came from external IP(s) by {', '.join(actors)}."
+            )
+            severities.append("critical")
+
+        # Pattern 3: cost spike accompanied by threat findings
+        threats = [f for f in findings if str(f.get("severity", "")).lower() in ("high", "critical")]
+        if cost_spike and threats:
+            result["patterns"].append("compromise_cost")
+            result["affected_resources"] += [f.get("resource") for f in threats if f.get("resource")]
+            result["recommendations"] += [
+                "Isolate the affected resources and follow the incident-response runbook",
+                "Add a WAF / NACL block for the offending source addresses",
+            ]
+            explanations.append(
+                f"{len(threats)} high-severity Security Hub/GuardDuty finding(s) "
+                f"({', '.join(sorted({str(f.get('type')) for f in threats}))}) coincide with the cost spike."
+            )
+            severities.append("critical")
+
+        if not result["patterns"] and cost_spike:
+            result["patterns"].append("cost_only")
+            result["recommendations"] += [
+                "Review recent CloudTrail events for unexpected resource creation",
+                "Consider scaling down non-critical resources",
+            ]
+            explanations.append(
+                f"Current daily cost (${current:.2f}) exceeds the baseline (${baseline:.2f}) "
+                f"by {((current / baseline - 1) * 100):.0f}%, with no linked security or audit events."
+            )
+            severities.append("warning")
+
+        if result["patterns"]:
+            result["correlation_found"] = result["patterns"] != ["cost_only"]
+            result["severity"] = "critical" if "critical" in severities else "warning"
+            result["summary"] = "Patterns detected: " + ", ".join(result["patterns"])
+            result["root_cause"] = explanations[0]
+            result["explanation"] = " ".join(explanations)
+            result["actors"] = sorted(set(result["actors"]))
+            result["affected_resources"] = sorted({r for r in result["affected_resources"] if r})
+        return result
+
+
+def _is_external_ip(ip: str) -> bool:
+    """True for public IPv4 addresses (not RFC1918 / loopback / AWS service names)."""
+    import ipaddress
+
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    internal = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "169.254.0.0/16")
+    return not any(addr in ipaddress.ip_network(net) for net in internal)
