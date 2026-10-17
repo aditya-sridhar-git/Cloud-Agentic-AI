@@ -38,3 +38,6 @@ htmlcov/
 .mypy_cache/
 .pytest_cache/
 ```
+# Agent runtime state
+logs/
+results/live_testbed_state.json
