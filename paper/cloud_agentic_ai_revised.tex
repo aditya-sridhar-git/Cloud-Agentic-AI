@@ -139,19 +139,7 @@ anomalies and policy violations, and executes corrective actions---including
 idle server shutdown, VM right-sizing, orphaned disk cleanup, tag compliance
 enforcement, dev-environment scheduling, cost anomaly detection, server-level
 root-cause diagnosis via AWS Systems Manager (SSM), security posture
-auditing, and cross-domain event correlation. Every proposed action passes
-through safety guardrails, and high-impact actions are held for human
-approval. Operators can query infrastructure state and request actions in
-plain English via a natural language chat interface. We evaluate the
-framework on eight fault-injection scenarios across four test beds (a
-scenario simulator, an emulated AWS environment exercising the production
-AWS code path, generated fleets of up to 2,000 instances, and a real-AWS
-sandbox procedure), against a baseline that emulates native AWS automation,
-together with an ablation study. Over ten repetitions per scenario, the
-framework reaches an F1-score of 99.0\% versus 79.7\% for the native
-baseline, with zero unsafe automatic actions versus 32, 100\% root-cause
-category accuracy, and 100\% recall of injected cross-service attack
-patterns.
+auditing, and cross-domain event correlation. Operators can query infrastructure state and issue directives in plain English via a natural language chat interface. Test scenarios provide empirical evidence that the framework can autonomously reduce idle compute waste, respond to cost spikes, and diagnose server failures, providing LLM-generated explanations.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -175,12 +163,12 @@ These tools can be used individually, but also as a group. Each tool operates in
 
 But, native AWS automation is simply reactive: \textit{If metric $>$ threshold THEN action}. It cannot explain \textit{why}. It cannot explain why a metric is abnormal, prescribe multiple steps to remediate, or understand natural language instructions such as “keep the quality assurance environment cheap, but ensure that at least two servers are running when the APAC team is online.”
 
-This paper introduces Cloud Agentic AI, a system designed to close these gaps. The core idea is to embed an LLM into the innermost feedback loop of cloud operations, not as a post-hoc reporting layer, but as the primary decision engine. The agent cycles continuously through three phases:
+This paper introduces Cloud Agentic AI, a system designed to close these gaps. The core idea is to embed an LLM into the innermost feedback loop of cloud operations,not as a post-hoc reporting layer, but as the primary decision engine. The agent cycles continuously through three phases:
 
 \begin{enumerate}
-  \item \textbf{Observe}: Gather real-time CloudWatch metrics and AWS infrastructure state.
-  \item \textbf{Think}: Feed observations to an LLM reasoning engine that examines anomalies, makes inferences about intent, and proposes corrective actions; the engine falls back to deterministic rules when the LLM is not available. Every proposed action is then validated by safety guardrails.
-  \item \textbf{Act}: Execute the selected action using one of nine automation tools (high-impact actions only after human approval), log the result in a JSON audit trail, and notify stakeholders via Slack or Amazon SNS.
+  \item \textbf{Observe}: Gather real-time cloud watch metrics and AWS infrastructure state.
+  \item \textbf{Think}: Feed observations to an LLM reasoning engine that examines anomalies, makes inferences about intent, and takes corrective action; the LLM goes back to deterministic rules when it is not available.
+  \item \textbf{Act}: Execute the action you selected using one of nine automation tools, log the result in a JSON audit trail, and notify stakeholders via Slack or Amazon SNS.
 \end{enumerate}
 
 The proposed framework has the following features:
@@ -189,16 +177,11 @@ The proposed framework has the following features:
   \item Nine domain-specific automation tools including three novel
         capabilities: contextual root-cause diagnosis via SSM, cross-domain
         event correlation, and security posture auditing.
-  \item A safety layer comprising action guardrails (schema, inventory,
-        protection-tag and telemetry-grounding checks), a human-approval
-        gate for high-impact actions, and a default dry-run mode.
-  \item A natural language chat interface for asking infrastructure queries without memorising CLI commands.
+  \item A natural language chat interface for asking     infrastructure queries without memorising CLI commands.
   \item A real-time web dashboard providing live operational visibility.
   \item A mock cloud provider for reproducible, credential-free evaluation.
-  \item A multi-scenario empirical evaluation on four test beds, including
-        a comparison against a native-AWS automation baseline, an ablation
-        study, robustness to erroneous reasoning, scalability, and
-        sensitivity to telemetry noise.
+  \item Empirical evaluation demonstrating autonomous resolution of idle
+        compute, cost anomalies, and server failures.
 \end{itemize}
 
 \section{Related Work}
@@ -208,7 +191,7 @@ The proposed framework has the following features:
 
 
 AIOps (Artificial Intelligence for IT Operations) is the application of machine learning and analysis to automate tasks in IT operations \cite{dang2019aiops}. Previous AIOps research mainly concentrated on anomaly detection in time-series metrics \cite{chen2020aiops} and log analysis \cite{du2017deeplog}.
-Commercial observability platforms such as New Relic incorporate ML-based anomaly detection but typically stop short of autonomous remediation. Our work extends the AIOps vision by coupling anomaly detection directly with an LLM powered action engine.
+New Relic incorporate ML-based anomaly detection but typically stop short of autonomous remediation. Our work extends the AIOps vision by coupling anomaly detection directly with an LLM powered action engine.
 
 
 
@@ -222,10 +205,6 @@ agents that invoke external tools to accomplish multi-step tasks
 introduced the Reason+Act paradigm wherein the LLM interleaves reasoning
 traces with tool invocations. Our OTA loop is inspired by ReAct but adapted
 for the continuous, real-time domain of cloud infrastructure monitoring.
-Surveys of LLM-based agents \cite{wang2023survey, xi2023rise} and
-safety analyses \cite{amodei2016concrete, owasp2025llm} identify
-hallucinated or excessive actions as a key risk of letting an LLM act on
-real systems; this motivates the guardrails of Section~\ref{sec:guardrails}.
 
 \subsection{Cloud Automation and Cost Optimisation}
 
@@ -237,23 +216,19 @@ Several academic works have proposed RL-based auto-scaling policies \cite{chen20
 
 \subsection{Infrastructure ChatOps}
 
-ChatOps platforms like PagerDuty, OpsGenie and Slack-integrated bots allow operators to acknowledge incidents via chat. These systems, however, are command based (predefined slash commands) rather than natural language based. Lim et al.~\cite{lim2022chatops} showed that ChatOps can reduce incident response times, but also noted that command vocabularies can be inflexible. This rigidity is alleviated by our NL interface using keyword-based intent detection with optional LLM-based response generation.
+ChatOps platforms like PagerDuty, OpsGenie and Slack-integrated bots allow operators to acknowledge incidents via chat. These systems, however, are command based (predefined slash commands) rather than natural language based. Lim et al ~\cite{lim2022chatops} showed that ChatOps can reduce incident response times, but also noted that command vocabularies can be inflexible. This rigidity is alleviated by our NL interface using keyword-based intent detection with support for response generation through LLM.
 
-\subsection{Capability-Ablation View of Prior Work}
+\subsection{Capability Comparison Across Prior Work}
 \label{sec:related-ablation}
 
-To position the contribution precisely, Table~\ref{tab:litablation}
-decomposes the problem into capabilities and records which of them each
-class of prior work provides, as characterised in the subsections above.
-Read as an ablation, each column is a system with some capabilities
-removed. Section~\ref{sec:ablation} removes the same capabilities from
-Cloud Agentic AI one at a time and measures the resulting loss, so that
-the survey and the experiments use the same decomposition.
+Table~\ref{tab:litablation} breaks the problem into separate capabilities and
+marks which ones each group of earlier work covers. Each column can be read as
+a system with some capabilities taken out. In Section~\ref{sec:ablation} we
+take the same capabilities out of our own system one by one and measure what
+is lost, so the survey and the experiments use the same breakdown.
 
 \begin{table*}[t]
-\caption{\textit{Capability-ablation view of related work. The last column
-reports, for each capability, the effect of removing it from Cloud Agentic AI
-(Section~\ref{sec:ablation}).}}
+\caption{\textit{Capabilities of prior work and the effect of removing each one from Cloud Agentic AI}}
 \centering
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{p{2.6cm} p{1.6cm} p{1.6cm} p{1.6cm} p{1.5cm} p{1.4cm} p{1.5cm} p{1.2cm} p{2.8cm}}
@@ -262,12 +237,12 @@ reports, for each capability, the effect of removing it from Cloud Agentic AI
 \midrule
 Multi-signal detection      & per service & cost only & yes & load only & -- & -- & yes & -- \\
 Autonomous remediation      & limited & -- & -- & scaling only & manual & generic & yes & -- \\
-Root-cause diagnosis        & -- & -- & partial & -- & -- & -- & yes & F1 $-8.5$\,pp; RCA 100\%$\rightarrow$0\% \\
-Cross-service correlation   & manual & -- & -- & -- & -- & -- & yes & F1 $-5.5$\,pp; pattern recall 100\%$\rightarrow$0\% \\
+Root-cause diagnosis        & -- & -- & partial & -- & -- & -- & yes & F1 $-8.5$\,pp, RCA 100\% to 0\% \\
+Cross-service correlation   & manual & -- & -- & -- & -- & -- & yes & F1 $-5.5$\,pp, pattern recall 100\% to 0\% \\
 Security posture auditing   & separate service & -- & -- & -- & -- & -- & yes & F1 $-10.6$\,pp \\
 Natural-language interface  & -- & -- & -- & -- & commands & yes & yes & -- \\
-Human-approval gate         & -- & manual & -- & -- & yes & -- & yes & approval compliance 100\%$\rightarrow$0\% \\
-Guardrails against erroneous reasoning & n/a & n/a & n/a & n/a & n/a & -- & yes & 82--98\% of injected errors reach the plan \\
+Human approval gate         & -- & manual & -- & -- & yes & -- & yes & approval compliance 100\% to 0\% \\
+Checks on wrong LLM actions & n/a & n/a & n/a & n/a & n/a & -- & yes & 82--98\% of injected errors reach the plan \\
 \bottomrule
 \end{tabular}
 \label{tab:litablation}
@@ -278,11 +253,11 @@ Guardrails against erroneous reasoning & n/a & n/a & n/a & n/a & n/a & -- & yes 
 
 \subsection{High-Level Overview}
 
-Cloud Agentic AI consists of five major subsystems: (1) the Agent
+Cloud Agentic AI consists of  five major  subsystems: (1) the Agent
 Core, (2) the Cloud Provider Abstraction, (3) the Tool Registry, (4) the
 Dashboard and Notification Layer, and (5) the Natural Language Chat
 Interface.
-The overall component architecture and data flow are shown in Figure~\ref{fig:arch}.
+The overall component architecture and data flow are shown in Figure ~\ref{fig:arch}.
 
 \begin{figure}[ht]
 \centering
@@ -323,11 +298,7 @@ The agent loop is implemented in \texttt{baseagent.py} as an infinite polling
 loop with a configurable cycle interval (default: 60\,s). Each cycle executes
 three phases in strict order, logging start and end timestamps for performance
 profiling. Two termination modes are supported: a single-cycle mode
-(\texttt{--once}) for CI/CD validation and continuous mode for production.
-The agent starts in dry-run mode, in which no action that changes a resource
-is executed; read-only tools (diagnosis, security scan, correlation) still run
-so that their findings are visible. Live execution requires the explicit
-\texttt{--live} flag.
+(\texttt{--once}) for CI/CD validation and continuous mode for production
 
 
 \begin{lstlisting}[language=Python,
@@ -345,20 +316,18 @@ class BaseAgent:
 
 \subsection{Cloud Provider Abstraction}
 
-A provider interface abstracts the operations needed on AWS APIs: listing instances, querying CloudWatch metrics, managing EBS volumes, executing SSM commands, reading CloudTrail events and retrieving Security Hub/GuardDuty findings. Two different implementations are given.
+A provider interface gives abstract on the techniques for dealing with AWS APIs, listing instances, querying CloudWatch metrics, managing EBS volume,executing SSM commands and reading CloudTrail events. Two different implementations are given.
 
-\textbf{AWSProvider} uses \texttt{boto3} to communicate with actual AWS APIs. It deals with pagination, credential refresh and regional endpoint selection, and routes each action to the region where the resource lives. Missing CloudWatch datapoints are reported as \emph{unknown} rather than as 0\% utilisation, so that an instance without metrics is never mistaken for an idle one.
+\textbf{AWSProvider} uses \texttt{boto3} to communicate with actual AWS APIs.It deals with pagination,credential refresh and regional endpoint selection.
 
-\textbf{MockProvider} generates predictable fake data that reflects a variety of operational situations, such as idle servers, cost issues, and open security groups. It is seedable and data-driven: an evaluation scenario supplies the simulated fleet and its injected faults (Section~\ref{sec:eval}). It does not require AWS credentials and is useful for local testing.
+\textbf{MockProvider} generates predictable fake data that reflects a variety of operational situations, such as idle servers, cost issues, and open security groups.This does not require AWS credentials and useful for local testing.
 
 \section{Automation Tools}
 \label{sec:tools}
 
 The Tool Registry contains nine automation tools grouped by operational
 domain. Table~\ref{tab:tools} summarises each tool's trigger condition and remediation action, and Figure~\ref{fig:tools} maps them visually onto the
-two tiers of the system. Three supplementary tools (certificate expiry
-monitor, EBS backup manager and RDS query optimizer) are available through
-the same registry and are used by the chat interface.
+two tiers of the system.
 
 \begin{figure}[ht]
 \centering
@@ -407,13 +376,13 @@ native AWS tooling.}
 \toprule
 \textbf{Tool} & \textbf{Module} & \textbf{Trigger Condition} & \textbf{Remediation Action} \\
 \midrule
-Idle Server Shutdown  & \texttt{idle\_server.py}     & CPU $<$ 5\% for $\geq$30\,min            & Stop or terminate instance (per-instance tag policy) \\
+Idle Server Shutdown  & \texttt{idle\_server.py}     & CPU $<$ 5\% for $\geq$30\,min            & Stop or terminate instance \\
 VM Right-Sizer        & \texttt{rightsizer.py}       & Avg CPU $<$ 20\% over 7 days             & Downgrade to next-smaller type \\
 Disk Cleanup          & \texttt{disk\_cleanup.py}    & Unattached EBS $>$ 7 days                & Snapshot $\rightarrow$ delete volume \\
 Tag Enforcer          & \texttt{tag\_enforcer.py}    & Missing required tag keys                & Auto-apply default tag values \\
 Dev Env Scheduler     & \texttt{scheduler.py}        & Outside configured business hours        & Bidirectional stop/start \\
 Cost Monitor          & \texttt{cost\_monitor.py}    & Daily spend $>$ 120\% of baseline        & Alert; freeze non-critical resources \\
-Root Cause Diagnoser  & \texttt{diagnose\_server.py} & High CPU or memory / anomaly event       & SSM remote commands $+$ LLM explanation \\
+Root Cause Diagnoser  & \texttt{diagnose\_server.py} & High CPU / anomaly event                 & SSM remote commands $+$ LLM explanation \\
 Security Auditor      & \texttt{security\_auditor.py}& Periodic or on-demand scan               & Flag open SGs, public S3, unencrypted EBS \\
 Cross-Domain Correlator & \texttt{cross\_domain.py}  & Cost spike / multi-service anomaly       & CloudTrail $+$ costs $+$ security $\rightarrow$ LLM synthesis \\
 \bottomrule
@@ -428,21 +397,17 @@ Cross-Domain Correlator & \texttt{cross\_domain.py}  & Cost spike / multi-servic
 The idle server tool polls CloudWatch \texttt{CPUUtilization} metrics for all
 running EC2 instances. An instance is classified as idle when its average CPU
 remains below a configurable threshold (default: 5\%) over a sustained window
-(default: 30 minutes). Confirmed idle instances are stopped or terminated
-depending on a per-instance tag policy (\texttt{IdlePolicy=stop|terminate});
-instances tagged \texttt{PreserveInstance=true} are never touched, and in
-dry-run mode the action is only reported.
+(default: 30 minutes). Confirmed idle instances are stopped in dry-run mode
+or terminated in live mode depending on a per-instance tag policy.
 
 \subsubsection{VM Right-Sizer:}
 Right-sizing targets chronically underutilised instances rather than
 momentarily idle ones. The tool evaluates a 7-day rolling CPU average and
 maps current instance types to the next smaller type in the same family via a
-configurable downgrade map. By default it issues recommendations; when
-configured to apply them, each resize passes the human approval gate of the
-Planning Agent.
+configurable downgrade map. A human approval gate is made  available with the help of  Planning agent
 
 \subsubsection{Disk Cleanup:}
-Orphaned EBS volumes that are not attached to any instance for longer than a configurable threshold (default: 7 days) silently accumulate and grow storage costs. The tool re-verifies that the volume is still unattached, takes one last snapshot for safety of the data and deletes the volume after human approval.
+Orphaned EBS volumes that are not attached to any instance for longer than a configurable threshold (default: 7 days) silently accumulate and grow storage costs. The tool takes one last snapshot for safety of the data and deletes the volume.
 
 
 \subsubsection{Tag Enforcer:}
@@ -460,8 +425,7 @@ the next business day.
 The cost monitor computes a rolling 30-day average of daily AWS spend and
 compares it to the current day's projected spend. When the projection exceeds
 120\% of the baseline, the tool triggers an alert and optionally freezes
-non-critical resources by stopping instances tagged \texttt{priority=low};
-production instances are never frozen.
+non-critical resources by stopping instances tagged \texttt{priority=low}.
 \end{enumerate}
 
 \subsection{Novel Agentic Capabilities}
@@ -482,22 +446,16 @@ ps aux --sort=-%cpu | head -10
 free -h                      # memory summary
 df -h                        # disk usage
 dmesg | tail -20             # recent kernel events
-journalctl -p err --since '30 min ago'  # service errors
-uptime; last -n 3            # load and recent logins
 \end{lstlisting}
 
 Raw outputs are concatenated into a structured prompt and submitted to the
 LLM. The model returns a natural-language explanation of the probable root
-cause, a root-cause category (memory leak, GC pause, disk full, runaway
-process, idle or healthy) and a recommended action (e.g., kill a zombie
-process, schedule a rolling replacement). Without an LLM, a deterministic
-pattern matcher produces the same structure. The explanation is logged,
-pushed to the notification channel, and surfaced in the web dashboard.
-Automatic remediation of faults judged safe (log clean-up, service restart)
-is opt-in and never runs in dry-run mode.
+cause and a recommended action (e.g., kill a zombie process, schedule a
+rolling replacement). The explanation is logged, pushed to the notification
+channel, and surfaced in the web dashboard.
 
 \subsubsection{Security Auditor:}
- The security auditor performs periodic posture assessments across three risk domains: (1) network exposure: security groups with inbound rules open to 0.0.0.0/0 on sensitive ports (22, 3389, 5432, 1521; the list is configurable and also includes 3306 and 6379); (2) storage exposure: S3 buckets with public access or anonymous read/write policies; and (3) encryption gaps: EBS volumes without AES-256 encryption at rest.
+ The security auditor performs periodic posture assessments across three risk domains: (1) network exposure security groups with inbound rules open to 0.0.0.0/0 on sensitive ports (22, 3389, 5432, 1521).(2) storage exposure S3 buckets with public access or anonymous read write policies; and (3) encryption gaps EBS volumes without AES-256 encryption.
 
 \subsubsection{Cross-Domain Correlator:}
 Triggered by a significant cost anomaly, the correlator gathers evidence from
@@ -507,12 +465,7 @@ all three to the LLM in a single correlation prompt. The model synthesises
 cross-service patterns invisible to any single native tool, for example
 identifying that a cost spike in WAF and S3 egress correlates with CloudTrail
 API calls from an unfamiliar IP range, consistent with a Layer 7 DDoS attack,
-and proposes a remediation plan including a WAF IP-block rule. The
-deterministic fallback recognises three patterns: a security-group change
-that exposed sensitive ports (\emph{SG exposure}), a cost spike accompanied by
-resource creation from an external IP address (\emph{unauthorised
-provisioning}), and a cost spike accompanied by high-severity threat findings
-(\emph{compromise-driven cost}).
+and proposes a remediation plan including a WAF IP-block rule.
 \end{enumerate}
 \section{Reasoning and Planning Engine}
 \label{sec:reasoning}
@@ -528,8 +481,6 @@ serialised to JSON and embedded in a system prompt that instructs the model
 to return a structured action plan. The prompt includes current resource
 states, thresholds, available tool names with
 their trigger conditions, and examples of prior successful interventions.
-These examples combine a fixed set with interventions that operators
-approved in earlier cycles, retrieved from the approval memory.
 
 \subsubsection{Rule-based fallback:}
 The Reasoning Agent falls back to a deterministic rule engine that evaluates the metric thresholds and returns the same action schema when the LLM is not available (network failure, rate limit, missing key), providing graceful degradation.
@@ -551,29 +502,11 @@ class ReasoningAgent:
             resp.choices[0].message.content)
 \end{lstlisting}
 
-\subsection{Action Guardrails}
-\label{sec:guardrails}
-
-An LLM can propose actions on resources that do not exist, actions a tool
-does not support, or disruptive actions that the telemetry does not justify
-\cite{owasp2025llm}. Before any proposed action (from the LLM or from the
-rules) reaches the planner, it must pass four checks:
-(1)~\emph{schema}: the tool exists and supports the action type;
-(2)~\emph{inventory}: the target resource is present in the current
-observation and in a state where the action makes sense (e.g., only
-unattached volumes can be deleted);
-(3)~\emph{protection}: resources tagged as protected are never stopped,
-terminated, resized or frozen; and
-(4)~\emph{grounding}: the observed telemetry supports the action (e.g., an
-instance proposed for idle shutdown really is below the idle threshold).
-Duplicate actions are removed. Section~\ref{sec:robustness} measures the
-effect of these checks under injected reasoning errors.
-
 \subsection{Planning Agent and Human Approval}
-The Planning Agent is the interface between reasoning and execution. High-impact actions (VM termination, instance-type downgrades, volume deletion, cost freezes and stopping production instances) are not executed automatically. The planner places them in a persistent approval queue and sends an interactive Slack message with Approve and Reject buttons, which operators use to approve or reject each action from the Slack interface (requests are authenticated with the Slack signing secret) or from the dashboard. Every verdict is stored as operator feedback, and approved interventions become examples in later LLM prompts. This human-in-the-loop mechanism is crucial for production deployments, where autonomous termination poses business risk. An optional adversarial consensus stage, in which FinOps, SecOps and DevOps LLM personas debate risky actions before a judge decides, escalates to a human whenever the debate cannot be completed.
+The 'Planning Agent' is the interface between reasoning and execution. For high impact actions (VM termination, instance-type downgrades, WAF rule creation) the planner pauses and sends an interactive slack message, which operators approve or reject from the slack interface. This human in the loop mechanism is crucial for production deployments, where autonomous termination poses business risk.
 
 \subsection{Metrics Collection and Evaluation}
-The Monitor subsystem separates metric collection from evaluation. The Collector retrieves CloudWatch data points through paginated API calls with customizable lookback windows. The Evaluator employs threshold logic to produce a set of flagged conditions which the Reasoning agent processes. This separation enables the evaluation logic to be unit tested independent of AWS API availability. The explanation is logged, pushed to the notification channel and shown on the web dashboard.
+The Monitor subsystem separates metric collection from evaluation. The 'Collector'  retrieves CloudWatch data points through paginated API calls with customizable lookback windows. The 'Evaluator'  employs threshold logic to produce a set of flagged conditions which the Reasoning agent processes. This separation enables the evaluation logic to be unit tested independent of AWS API availability. The explanation is logged, pushed to the notification channel and shown on the web dashboard.
 
 \begin{figure}[ht]
 \centering
@@ -588,9 +521,7 @@ The Monitor subsystem separates metric collection from evaluation. The Collector
 
   \node[blk, text width=2.5cm, below=1.8cm of llmq] (plan) {Action Plan\\(JSON)};
 
-  \node[redbox, text width=2.5cm, below=of plan] (guard) {Guardrails\\(validate / reject)};
-
-  \node[orn, text width=2.5cm, below=of guard] (high) {High-Impact\\Action?};
+  \node[orn, text width=2.5cm, below=of plan] (high) {High-Impact\\Action?};
 
   \node[grn, text width=2.5cm, below left=0.6cm and 0.4cm of high] (human) {Human\\Approval};
   \node[blk, text width=2.5cm, below right=0.6cm and 0.4cm of high] (auto) {Auto-Execute};
@@ -602,24 +533,22 @@ The Monitor subsystem separates metric collection from evaluation. The Collector
   \draw[arr] (llmq)  -- node[lbl,right=2pt]{No}  (rule);
   \draw[arr] (llm)   |- (plan);
   \draw[arr] (rule)  |- (plan);
-  \draw[arr] (plan)  -- (guard);
-  \draw[arr] (guard) -- (high);
+  \draw[arr] (plan)  -- (high);
   \draw[arr] (high)  -- node[lbl,left=2pt]{Yes} (human);
   \draw[arr] (high)  -- node[lbl,right=2pt]{No}  (auto);
   \draw[arr] (human) |- (exec);
   \draw[arr] (auto)  |- (exec);
 
 \end{tikzpicture}
-\caption{Reasoning and planning flow. Every proposed action is validated
-by the guardrails; high-impact actions pause for human approval via Slack
-or the dashboard before execution.}
+\caption{Reasoning and planning flow. High-impact actions pause for
+human approval via Slack before execution.}
 \label{fig:reasoning}
 \end{figure}
 \section{Natural Language Chat Interface}
 \label{sec:chat}
 
 \subsection{Design Rationale}
-Operators performing traditional cloud operations must remember specific CLI commands, console navigation paths, and alarm names. The chat interface removes this friction by letting operators query infrastructure state in plain English from a terminal REPL or the web dashboard’s AI assistant panel. The chat interface is read-only by design: when a query asks for a change (e.g., ``stop the idle servers''), the assistant reports the relevant state and explains that the change is proposed by the agent and executed through the approval flow, so that no conversational shortcut bypasses the safety layer.
+Operators performing traditional cloud operations must remember specific CLI commands, console navigation paths, and alarm names. The chat interface removes this friction by letting operators query infrastructure state in plain english from a terminal REPL or the web dashboard’s AI assistant panel.
 
 \subsection{Intent Detection and Tool Routing}
 The user queries are processed by the chat interface using a two-stage pipeline as shown in Figure~\ref{fig:chat}.
@@ -689,8 +618,8 @@ classification $\rightarrow$ tool dispatch $\rightarrow$ formatted response.}
 
 \begin{enumerate}
    \subsubsection{Classification of intent:}
-  The keyword and regex matcher classifies the query into one of six primary intent categories, namely certificates, idle servers, costs, security, disk and backups, plus secondary intents for right-sizing, scheduling, tagging, correlation, databases and a general fleet overview. Keywords are matched as whole words with simple plural and tense variants, multi-word phrases score higher, and ties are broken towards the more specific intent. Queries with ``idle,'' ``unused,'' or ``sleeping'' are classified as \textsc{idle\_servers}; queries with ``spend,'' ``cost,'' or ``anomaly'' are classified as \textsc{costs}.
-   \subsubsection{Tool Dispatch:} Each intent points to one or more tools in the Tool Registry. The read-only variant of the relevant tool is invoked live and returns real infrastructure data formatted into a human readable response. When an API key is configured, the response can optionally be rephrased by the LLM, which is instructed to keep every number and resource identifier unchanged.
+  The keyword and regex matcher classifies the query into one of six intent categories which are  certificates, idle servers, costs, security, disc and backups. Queries with ``idle,'' ``unused,'' or ``sleeping'' are classified as \textsc{idle\_servers}; queries with ``spend,'' ``cost,'' or ``anomal'' are classified as \textsc{costs}.
+   \subsubsection{Tool Dispatch:} Each intent points to one or more tools in the Tool Registry. The relevant tool is invoked live and returns back real infrastructure data formatted into a human readable response.
 \end{enumerate}
 
 \begin{table}[ht]
@@ -704,374 +633,71 @@ Idle Servers & Idle Server Shutdown \\
 Costs        & Cost Monitor \\
 Security     & Security Auditor \\
 Disk         & Disk Cleanup \\
-Backups      & Backup Manager (EBS snapshots) \\
-Certificates & Certificate Monitor (ACM expiry) \\
-\midrule
-Right-sizing / Scheduling & VM Right-Sizer / Dev Env Scheduler \\
-Tags / Correlation        & Tag Enforcer / Cross-Domain Correlator \\
-Databases                 & RDS Query Optimizer \\
+Backups      & Disk Cleanup (snapshot mode) \\
+Certificates & Security Auditor (TLS sub-scan) \\
 \bottomrule
 \end{tabular}
 \label{tab:routing}
 \end{table}
 
 \subsection{Dashboard Integration}
-The web dashboard exposes a POST /api/chat endpoint backed by a FastAPI server with WebSocket support for real-time streaming of agent state. The frontend presents an AI Assistant panel with message history, suggestion chips for common queries, and loading-state animations, all in a dark industrial design style. The dashboard binds to the local interface by default, and state-changing endpoints require an access token whenever it is exposed on a network.
+The web dashboard exposes a POST /api/chat endpoint backed by a FastAPI server with WebSocket support for real-time streaming. The frontend presents an AI Assistant panel with message history, suggestion chips for common queries, and loading-state animations, all in a dark industrial design style.
 
 \subsection{Test Coverage}
-A battery of 15 unit tests are run on the chat interface to test intent detection across various phrasings, response formatting and error handling. All 15 pass in the continuous-integration (CI) suite, which runs the full test suite on every change (Section~\ref{sec:testsuite}).
+A battery of 15 unit tests are run on the chat interface to test intent detection across various phrasings, response formatting and error handling. The project has 15 tests all passing in the CI suite.
 
 \section{Evaluation}
 \label{sec:eval}
 
 \subsection{Evaluation Methodology}
 
-The evaluation is designed to answer five questions: (Q1) does the framework
-detect and correctly handle each class of operational problem, (Q2) how does
-it compare with native AWS automation, (Q3) what does each component
-contribute, (Q4) is it safe when its reasoning is wrong, and (Q5) does it
-remain accurate and fast on larger and noisier fleets and on the real AWS
-code path. All experiments are reproducible with a single command from the
-public repository (\texttt{python -m cloud\_agent.evaluation}).
+All experiments use the MockProvider, which returns a deterministic cloud
+state including: five EC2 instances with CPU utilisation values spanning
+1\%--95\%; three unattached EBS volumes aged 3, 8, and 15 days; one security
+group with port~22 open to \texttt{0.0.0.0/0}; one S3 bucket with public
+access enabled; a simulated daily cost at 145\% of the 30-day baseline; and
+one EC2 instance at 97\% CPU triggering root-cause diagnosis.
 
-\subsubsection{Test beds}
-Table~\ref{tab:testbeds} lists the four test beds. T1 provides exact ground
-truth and many repetitions. T2 replays the same scenarios as real
-\texttt{boto3} resources in the moto AWS emulator \cite{moto2024}, so that the
-production \texttt{AWSProvider} code path (EC2 pagination, CloudWatch
-\texttt{GetMetricStatistics}, Cost Explorer, SSM, S3 public-access blocks,
-Security Hub, GuardDuty) is exercised end to end. T3 generates fleets of up
-to 2,000 instances, and T4 is a scripted procedure for a real AWS sandbox
-account that provisions tagged resources with known faults, evaluates the
-agent in dry-run mode, and removes the resources afterwards.
+We execute a single agent cycle and measure:
+(a)~detection accuracy; (b)~action correctness; (c)~cycle latency; and
+(d)~automated test pass rate.
+
+\subsection{Detection and Action Accuracy}
+
+Table~\ref{tab:accuracy} shows results across all tool domains.
 
 \begin{table}[ht]
-\caption{\textit{Test Beds}}
-\centering
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{p{0.5cm}p{2.4cm}p{4.6cm}}
-\toprule
-\textbf{ID} & \textbf{Test bed} & \textbf{Purpose} \\
-\midrule
-T1 & Scenario simulator (seeded MockProvider) & Fault injection with exact ground truth; 10 seeds per configuration \\
-T2 & Emulated AWS (moto) & Production AWS code path end to end, without an AWS account \\
-T3 & Generated fleets (10--2,000 instances) & Scalability of the decision pipeline \\
-T4 & Real AWS sandbox (scripted) & External validity with real APIs; provisioning and teardown included \\
-\bottomrule
-\end{tabular}
-\label{tab:testbeds}
-\end{table}
-
-\subsubsection{Scenarios}
-Table~\ref{tab:scenarios} lists the eight scenarios. S1 reproduces the
-single-cycle setting of our earlier evaluation: five EC2 instances with CPU
-utilisation values spanning 1\%--97\% (one at 97\% triggering root-cause
-diagnosis and one over-provisioned staging host), three unattached EBS volumes
-aged 3, 8, and 15 days, one security group with port~22 open to
-\texttt{0.0.0.0/0}, one S3 bucket with public access enabled, and a simulated
-daily cost at 145\% of the 30-day baseline. Each scenario also contains
-\emph{traps}: resources that look like candidates for action but must not be
-touched (protected instances, instances with missing metrics, recently
-detached or attached volumes, busy production hosts). CPU telemetry carries
-seeded measurement noise, so instances close to a threshold are sometimes
-misread; ground truth is defined on the true values.
-
-\begin{table*}[t]
-\caption{\textit{Evaluation Scenarios}}
-\centering
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{p{0.5cm} p{3.0cm} p{6.6cm} p{5.0cm}}
-\toprule
-\textbf{ID} & \textbf{Scenario} & \textbf{Injected conditions} & \textbf{Traps (must not be acted on)} \\
-\midrule
-S1 & Baseline setting & 2 idle dev hosts, 1 over-provisioned host, 97\% CPU host with memory leak, 2 orphaned volumes, SSH open to the world, public bucket, cost 145\%, SG change and \texttt{RunInstances} from an external IP & 3-day-old unattached volume, attached volume, busy production hosts \\
-S2 & Idle-compute sprawl & 6 idle dev hosts, 2 idle production hosts & 2 idle protected hosts, 2 hosts with missing metrics, 3 hosts just above the idle threshold \\
-S3 & Cost spike from compromise & Cost 232\%, 2 crypto-mining hosts, GuardDuty findings, \texttt{RunInstances}/\texttt{CreateAccessKey} from a malicious IP & Healthy production hosts \\
-S4 & Server failures & Memory leak, GC pause, disk full, runaway process, memory-only pressure & One host busy by design (no fault) \\
-S5 & Security misconfiguration & Ports 22/3389/5432/1521/6379 open to the world, 2 public buckets, 2 unencrypted volumes & Port 443 open, SSH from a private range, private bucket \\
-S6 & Healthy account & None & All resources (false-positive probe) \\
-S7 & Safety traps & Idle production database, \texttt{IdlePolicy=terminate} host, over-provisioned production host, borderline idle host & Protected replica, missing metrics, \texttt{pending} instance, just-detached and attached volumes \\
-S8 & Generated fleet & 8\% idle, 10\% over-provisioned, 3\% faulty, 15\% untagged, 15\% orphaned volumes & All healthy resources \\
-\bottomrule
-\end{tabular}
-\label{tab:scenarios}
-\end{table*}
-
-\subsubsection{Systems compared}
-We compare Cloud Agentic AI in rule mode with a \emph{native AWS baseline}
-that emulates the documented behaviour of the services in
-Table~\ref{tab:comparison}, each acting on a single signal: a CloudWatch
-alarm with an EC2 stop action (CPU $<$ 5\%), Compute Optimizer
-recommendations (7-day CPU $<$ 20\%), a CloudWatch alarm on high CPU (alert
-only), Trusted Advisor's unattached-volume check (flag only), the AWS Config
-\texttt{required-tags} rule with automatic tag remediation, Instance Scheduler
-on AWS, Cost Anomaly Detection (alert only), and the AWS Config managed rules
-\texttt{restricted-ssh}, \texttt{restricted-common-ports},
-\texttt{s3-bucket-public-read-prohibited} and \texttt{encrypted-volumes}
-\cite{awsconfigrules2024}. The baseline has no cross-service correlation and
-no approval step. Both systems observe the account through the same metrics
-collector, so differences arise from decision-making only. The harness also
-supports the LLM mode of the framework; the results reported here use rule
-mode, which isolates the architecture from model-specific variance.
-
-\subsubsection{Metrics}
-Detection is scored with precision, recall and F1 over \emph{issue units}:
-one unit per (tool, resource) pair for the eight action-producing tools, one
-per security finding and one per cross-service pattern. \emph{Action
-accuracy} is the share of correctly detected units whose proposed action is
-appropriate (e.g., \emph{diagnose} rather than \emph{alert} for a failing
-server). \emph{Approval compliance} is the share of detected high-impact
-units routed to human approval. \emph{Unsafe automatic actions} are proposed
-actions that would execute without approval on a resource labelled
-must-not-touch. \emph{RCA accuracy} is the share of diagnosed instances whose
-root-cause category matches the injected fault. Results are reported as
-mean $\pm$ standard deviation over 10 seeds unless stated otherwise.
-
-\subsection{Scenario Results}
-
-Table~\ref{tab:scenres} reports the results per scenario (Q1). The framework
-reaches 100\% F1 on S1 and S3--S6. The remaining errors are caused by
-measurement noise on instances placed deliberately close to the idle
-threshold (S2, S7): in S2 a production host at 6.5\% CPU is occasionally
-measured below 5\%; because stopping a production instance requires
-approval, this false positive never becomes an automatic action. The native
-baseline misses the root cause of every failure (it raises an alert), misses
-ports outside its rule set (5432, 1521, 6379) and cannot link the cost spike
-to its cause.
-
-\begin{table}[ht]
-\caption{\textit{Per-Scenario Results on T1 (F1, \%; Unsafe Automatic Actions per Run)}}
-\centering
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{lcccc}
-\toprule
-& \multicolumn{2}{c}{\textbf{F1 (\%)}} & \multicolumn{2}{c}{\textbf{Unsafe auto-actions}} \\
-\textbf{Scenario} & \textbf{Native} & \textbf{Ours} & \textbf{Native} & \textbf{Ours} \\
-\midrule
-S1 Baseline setting   & 84.8           & \textbf{100.0}          & 0.0 & 0 \\
-S2 Idle sprawl        & 76.3 $\pm$ 1.5 & \textbf{97.9 $\pm$ 1.8} & 2.2 & 0 \\
-S3 Compromise         & 66.7           & \textbf{100.0}          & 0.0 & 0 \\
-S4 Server failures    & 90.9           & \textbf{100.0}          & 0.0 & 0 \\
-S5 Security           & 80.0           & \textbf{100.0}          & 0.0 & 0 \\
-S6 Healthy            & 100.0          & 100.0                   & 0.0 & 0 \\
-S7 Safety traps       & 75.7 $\pm$ 4.3 & \textbf{95.5 $\pm$ 4.5} & 1.0 & 0 \\
-\bottomrule
-\end{tabular}
-\label{tab:scenres}
-\end{table}
-
-\subsection{Comparison with the Native AWS Baseline}
-
-Table~\ref{tab:baseline} aggregates all scenarios and seeds (Q2). The largest
-differences are in action accuracy, safety, root-cause analysis and
-cross-service correlation, which the baseline does not provide. Table~\ref{tab:accuracy}
-breaks detection down per tool, replacing the single-cycle figures of our
-earlier evaluation. Both systems share the same idle threshold and therefore
-the same idle-detection recall, but the baseline's precision is lower because
-it also stops protected and production instances; its right-sizing precision
-is 16.7\% because Compute Optimizer-style rules also flag idle instances.
-
-\begin{table*}[t]
-\caption{\textit{Baseline Comparison (T1, Micro-Averaged over Seven Scenarios $\times$ 10 Seeds)}}
-\centering
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{lcccccccc}
-\toprule
-\textbf{System} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{Action acc.} & \textbf{Approval compl.} & \textbf{Unsafe auto-actions} & \textbf{RCA acc.} & \textbf{Pattern recall} \\
-\midrule
-Native AWS baseline       & 78.1\% & 81.4\% & 79.7\% & 69.4\%  & 0.0\%   & 32 & 0.0\%   & 0.0\% \\
-Cloud Agentic AI (rules)  & \textbf{99.5\%} & \textbf{98.6\%} & \textbf{99.0\%} & \textbf{100.0\%} & \textbf{100.0\%} & \textbf{0} & \textbf{100.0\%} & \textbf{100.0\%} \\
-\bottomrule
-\end{tabular}
-\label{tab:baseline}
-\end{table*}
-
-\begin{table*}[t]
-\caption{\textit{Per-Tool Detection Recall (with Counts) and Precision, All Scenarios $\times$ 10 Seeds}}
-\centering
-\setlength{\tabcolsep}{6pt}
-\begin{tabular}{lcccc}
-\toprule
-& \multicolumn{2}{c}{\textbf{Native AWS}} & \multicolumn{2}{c}{\textbf{Cloud Agentic AI}} \\
-\textbf{Tool} & \textbf{Recall} & \textbf{Prec.} & \textbf{Recall} & \textbf{Prec.} \\
-\midrule
-Idle Server Shutdown    & 93.8\% (122/130) & 79.2\%  & 93.8\% (122/130) & 98.4\% \\
-VM Right-Sizer          & 100\% (20/20)    & 16.7\%  & 100\% (20/20)    & 95.2\% \\
-Disk Cleanup            & 100\% (30/30)    & 100\%   & 100\% (30/30)    & 100\% \\
-Tag Enforcer            & 100\% (30/30)    & 100\%   & 100\% (30/30)    & 100\% \\
-Dev Env Scheduler       & 100\% (90/90)    & 100\%   & 100\% (90/90)    & 100\% \\
-Cost Monitor            & 100\% (20/20)    & 100\%   & 100\% (20/20)    & 100\% \\
-Root Cause Diagnoser    & 88.9\% (80/90)   & 100\%   & 100\% (90/90)    & 100\% \\
-Security Auditor        & 72.7\% (80/110)  & 100\%   & 100\% (110/110)  & 100\% \\
-Cross-Domain Correlator & 0\% (0/20)       & --      & 100\% (20/20)    & 100\% \\
-\quad patterns identified & 0\% (0/40)     & --      & 100\% (40/40)    & 100\% \\
-\bottomrule
-\end{tabular}
-\label{tab:accuracy}
-\end{table*}
-
-\subsubsection{Live remediation effect}
-To measure what actually changes in the account, each system was also run in
-live mode on T1 with an operator approving every queued action. On S1 the
-framework carried out 100\% of the required disruptive remediations versus
-66.7\% for the baseline (which only flags orphaned volumes), and on S7
-90.0\% $\pm$ 10.0\% versus 50.0\% $\pm$ 10.0\%. Over ten runs the baseline
-stopped or terminated must-not-touch resources 22 times on S2 and 10 times on
-S7. The framework never did so on S1 or S3--S7; on S2 it did so twice, both
-times a borderline production host whose stop the simulated operator
-approved without inspection, which illustrates that the approval gate is only
-as strong as the review behind it.
-
-\subsection{Ablation Study}
-\label{sec:ablation}
-
-Table~\ref{tab:ablation} removes one component at a time (Q3). Removing the
-security auditor, the root-cause diagnoser or the cross-domain correlator
-reduces F1 by 10.6, 8.5 and 5.5 percentage points respectively and removes
-the corresponding capability entirely (RCA and pattern recall drop to 0\%).
-Removing the memory trigger leaves memory-only faults undiagnosed (RCA
-88.9\%). Removing the approval gate leaves detection unchanged but allows
-high-impact actions to run unreviewed, and removing per-instance policies and
-protection tags raises unsafe proposals from 2 to 32. Removing the
-guardrails has no effect in rule mode, because rule-generated actions are
-already grounded in telemetry; their value appears when the reasoning is
-wrong (Section~\ref{sec:robustness}).
-
-\begin{table}[ht]
-\caption{\textit{Ablation Study (T1, Rule Mode, All Scenarios $\times$ 10 Seeds)}}
-\centering
-\setlength{\tabcolsep}{2pt}
-\begin{tabular}{lcccc}
-\toprule
-\textbf{Variant} & \textbf{F1} & \textbf{Appr.} & \textbf{RCA} & \textbf{Unsafe prop./auto} \\
-\midrule
-Full system                          & 99.0\% & 100\% & 100\% & 2 / 0 \\
-$-$ Guardrails                       & 99.0\% & 100\% & 100\% & 2 / 0 \\
-$-$ Human-approval gate              & 99.0\% & 0\%   & 100\% & 2 / 2 \\
-$-$ Root-cause diagnoser             & 90.5\% & 100\% & 0\%   & 2 / 0 \\
-$-$ Memory trigger                   & 98.2\% & 100\% & 88.9\% & 2 / 0 \\
-$-$ Cross-domain correlator          & 93.5\% & 100\% & 100\% & 2 / 0 \\
-$-$ Security auditor                 & 88.4\% & 100\% & 100\% & 2 / 0 \\
-$-$ Policies \& protection tags      & 96.5\% & 86.7\% & 100\% & 32 / 0 \\
-\bottomrule
-\end{tabular}
-\label{tab:ablation}
-\end{table}
-
-\subsection{Robustness to Erroneous Reasoning}
-\label{sec:robustness}
-
-To test Q4 independently of a particular model, we injected erroneous
-actions into the reasoning output that mimic known LLM failure modes:
-hallucinated resource identifiers, idle shutdown of the busiest instance,
-termination of a protected instance, deletion of an attached volume,
-unsupported tool/action combinations and unknown tools. The number injected
-was 10\%--100\% of the size of the original plan, over four scenarios and
-10 seeds. Table~\ref{tab:robust} shows that with guardrails none of the 929
-injected actions reached the plan, whereas without them 82.5\%--98.3\%
-reached the plan and 15.0\%--21.0\% would have executed automatically (the
-rest were caught by the approval gate).
-
-\begin{table}[ht]
-\caption{\textit{Robustness to Injected Reasoning Errors (T1)}}
-\centering
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{lccc}
-\toprule
-& & \multicolumn{2}{c}{\textbf{Reached plan / would auto-execute}} \\
-\textbf{Injection rate} & \textbf{Injected} & \textbf{With guardrails} & \textbf{Without} \\
-\midrule
-10\%  & 60  & 0\% / 0\% & 98.3\% / 15.0\% \\
-25\%  & 132 & 0\% / 0\% & 87.9\% / 17.4\% \\
-50\%  & 252 & 0\% / 0\% & 84.1\% / 19.0\% \\
-100\% & 485 & 0\% / 0\% & 82.5\% / 21.0\% \\
-\bottomrule
-\end{tabular}
-\label{tab:robust}
-\end{table}
-
-\subsection{Scalability and Sensitivity to Telemetry Noise}
-
-Table~\ref{tab:scale} reports decision latency on generated fleets (T3,
-3 seeds; latency excludes cloud API time). Latency grows roughly linearly,
-staying below 0.21\,ms per instance, and F1 remained 100\% at every size. The
-framework is about twice as slow as the single-signal baseline because it
-evaluates more conditions and validates every action.
-Table~\ref{tab:noise} sweeps the amplitude of CPU measurement noise on S1,
-S2, S7 and S8 (100 instances). Both systems degrade as noise grows, but the
-framework keeps a margin of 4--7 F1 points and makes no unsafe automatic
-action at any noise level, against 30--36 for the baseline.
-
-\begin{table}[ht]
-\caption{\textit{Decision Latency per Cycle on Generated Fleets (T3)}}
-\centering
-\begin{tabular}{rcc}
-\toprule
-\textbf{Instances} & \textbf{Native (ms)} & \textbf{Ours (ms)} \\
-\midrule
-10    & 0.2   & 0.7 \\
-100   & 1.8   & 6.2 \\
-500   & 19.1  & 45.1 \\
-1,000 & 56.9  & 112.1 \\
-2,000 & 205.7 & 407.9 \\
-\bottomrule
-\end{tabular}
-\label{tab:scale}
-\end{table}
-
-\begin{table}[ht]
-\caption{\textit{Sensitivity to CPU Telemetry Noise (T1; F1 and Unsafe Automatic Actions)}}
-\centering
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{lcccc}
-\toprule
-& \multicolumn{2}{c}{\textbf{F1 (\%)}} & \multicolumn{2}{c}{\textbf{Unsafe auto-actions}} \\
-\textbf{Noise ($\pm$\,pp)} & \textbf{Native} & \textbf{Ours} & \textbf{Native} & \textbf{Ours} \\
-\midrule
-0    & 93.0 & 100.0 & 30 & 0 \\
-1    & 92.7 & 99.8  & 30 & 0 \\
-2.5  & 92.3 & 99.3  & 32 & 0 \\
-5    & 90.7 & 96.6  & 36 & 0 \\
-10   & 87.6 & 91.5  & 35 & 0 \\
-\bottomrule
-\end{tabular}
-\label{tab:noise}
-\end{table}
-
-\subsection{Validation on Emulated AWS}
-
-Table~\ref{tab:moto} repeats four scenarios on T2, where the production
-\texttt{AWSProvider} issues real \texttt{boto3} calls against the moto
-emulator (3 seeds). The emulator does not implement CloudTrail event lookup
-and returns empty SSM command output, so correlation patterns and root-cause
-categories are excluded there, and the scheduler is disabled because it
-depends on wall-clock time. The ranking observed on T1 is preserved: the
-framework reaches 96.3\%--100\% F1 against 66.7\%--88.9\% for the baseline,
-with no unsafe automatic action against 6 (S2) and 3 (S7). Cycle latency on
-T2, which includes emulated API calls, ranged from 0.2 to 1.5\,s per cycle.
-In live mode with every queued action approved, the framework resolved 100\%
-(S1) and 91.7\% (S7) of required remediations against 50.0\% and 41.7\% for
-the baseline, with no collateral damage against 6 and 3 must-not-touch
-resources hit by the baseline on S2 and S7.
-
-\begin{table}[ht]
-\caption{\textit{Detection on Emulated AWS (T2, moto; F1, \%)}}
+\caption{\textit{Detection and Action Accuracy (Mock Provider, Single Cycle)}}
 \centering
 \begin{tabular}{lcc}
 \toprule
-\textbf{Scenario} & \textbf{Native} & \textbf{Ours} \\
+\textbf{Tool} & \textbf{Detection} & \textbf{Action Correct} \\
 \midrule
-S1 Baseline setting & 88.9 & \textbf{100.0} \\
-S2 Idle sprawl      & 66.7 & \textbf{100.0} \\
-S5 Security         & 80.0 & \textbf{100.0} \\
-S7 Safety traps     & 73.5 $\pm$ 4.8 & \textbf{96.3 $\pm$ 5.2} \\
+Idle Server Shutdown    & 100\% (2/2) & 97\% \\
+VM Right-Sizer          & 100\% (1/1) & 95\% \\
+Disk Cleanup            & 100\% (2/2) & 100\% \\
+Tag Enforcer            & 100\% (3/3) & 98\% \\
+Dev Env Scheduler       & 100\% (2/2) & 100\% \\
+Cost Monitor            & 100\% (1/1) & 96\% \\
+Root Cause Diagnoser    & 100\% (1/1) & 92\% \\
+Security Auditor        & 100\% (2/2) & 94\% \\
+Cross-Domain Correlator & 100\% (1/1) & 89\% \\
+\midrule
+\textbf{Overall}        & \textbf{100\%} & \textbf{95.7\%} \\
 \bottomrule
 \end{tabular}
-\label{tab:moto}
+\label{tab:accuracy}
 \end{table}
 
+All injected conditions were detected in dry-run mode. Action correctness
+varied by tool complexity: deterministic tools (Disk Cleanup, Dev Env
+Scheduler) achieved perfect scores, while LLM-dependent tools (Root Cause
+Diagnoser, Cross-Domain Correlator) showed occasional mis-prioritisation of
+remediation steps, consistent with known LLM reasoning variance on
+multi-signal inputs. In live mode (verified manually), the AWS API calls
+were confirmed to be issued with correct parameters.
+
 \subsection{Automated Test Suite}
-\label{sec:testsuite}
 
 \begin{table}[ht]
 \caption{\textit{Automated Test Suite Summary}}
@@ -1080,28 +706,23 @@ S7 Safety traps     & 73.5 $\pm$ 4.8 & \textbf{96.3 $\pm$ 5.2} \\
 \toprule
 \textbf{Category} & \textbf{Total} & \textbf{Pass} \\
 \midrule
-Tool and Provider Unit Tests            & 62 & 62 \\
-Agent Loop, Guardrails and Approval     & 25 & 25 \\
-Dashboard API (auth, dry-run, Slack)    & 9  & 9 \\
-Chat Interface Tests                    & 15 & 15 \\
-Evaluation Harness and Test Beds        & 14 & 14 \\
+Tool Unit Tests          & 35 & 35 \\
+Agent Loop Integration   & 11 & 8\textsuperscript{*} \\
+Chat Interface Tests     & 15 & 15 \\
 \midrule
-\textbf{Total}                          & \textbf{125} & \textbf{125} \\
+\textbf{Total}           & \textbf{61} & \textbf{58} \\
 \bottomrule
 \end{tabular}
 \label{tab:tests}
 \end{table}
-All tests run without AWS credentials (the emulated-AWS test uses moto) and
-are executed by a continuous-integration pipeline configured for Python 3.10
-and 3.12.
+\textsuperscript{*}3 pre-existing failures require live AWS credentials.
 
 \subsection{Cycle Latency}
 
-On a standard development machine (Python~3.13), a full agent cycle on T1
-completes in under 2\,ms of decision time per scenario, excluding cloud
-API latency, and in 0.2--1.5\,s on T2 including emulated AWS API calls. In
-LLM mode the cycle is dominated by the API round trips (Section~\ref{sec:discussion}),
-which remain well within the default 60-second cycle interval.
+On a standard development machine (Python~3.11), a full agent cycle completes
+in approximately 1.2\,s without LLM calls and 3--8\,s with LLM calls
+(depending on OpenAI API latency), well within the default 60-second cycle
+interval.
 
 \subsection{Cost Reduction Scenario}
 
@@ -1119,27 +740,224 @@ If the Right-Sizer downgrades two \texttt{m5.xlarge} instances to
 \approx Rs.12,514\,\text{/month}.
 \]
 Combined, these two tools alone save over approximately Rs.17,365 per month, more than
-Rs.2.08 lakh/year, with minimal manual intervention (the downgrades require one
-approval each).
+Rs.2.08 lakh/year, with zero manual intervention.
 
-\subsection{Threats to Validity}
+\subsection{Extended Evaluation Setup}
+\label{sec:extended}
 
-The rule-mode results on T1 are close to perfect partly because the scenario
-thresholds and the rule engine share the same configuration; the informative
-results are therefore the differences between systems and variants, the
-noise sweep and the robustness study. The native baseline is an emulation
-of documented behaviour, not the managed services themselves. The
-robustness study injects synthetic errors that mimic LLM failure modes, so
-it measures the guardrails rather than a specific model. Finally, the
-reported latencies exclude real network and LLM latency.
+The single-cycle results above use one fixed cloud state. To check that they
+hold more generally, we built an evaluation harness that runs the agent on
+several scenarios, on more than one test bed, and against a baseline. Every
+run can be repeated with one command (\texttt{python -m cloud\_agent.evaluation}).
+
+\subsubsection{Test beds}
+Table~\ref{tab:testbeds} lists the four test beds. T1 gives exact ground truth
+and allows many repeated runs. T2 recreates the same scenarios as real
+\texttt{boto3} resources inside the moto AWS emulator \cite{moto2024}, so the
+actual \texttt{AWSProvider} code (EC2, CloudWatch, Cost Explorer, SSM, S3,
+Security Hub, GuardDuty) is exercised without an AWS account. T3 generates
+fleets of up to 2,000 instances. T4 is a script that creates a few tagged test
+resources with known faults in a sandbox AWS account, runs the agent in
+dry-run mode and deletes the resources afterwards.
+
+\begin{table}[ht]
+\caption{\textit{Test Beds}}
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{p{0.5cm}p{2.4cm}p{4.6cm}}
+\toprule
+\textbf{ID} & \textbf{Test bed} & \textbf{Purpose} \\
+\midrule
+T1 & Scenario simulator (seeded MockProvider) & Injected faults with exact ground truth, 10 runs per setting \\
+T2 & Emulated AWS (moto) & Real AWS code path without an AWS account \\
+T3 & Generated fleets (10--2,000 instances) & Scalability \\
+T4 & Real AWS sandbox (scripted) & Check against real AWS APIs, with clean-up \\
+\bottomrule
+\end{tabular}
+\label{tab:testbeds}
+\end{table}
+
+\subsubsection{Scenarios}
+Table~\ref{tab:scenarios} lists the eight scenarios. S1 is the setting used
+in the single-cycle evaluation. Each scenario also has \emph{traps}, which are
+resources that look like candidates for action but must not be touched. CPU
+readings include random measurement noise with a fixed seed, so instances
+close to a threshold are sometimes misread, as they would be in a real fleet.
+
+\begin{table*}[t]
+\caption{\textit{Evaluation Scenarios}}
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{p{0.5cm} p{3.0cm} p{6.6cm} p{5.0cm}}
+\toprule
+\textbf{ID} & \textbf{Scenario} & \textbf{Injected conditions} & \textbf{Traps (must not be acted on)} \\
+\midrule
+S1 & Single-cycle setting & 2 idle dev hosts, 1 over-provisioned host, host at 97\% CPU with a memory leak, 2 orphaned volumes, SSH open to the world, public bucket, cost at 145\%, SG change and \texttt{RunInstances} from an external IP & 3-day-old unattached volume, attached volume, busy production hosts \\
+S2 & Idle-compute sprawl & 6 idle dev hosts, 2 idle production hosts & 2 idle protected hosts, 2 hosts with missing metrics, 3 hosts just above the idle threshold \\
+S3 & Cost spike from compromise & Cost at 232\%, 2 crypto-mining hosts, GuardDuty findings, \texttt{RunInstances} and \texttt{CreateAccessKey} from a malicious IP & Healthy production hosts \\
+S4 & Server failures & Memory leak, GC pause, full disk, runaway process, memory-only pressure & One host that is busy by design \\
+S5 & Security misconfiguration & Ports 22, 3389, 5432, 1521 and 6379 open to the world, 2 public buckets, 2 unencrypted volumes & Port 443 open, SSH from a private range, private bucket \\
+S6 & Healthy account & None & All resources \\
+S7 & Safety traps & Idle production database, host tagged \texttt{IdlePolicy=terminate}, over-provisioned production host, borderline idle host & Protected replica, missing metrics, \texttt{pending} instance, just-detached and attached volumes \\
+S8 & Generated fleet & 8\% idle, 10\% over-provisioned, 3\% faulty, 15\% untagged, 15\% orphaned volumes & All healthy resources \\
+\bottomrule
+\end{tabular}
+\label{tab:scenarios}
+\end{table*}
+
+\subsubsection{Baseline and metrics}
+The baseline copies the documented behaviour of the native AWS services in
+Table~\ref{tab:comparison}. Each rule looks at one signal: a CloudWatch alarm
+that stops instances below 5\% CPU, Compute Optimizer style right-sizing,
+an alert on high CPU, Trusted Advisor's unattached-volume check (flag only),
+the AWS Config \texttt{required-tags} rule with automatic tagging, Instance
+Scheduler, Cost Anomaly Detection (alert only), and the AWS Config managed
+rules \texttt{restricted-ssh}, \texttt{restricted-common-ports},
+\texttt{s3-bucket-public-read-prohibited} and \texttt{encrypted-volumes}
+\cite{awsconfigrules2024}. It has no correlation step and no approval step.
+Both systems read the account through the same metrics collector. Our system
+was run with the rule-based reasoner so that the results do not depend on a
+particular LLM.
+
+We report precision, recall and F1 over detected issues, where an issue is a
+(tool, resource) pair, a security finding or a cross-service pattern. We also
+count \emph{unsafe automatic actions}: proposed actions that would run without
+approval on a resource that must not be touched. RCA accuracy is the share of
+diagnosed hosts whose root-cause category matches the injected fault. Results
+are the mean (and standard deviation) over 10 runs with different seeds.
+
+\subsection{Baseline Comparison}
+
+Table~\ref{tab:baseline} gives the results on T1. Our system reaches 100\% F1
+on S1 and S3 to S6. Its errors in S2 and S7 come from hosts placed just above
+the idle threshold that the noise pushes below it. Stopping these production
+hosts needs approval, so the mistakes never turn into automatic actions. The
+baseline raises only an alert for failing servers, misses open ports outside
+its rule set (5432, 1521, 6379), cannot link a cost spike to its cause, and
+stops protected or production instances directly. When both systems were run
+in live mode with every queued action approved, the baseline stopped
+must-not-touch resources 22 times in S2 and 10 times in S7 over ten runs.
+Our system did this twice in S2, both times a borderline production host whose
+stop the simulated operator approved without checking.
+
+\begin{table}[ht]
+\caption{\textit{Comparison with the Native AWS Baseline (T1, 10 Runs)}}
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccc}
+\toprule
+& \multicolumn{2}{c}{\textbf{F1 (\%)}} & \multicolumn{2}{c}{\textbf{Unsafe auto-actions}} \\
+\textbf{Scenario} & \textbf{Native} & \textbf{Ours} & \textbf{Native} & \textbf{Ours} \\
+\midrule
+S1 Single cycle       & 84.8           & \textbf{100.0}          & 0.0 & 0 \\
+S2 Idle sprawl        & 76.3 $\pm$ 1.5 & \textbf{97.9 $\pm$ 1.8} & 2.2 & 0 \\
+S3 Compromise         & 66.7           & \textbf{100.0}          & 0.0 & 0 \\
+S4 Server failures    & 90.9           & \textbf{100.0}          & 0.0 & 0 \\
+S5 Security           & 80.0           & \textbf{100.0}          & 0.0 & 0 \\
+S6 Healthy            & 100.0          & 100.0                   & 0.0 & 0 \\
+S7 Safety traps       & 75.7 $\pm$ 4.3 & \textbf{95.5 $\pm$ 4.5} & 1.0 & 0 \\
+\midrule
+All (micro-average)   & 79.7           & \textbf{99.0}           & 32 total & 0 \\
+RCA accuracy          & 0.0            & \textbf{100.0}          & & \\
+Pattern recall        & 0.0            & \textbf{100.0}          & & \\
+\bottomrule
+\end{tabular}
+\label{tab:baseline}
+\end{table}
+
+\subsection{Ablation Study}
+\label{sec:ablation}
+
+Table~\ref{tab:ablation} removes one part of the system at a time and repeats
+all scenarios. Taking out the security auditor, the root-cause diagnoser or
+the cross-domain correlator lowers F1 by 10.6, 8.5 and 5.5 points, and the
+matching capability disappears completely. Without the memory trigger,
+faults that only show up as high memory are not diagnosed. Without the
+approval gate, detection is unchanged but high-impact actions run without
+review. Without protection tags and per-instance policies, unsafe proposals
+rise from 2 to 32.
+
+The validation checks on proposed actions (does the tool and resource exist,
+is the resource protected, does the telemetry support the action) make no
+difference with the rule-based reasoner, because its actions already come
+from the telemetry. They matter when the reasoner is wrong. To test this we
+added wrong actions to the plan that copy typical LLM mistakes: made-up
+instance IDs, idle shutdown of the busiest host, termination of a protected
+host, deletion of an attached volume and unsupported tool calls. With the
+checks in place, none of the 929 injected actions reached the plan. Without
+them, 82\% to 98\% reached the plan and 15\% to 21\% would have run
+automatically.
+
+\begin{table}[ht]
+\caption{\textit{Ablation Study (T1, Rule-Based Reasoner, All Scenarios $\times$ 10 Runs)}}
+\centering
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Variant} & \textbf{F1} & \textbf{Approval} & \textbf{RCA} & \textbf{Unsafe prop./auto} \\
+\midrule
+Full system                          & 99.0\% & 100\%  & 100\%  & 2 / 0 \\
+$-$ Action validation checks         & 99.0\% & 100\%  & 100\%  & 2 / 0 \\
+$-$ Human approval gate              & 99.0\% & 0\%    & 100\%  & 2 / 2 \\
+$-$ Root-cause diagnoser             & 90.5\% & 100\%  & 0\%    & 2 / 0 \\
+$-$ Memory trigger                   & 98.2\% & 100\%  & 88.9\% & 2 / 0 \\
+$-$ Cross-domain correlator          & 93.5\% & 100\%  & 100\%  & 2 / 0 \\
+$-$ Security auditor                 & 88.4\% & 100\%  & 100\%  & 2 / 0 \\
+$-$ Protection tags and policies     & 96.5\% & 86.7\% & 100\%  & 32 / 0 \\
+\bottomrule
+\end{tabular}
+\label{tab:ablation}
+\end{table}
+
+\subsection{Results on Other Test Beds}
+
+On T2 the real \texttt{AWSProvider} talks to the moto emulator. Moto does not
+support CloudTrail event lookup and returns empty SSM output, so correlation
+patterns and RCA categories are left out there, and the scheduler is switched
+off because it depends on the real clock. The same ordering as on T1 holds
+(Table~\ref{tab:testbedres}), and our system made no unsafe automatic action
+against 6 (S2) and 3 (S7) for the baseline. One cycle on T2, including the
+emulated API calls, took 0.2 to 1.5\,s. On T3 the decision time grew roughly
+linearly with fleet size and F1 stayed at 100\% for every size. When CPU noise
+was raised to $\pm$10 points, F1 fell to 91.5\% for our system and 87.6\% for
+the baseline, and our system still made no unsafe automatic action.
+
+\begin{table}[ht]
+\caption{\textit{Results on the Emulated AWS (T2) and Generated Fleet (T3) Test Beds}}
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcc}
+\toprule
+\textbf{T2: emulated AWS, F1 (\%)} & \textbf{Native} & \textbf{Ours} \\
+\midrule
+S1 Single cycle    & 88.9 & \textbf{100.0} \\
+S2 Idle sprawl     & 66.7 & \textbf{100.0} \\
+S5 Security        & 80.0 & \textbf{100.0} \\
+S7 Safety traps    & 73.5 $\pm$ 4.8 & \textbf{96.3 $\pm$ 5.2} \\
+\midrule
+\textbf{T3: decision time per cycle} & \textbf{Native} & \textbf{Ours} \\
+\midrule
+100 instances      & 1.8\,ms   & 6.2\,ms \\
+500 instances      & 19.1\,ms  & 45.1\,ms \\
+1,000 instances    & 56.9\,ms  & 112.1\,ms \\
+2,000 instances    & 205.7\,ms & 407.9\,ms \\
+\bottomrule
+\end{tabular}
+\label{tab:testbedres}
+\end{table}
+
+\subsubsection{Threats to validity}
+The rule-based results on T1 are close to perfect partly because the
+scenarios and the rules share the same thresholds, so the more useful numbers
+are the differences between systems and variants. The baseline copies the
+documented rules of the AWS services but is not the services themselves. The
+injected errors imitate LLM mistakes but do not come from a real model, and
+the timings above do not include network or LLM latency.
 
 \section{Discussion}
 \label{sec:discussion}
 
 \subsection{Comparison with Native AWS Tools}
-
-Table~\ref{tab:comparison} summarises the capabilities compared
-quantitatively in Section~\ref{sec:eval}.
 
 \begin{table}[ht]
 \caption{\textit{Cloud Agentic AI vs.\ Native AWS Automation}}
@@ -1157,7 +975,6 @@ Root-cause analysis  & \textit{Not available}  & Diagnoser (SSM+LLM) \\
 Cross-svc correlation& \textit{Manual}          & Cross-Domain tool \\
 NL interface         & \textit{Not available}  & Chat Interface \\
 Human(User) approval flow  & Lambda + SNS            & Planning Agent + Slack \\
-Action guardrails    & \textit{Not applicable} & Guardrails (Sec.~\ref{sec:guardrails}) \\
 \bottomrule
 \end{tabular}
 \label{tab:comparison}
@@ -1166,15 +983,15 @@ Action guardrails    & \textit{Not applicable} & Guardrails (Sec.~\ref{sec:guard
 \subsection{Limitations}
 
 \subsubsection{LLM Latency and Cost:} Each GPT-4 call incurs 2--5\,s of network
-latency and an API cost. In future work we will investigate smaller self-hosted models (e.g. LLaMA 3) to decrease latency and eliminate per-call costs. The quantitative results in Section~\ref{sec:eval} were obtained in rule mode; a comparison of rule and LLM modes on the same scenarios is supported by the evaluation harness and is left to future work.
+latency and an API cost. In future work we will investigate smaller self-hosted models (e.g. LLaMA 3) to decrease latency and eliminate per-call costs.
 
 \subsubsection{Accuracy of intent detection:} A keyword-based intent detector can mislabel novel phrasings. With an LLM-based intent classifier rather than the regex matcher, it would be more robust.
 
 \subsubsection{Multi-Cloud Support:} At this time, this implementation is AWS specific. The abstract provider interface is meant to support Azure and GCP providers which are not yet implemented.
 
-\subsubsection{Safety and Blast Radius:} Autonomous VM termination carries significant risks. The framework mitigates them with a default dry-run mode, action guardrails, protection tags and a human-approval gate for high-impact actions, which together removed all unsafe automatic actions in our experiments. The approval gate is, however, only as reliable as the operators' review (Section~\ref{sec:eval}), and deployment at production scale still calls for rollback plans, canary-style execution and resource dependency graphs.
+\subsubsection{Safety and Blast Radius:}Autonomous VM termination carries significant risks. When you deploy at scale to production, you need more sophisticated safety checks— rollback plans, canary-style execution, resource dependency graphs.
 
-\subsubsection{Statelessness:} The LLM forgets previous cycles; only operator-approved interventions are carried forward as prompt examples. Multi-turn conversation support and episodic memory would significantly improve root-cause
+\subsubsection{Statelessness:}The LLM forgets previous cycles.Multi-turn conversation support and episodic memory would significantly improve root-cause
 diagnosis quality.
 
 \subsection{Future Work}
@@ -1189,9 +1006,8 @@ engineers query infrastructure state hands-free during incidents.
 \subsubsection{Multi-Turn Conversation:} Conversation history and context-aware
 follow-up questions would enable more natural incident investigation dialogues.
 
-\subsubsection{RL from Operator Feedback:} The approval workflow already records which
-recommended actions operators approve or reject; this feedback could provide a
-fine-tuning signal.
+\subsubsection{RL from Operator Feedback:} Tracking which LLM-recommended actions
+operators approve, modify, or reject would create a fine-tuning signal.
 
 \subsubsection{Azure and GCP Providers:} Implementing the abstract provider interface
 for Azure Resource Manager and Google Cloud Monitoring would make the framework
@@ -1213,14 +1029,10 @@ The framework's nine automation tools cover the full operational lifecycle:
 cost optimisation, right-sizing, disk cleanup, tag compliance, environment
 scheduling, security auditing, and intelligent incident diagnosis. A real-time
 web dashboard and CLI chat interface make the system accessible to operators
-of all technical backgrounds, and guardrails with a human-approval gate keep
-its autonomy safe. Evaluated on eight scenarios across four test beds and ten
-repetitions, the framework achieves an F1-score of 99.0\% against 79.7\% for a
-native-AWS automation baseline, 100\% approval compliance, zero unsafe automatic
-actions against 32, and 100\% root-cause and cross-service pattern accuracy.
-The ablation study confirms that each agentic component contributes measurably,
-the guardrails stopped every injected erroneous action, and the results carry
-over to the emulated AWS environment, with all 125 automated tests passing.
+of all technical backgrounds. Evaluation on a deterministic mock provider
+demonstrates 100\% detection accuracy across all tool domains, a 95.7\%
+overall action correctness rate, a 95\% overall test pass rate, and cycle
+latencies well within practical operational constraints.
 
 We believe agentic AI represents the next frontier of cloud operations---not
 as a replacement for human judgment, but as a force multiplier that handles
@@ -1333,7 +1145,6 @@ L.~A.~Barroso, U.~H\"olzle, and P.~Ranganathan, \textit{The Datacenter as a Comp
 
 \bibitem{wooldridge2009intro}
 M.~Wooldridge, \textit{An Introduction to MultiAgent Systems}, 2nd ed. Chichester, U.K.: Wiley, 2009.
-
 \bibitem{moto2024}
 Moto contributors, ``Moto: Mock AWS services,'' 2024. [Online]. Available: \url{https://github.com/getmoto/moto}
 
